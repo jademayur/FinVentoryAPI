@@ -15,7 +15,10 @@ namespace FinVentoryAPI.Entities
         public int RoleId { get; set; }
         public Role Role { get; set; }
 
-       // public bool IsActive { get; set; } = true;
+        public int? FinancialYearId { get; set; }
+        public FinancialYear FinancialYear { get; set; }
+
+        public bool IsActive { get; set; } = true;
 
       //  public DateTime? AssignedDate { get; set; } = DateTime.UtcNow;
     }

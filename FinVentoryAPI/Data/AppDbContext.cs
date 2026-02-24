@@ -14,7 +14,7 @@ namespace FinVentoryAPI.Data
         public DbSet<FinancialYear> FinancialYears { get; set; }
         public DbSet<Role> Roles { get; set; }
         public DbSet<User> Users { get; set; }
-        public DbSet<UserCompany> UserCompanies { get; set; }
+        public DbSet<UserCompany> UserCompany { get; set; }
 
     }
 }

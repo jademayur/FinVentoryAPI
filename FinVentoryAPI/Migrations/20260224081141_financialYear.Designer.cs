@@ -4,6 +4,7 @@ using FinVentoryAPI.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace FinVentoryAPI.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260224081141_financialYear")]
+    partial class financialYear
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -217,12 +220,6 @@ namespace FinVentoryAPI.Migrations
                     b.Property<int>("CompanyId")
                         .HasColumnType("int");
 
-                    b.Property<int?>("FinancialYearId")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
                     b.Property<int>("RoleId")
                         .HasColumnType("int");
 
@@ -233,13 +230,11 @@ namespace FinVentoryAPI.Migrations
 
                     b.HasIndex("CompanyId");
 
-                    b.HasIndex("FinancialYearId");
-
                     b.HasIndex("RoleId");
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("UserCompany");
+                    b.ToTable("UserCompanies");
                 });
 
             modelBuilder.Entity("FinVentoryAPI.Entities.UserCompany", b =>
@@ -249,10 +244,6 @@ namespace FinVentoryAPI.Migrations
                         .HasForeignKey("CompanyId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.HasOne("FinVentoryAPI.Entities.FinancialYear", "FinancialYear")
-                        .WithMany()
-                        .HasForeignKey("FinancialYearId");
 
                     b.HasOne("FinVentoryAPI.Entities.Role", "Role")
                         .WithMany("UserCompanies")
@@ -267,8 +258,6 @@ namespace FinVentoryAPI.Migrations
                         .IsRequired();
 
                     b.Navigation("Company");
-
-                    b.Navigation("FinancialYear");
 
                     b.Navigation("Role");
 

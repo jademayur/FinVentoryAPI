@@ -1,11 +1,9 @@
-﻿namespace FinVentoryAPI.DTOs.UserCompany
+﻿namespace FinVentoryAPI.DTOs.CompanySelectionDtos
 {
-    public class UserCompanyCreateDto
+    public interface CompanySelectionDto
     {
         public int UserId { get; set; }
         public int CompanyId { get; set; }
-        public int RoleId { get; set; }
         public int FinancialYearId { get; set; }
-
     }
 }

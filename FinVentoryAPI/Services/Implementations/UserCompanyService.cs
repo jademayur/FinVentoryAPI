@@ -17,39 +17,43 @@ namespace FinVentoryAPI.Services.Implementations
 
         public async Task<IEnumerable<object>> GetAllAsync()
         {
-            return await _context.UserCompanies
+            return await _context.UserCompany
                 .Include(x => x.User)
                 .Include(x => x.Company)
                 .Include(x => x.Role)
+                .Include(x => x.FinancialYear)
                 .Select(x => new
                 {
                     x.UserCompanyId,
                     User = x.User.FullName,
                     Company = x.Company.CompanyName,
-                    Role = x.Role.RoleName
+                    Role = x.Role.RoleName,
+                    FinancialYear = x.FinancialYear.YearName
                 })
                 .ToListAsync();
         }
 
         public async Task<object> GetByUserAsync(int userId)
         {
-            return await _context.UserCompanies
+            return await _context.UserCompany
                 .Include(x => x.Company)
                 .Include(x => x.Role)
+                .Include(x => x.FinancialYear)
                 .Where(x => x.UserId == userId)
                 .Select(x => new
                 {
                     x.UserCompanyId,
                     x.CompanyId,
                     CompanyName = x.Company.CompanyName,
-                    Role = x.Role.RoleName
+                    Role = x.Role.RoleName,
+                    FinancialYear = x.FinancialYear.YearName
                 })
                 .ToListAsync();
         }
 
         public async Task<string> CreateAsync(UserCompanyCreateDto dto)
         {
-            var exists = await _context.UserCompanies
+            var exists = await _context.UserCompany
                 .AnyAsync(x => x.UserId == dto.UserId &&
                                x.CompanyId == dto.CompanyId);
 
@@ -60,11 +64,12 @@ namespace FinVentoryAPI.Services.Implementations
             {
                 UserId = dto.UserId,
                 CompanyId = dto.CompanyId,
-                RoleId = dto.RoleId
-              
+                RoleId = dto.RoleId,
+                FinancialYearId = dto.FinancialYearId
+
             };
 
-            _context.UserCompanies.Add(entity);
+            _context.UserCompany.Add(entity);
             await _context.SaveChangesAsync();
 
             return "User assigned to company successfully";
@@ -72,7 +77,7 @@ namespace FinVentoryAPI.Services.Implementations
 
         public async Task<string> UpdateAsync(UserCompanyUpdateDto dto)
         {
-            var entity = await _context.UserCompanies
+            var entity = await _context.UserCompany
                 .FindAsync(dto.UserCompanyId);
 
             if (entity == null)
@@ -88,7 +93,7 @@ namespace FinVentoryAPI.Services.Implementations
 
         public async Task<string> DeleteAsync(int id)
         {
-            var entity = await _context.UserCompanies.FindAsync(id);
+            var entity = await _context.UserCompany.FindAsync(id);
 
             if (entity == null)
                 return "Record not found";
