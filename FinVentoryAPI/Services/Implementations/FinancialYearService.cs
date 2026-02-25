@@ -125,5 +125,21 @@ namespace FinVentoryAPI.Services.Implementations
 
             return "Financial year deleted successfully";
         }
+
+        public async Task<object?> GetByIdAsync(int id)
+        {
+            return await _context.FinancialYears
+                .Where(x => x.FinancialYearId == id)
+                .Select(x => new
+                {
+                    x.FinancialYearId,
+                    x.YearName,
+                    x.StartDate,
+                    x.EndDate,
+                    x.IsActive,
+                    x.IsClosed
+                })
+                .FirstOrDefaultAsync();
+        }
     }
 }

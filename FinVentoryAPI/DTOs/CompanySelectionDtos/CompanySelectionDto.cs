@@ -1,6 +1,6 @@
 ﻿namespace FinVentoryAPI.DTOs.CompanySelectionDtos
 {
-    public interface CompanySelectionDto
+    public class CompanySelectionDto
     {
         public int UserId { get; set; }
         public int CompanyId { get; set; }

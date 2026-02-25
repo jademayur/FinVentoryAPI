@@ -9,5 +9,6 @@ namespace FinVentoryAPI.Services.Interfaces
         Task<string> UpdateAsync(UpdateFinancialYearDto dto);
         Task<string> CloseAsync(int id);
         Task<string> DeleteAsync(int id);
+        Task<object?> GetByIdAsync(int id);
     }
 }

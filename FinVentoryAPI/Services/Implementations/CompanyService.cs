@@ -49,8 +49,12 @@ namespace FinVentoryAPI.Services.Implementations
                     CompanyName = c.CompanyName,
                     GSTNumber = c.GSTNumber,
                     PANNumber = c.PANNumber,
+                    Address = c.Address,
                     City = c.City,
                     State = c.State,
+                    PinCode = c.PinCode,
+                    Phone = c.Phone,
+                    Mobile = c.Mobile,
                     Email = c.Email,
                     IsActive = c.IsActive
                 })
