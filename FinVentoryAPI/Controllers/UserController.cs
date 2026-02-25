@@ -1,10 +1,11 @@
 ﻿using FinVentoryAPI.DTOs.UserDTOs;
 using FinVentoryAPI.Services.Interfaces;
-using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FinVentoryAPI.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class UserController : ControllerBase
@@ -16,24 +17,58 @@ namespace FinVentoryAPI.Controllers
             _service = service;
         }
 
+        [HttpPost]
+        public async Task<IActionResult> Create([FromBody] UserCreateDto dto)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var result = await _service.CreateAsync(dto);
+
+            return CreatedAtAction(nameof(GetById), new { id = result.UserId }, result);
+        }
+
         [HttpGet]
         public async Task<IActionResult> GetAll()
-            => Ok(await _service.GetAllAsync());
+        {
+            var users = await _service.GetAllAsync();
+            return Ok(users);
+        }
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> Get(int id)
-            => Ok(await _service.GetByIdAsync(id));
+        public async Task<IActionResult> GetById(int id)
+        {
+            var user = await _service.GetByIdAsync(id);
 
-        [HttpPost]
-        public async Task<IActionResult> Create(UserCreateDto dto)
-            => Ok(await _service.CreateAsync(dto));
+            if (user == null)
+                return NotFound(new { message = "User not found" });
 
-        [HttpPut]
-        public async Task<IActionResult> Update(UserUpdateDto dto)
-            => Ok(await _service.UpdateAsync(dto));
+            return Ok(user);
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(int id, [FromBody] UserUpdateDto dto)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var updated = await _service.UpdateAsync(id, dto);
+
+            if (!updated)
+                return NotFound(new { message = "User not found" });
+
+            return Ok(new { message = "User updated successfully" });
+        }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
-            => Ok(await _service.DeleteAsync(id));
+        {
+            var deleted = await _service.DeleteAsync(id);
+
+            if (!deleted)
+                return NotFound(new { message = "User not found" });
+
+            return Ok(new { message = "User deleted successfully" });
+        }
     }
 }

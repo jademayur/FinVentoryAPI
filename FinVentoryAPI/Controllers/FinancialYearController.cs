@@ -1,9 +1,11 @@
 ﻿using FinVentoryAPI.DTOs.FinancialYearDTOs;
 using FinVentoryAPI.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FinVentoryAPI.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class FinancialYearController : ControllerBase

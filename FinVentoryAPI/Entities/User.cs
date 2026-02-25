@@ -4,13 +4,13 @@
     {
         public int UserId { get; set; }
 
-        public string FullName { get; set; }
+        public string FullName { get; set; } = null!;
 
-        public string Email { get; set; }
+        public string Email { get; set; } = null!;
 
-        public string PasswordHash { get; set; }
+        public string PasswordHash { get; set; } = null!;
 
-        public string Mobile { get; set; }
+        public string? Mobile { get; set; }
 
         // Platform Level Admin
         public bool IsPlatformAdmin { get; set; } = false;
@@ -18,8 +18,11 @@
         public bool IsActive { get; set; } = true;
 
         public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+        public int? CreatedBy { get; set; }
+        public DateTime? UpdatedDate { get; set; }
+        public int? UpdatedBy { get; set; }
 
         // Navigation
-        public ICollection<UserCompany> UserCompanies { get; set; }
+        public ICollection<UserCompany> UserCompanies { get; set; } = new List<UserCompany>();
     }
 }
