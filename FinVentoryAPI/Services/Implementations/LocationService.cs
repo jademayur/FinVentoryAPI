@@ -18,7 +18,7 @@ namespace FinVentoryAPI.Services.Implementations
             _context = context;
         }
 
-        public async Task<LocationResponseDto> CreateAsync(CreateLocationDTO dto, int userId)
+        public async Task<LocationResponseDto> CreateAsync(CreateLocationDTO dto)
         {
             if (await _context.Locations.AnyAsync(x => x.LocationName == dto.LocationName))
                 throw new Exception("Location already exists");

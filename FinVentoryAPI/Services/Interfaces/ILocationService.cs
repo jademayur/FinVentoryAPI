@@ -5,7 +5,7 @@ namespace FinVentoryAPI.Services.Interfaces
 {
     public interface ILocationService
     {
-        Task<LocationResponseDto> CreateAsync(CreateLocationDTO dto, int userId);
+        Task<LocationResponseDto> CreateAsync(CreateLocationDTO dto);
 
         Task<List<LocationResponseDto>> GetAllAsync();
 

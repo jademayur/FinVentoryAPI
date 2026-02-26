@@ -25,9 +25,9 @@ namespace FinVentoryAPI.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            int userId = 1; // Later get from JWT claim
+            //int userId = 1; // Later get from JWT claim
 
-            var result = await _locationService.CreateAsync(dto, userId);
+            var result = await _locationService.CreateAsync(dto);
 
             return CreatedAtAction(nameof(GetById), new { id = result.CompanyId }, result);
         }
