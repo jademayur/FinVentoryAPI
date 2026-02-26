@@ -15,6 +15,7 @@ namespace FinVentoryAPI.Data
         public DbSet<Role> Roles { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<UserCompany> UserCompany { get; set; }
+        public DbSet<Location> Locations { get; set; }
 
     }
 }
