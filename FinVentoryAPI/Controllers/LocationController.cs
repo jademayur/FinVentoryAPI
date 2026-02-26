@@ -55,9 +55,9 @@ namespace FinVentoryAPI.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            int userId = 1; // Later get from JWT
+          //  int userId = 1; // Later get from JWT
 
-            var updated = await _locationService.UpdateAsync(id, dto, userId);
+            var updated = await _locationService.UpdateAsync(id, dto);
 
             if (!updated)
                 return NotFound(new { message = "Location not found" });

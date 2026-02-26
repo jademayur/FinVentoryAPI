@@ -45,7 +45,7 @@ namespace FinVentoryAPI.Services.Implementations
             return MapToResponse(location);
         }
 
-        public async Task<bool> UpdateAsync(int id, UpdateLocationDTO dto, int userId)
+        public async Task<bool> UpdateAsync(int id, UpdateLocationDTO dto)
         {
             var location = await _context.Locations
                 .FirstOrDefaultAsync(x => x.LocationId == id && x.IsActive);
@@ -57,7 +57,7 @@ namespace FinVentoryAPI.Services.Implementations
                 .AnyAsync(x =>
                     x.CompanyId == location.CompanyId &&
                     x.LocationName.ToLower() == dto.LocationName.ToLower() &&
-                    x.LocationId != dto.LocationId &&
+                    x.LocationId != id &&
                     x.IsActive);
 
             if (duplicate)

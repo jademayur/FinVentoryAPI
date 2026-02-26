@@ -11,7 +11,7 @@ namespace FinVentoryAPI.Services.Interfaces
 
         Task<LocationResponseDto?> GetByIdAsync(int id);
 
-        Task<bool> UpdateAsync(int id, UpdateLocationDTO dto, int userId);
+        Task<bool> UpdateAsync(int id, UpdateLocationDTO dto);
 
         Task<bool> DeleteAsync(int id, int userId);
     }
