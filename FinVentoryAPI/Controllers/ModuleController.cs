@@ -40,12 +40,12 @@ namespace FinVentoryAPI.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
-            var location = await _moduleService.GetByIdAsync(id);
+            var modules = await _moduleService.GetByIdAsync(id);
 
-            if (location == null)
+            if (modules == null)
                 return NotFound(new { message = "Module not found" });
 
-            return Ok(location);
+            return Ok(modules);
         }
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] ModuleUpdateDto dto)

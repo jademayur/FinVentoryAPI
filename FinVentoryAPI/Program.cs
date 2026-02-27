@@ -20,6 +20,7 @@ builder.Services.AddScoped<IUserCompanyService, UserCompanyService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ILocationService, LocationService>();
 builder.Services.AddScoped<IModuleService, ModuleService>();
+builder.Services.AddScoped<IMenuGroupService, MenuGroupService>();
 
 
 builder.Services.AddCors(options =>
