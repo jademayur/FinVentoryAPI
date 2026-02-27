@@ -5,6 +5,13 @@
         public int RoleId { get; set; }
         public string RoleName { get; set; }
         public bool IsActive { get; set; } = true;
-        public ICollection<UserCompany> UserCompanies { get; set; }
+        public string? Icon { get; set; }
+
+        public virtual ICollection<RoleRight> RoleRights { get; set; }
+              = new List<RoleRight>();
+
+        //public virtual ICollection<RoleGeneralRight> GeneralRights { get; set; }     = new List<RoleGeneralRight>();
+             
+
     }
 }
