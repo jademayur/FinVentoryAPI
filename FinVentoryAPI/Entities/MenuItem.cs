@@ -10,7 +10,7 @@
         public string? ActionName { get; set; }
         public string? Icon { get; set; }
         public int SortOrder { get; set; } = 0;
-        public bool IsActive { get; set; } = false;
+        public bool IsActive { get; set; } = true;
         public virtual MenuGroup MenuGroup { get; set; } = null!;
         public virtual Module Module { get;set;  } = null!;
 
