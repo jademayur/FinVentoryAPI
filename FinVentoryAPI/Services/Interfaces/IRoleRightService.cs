@@ -1,4 +1,5 @@
 ﻿using FinVentoryAPI.DTOs.LocationDTOs;
+using FinVentoryAPI.DTOs.MenuItemDTOs;
 using FinVentoryAPI.DTOs.RoleRightsDTOs;
 
 namespace FinVentoryAPI.Services.Interfaces
@@ -14,5 +15,7 @@ namespace FinVentoryAPI.Services.Interfaces
         Task<bool> UpdateAsync(int id, RoleRightUpdateDto dto);
 
         Task<bool> DeleteAsync(int id, int userId);
+
+        Task<List<MenuItemResponseDto>> GetMenuByRoleAsync(int roleId);
     }
 }

@@ -1,5 +1,6 @@
 ﻿using FinVentoryAPI.Data;
 using FinVentoryAPI.DTOs.LocationDTOs;
+using FinVentoryAPI.DTOs.MenuItemDTOs;
 using FinVentoryAPI.DTOs.RoleDTOs;
 using FinVentoryAPI.DTOs.RoleRightsDTOs;
 using FinVentoryAPI.Entities;
@@ -117,6 +118,47 @@ namespace FinVentoryAPI.Services.Implementations
             await _context.SaveChangesAsync();
 
             return true;
+        }
+
+        public async Task<List<MenuItemResponseDto>> GetMenuByRoleAsync(int roleId)
+        {
+            return await _context.RoleRights
+                .Where(r => r.RoleId == roleId
+                            && r.CanView
+                            && r.MenuItem.IsActive
+                            && r.MenuItem.MenuGroup.IsActive
+                            && r.MenuItem.Module.IsActive)
+                .Select(r => new MenuItemResponseDto
+                {
+                    // Menu Item
+                    MenuItemId = r.MenuItem.MenuItemId,
+                    MenuName = r.MenuItem.MenuName,
+                    MenuItemIcon = r.MenuItem.Icon,
+                    MenuItemSortOrder = r.MenuItem.SortOrder,
+                    MenuItemIsActive = r.MenuItem.IsActive,
+
+                    // Module
+                    ModuleId = r.MenuItem.ModuleId,
+                    ModuleName = r.MenuItem.Module.ModuleName,
+                    ModuleIcon = r.MenuItem.Module.Icon,
+                    ModuleSortOrder = r.MenuItem.Module.SortOrder,
+                    ModuleIsActive = r.MenuItem.Module.IsActive,
+
+                    // Menu Group
+                    MenuGroupId = r.MenuItem.MenuGroupId,
+                    MenuGroupName = r.MenuItem.MenuGroup.MenuGroupName,
+                    MenuGroupIcon = r.MenuItem.MenuGroup.Icon,
+                    MenuGroupSortOrder = r.MenuItem.MenuGroup.SortOrder,
+                    MenuGroupIsActive = r.MenuItem.MenuGroup.IsActive,
+
+                    ControllerName = r.MenuItem.ControllerName,
+                    ActionName = r.MenuItem.ActionName
+                })
+                .Distinct()
+                .OrderBy(x => x.ModuleSortOrder)
+                .ThenBy(x => x.MenuGroupSortOrder)
+                .ThenBy(x => x.MenuItemSortOrder)
+                .ToListAsync();
         }
 
         private RoleRightResponseDto MapToResponse(RoleRight roleRight)

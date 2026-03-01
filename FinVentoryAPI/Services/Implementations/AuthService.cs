@@ -98,6 +98,7 @@ namespace FinVentoryAPI.Services.Implementations
         new Claim("FinancialYearId", mapping.FinancialYearId.ToString()),
         new Claim(ClaimTypes.Name, mapping.User.FullName),
         new Claim(ClaimTypes.Email, mapping.User.Email),
+        new Claim("RoleId", mapping.RoleId.ToString()),
         new Claim(ClaimTypes.Role, mapping.Role.RoleName),
         new Claim("IsPlatformAdmin", mapping.User.IsPlatformAdmin.ToString())
     };

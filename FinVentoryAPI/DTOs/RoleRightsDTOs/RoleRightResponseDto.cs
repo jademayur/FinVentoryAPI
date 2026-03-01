@@ -6,9 +6,7 @@
         public int RoleId { get; set; }
         public int ModuleId { get; set; }
         public int MenuItemId { get; set; }
-
         public string MenuItemName { get; set; } = string.Empty;
-
         public bool CanView { get; set; }
         public bool CanAdd { get; set; }
         public bool CanEdit { get; set; }

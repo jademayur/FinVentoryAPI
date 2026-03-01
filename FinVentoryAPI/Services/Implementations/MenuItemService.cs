@@ -63,9 +63,9 @@ namespace FinVentoryAPI.Services.Implementations
                     MenuName = x.MenuName,
                     ControllerName = x.ControllerName,
                     ActionName = x.ActionName,
-                    Icon = x.Icon,
-                    SortOrder = x.SortOrder,
-                    IsActive = x.IsActive
+                    MenuItemIcon = x.Icon,
+                    MenuItemSortOrder = x.SortOrder,
+                    MenuItemIsActive = x.IsActive
                 }).ToListAsync();
         }
 
@@ -119,9 +119,9 @@ namespace FinVentoryAPI.Services.Implementations
                 MenuName = menuItem.MenuName,
                 ControllerName = menuItem.ControllerName,
                 ActionName = menuItem.ActionName,
-                Icon = menuItem.Icon,
-                SortOrder = menuItem.SortOrder,
-                IsActive = menuItem.IsActive
+                MenuItemIcon = menuItem.Icon,
+                MenuGroupSortOrder = menuItem.SortOrder,
+                MenuItemIsActive = menuItem.IsActive
             };
         }
     }

@@ -76,5 +76,12 @@ namespace FinVentoryAPI.Controllers
 
             return Ok(new { message = "Role Right deleted successfully" });
         }
+
+        [HttpGet("GetMenuByRole/{roleId}")]
+        public async Task<IActionResult> GetMenuByRole(int roleId)
+        {
+            var data = await _roleRightService.GetMenuByRoleAsync(roleId);
+            return Ok(data);
+        }
     }
 }
