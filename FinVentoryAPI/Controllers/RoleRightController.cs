@@ -1,5 +1,6 @@
 ﻿using FinVentoryAPI.DTOs.LocationDTOs;
 using FinVentoryAPI.DTOs.RoleRightsDTOs;
+using FinVentoryAPI.Entities;
 using FinVentoryAPI.Services.Implementations;
 using FinVentoryAPI.Services.Interfaces;
 using Microsoft.AspNetCore.Http;
@@ -82,6 +83,24 @@ namespace FinVentoryAPI.Controllers
         {
             var data = await _roleRightService.GetMenuByRoleAsync(roleId);
             return Ok(data);
+        }
+
+        [HttpGet("permission/{MenuItemID}")]
+        public async Task<IActionResult> GetFormPermissions(int MenuItemID)
+        {
+            var roleIdClaim = User.FindFirst("RoleId")?.Value;
+
+            if (roleIdClaim == null)
+                return Unauthorized();
+
+            int roleId = Convert.ToInt32(roleIdClaim);
+
+            var permission = await _roleRightService.GetFormPermissionsAsync(MenuItemID, roleId);
+
+            if (permission == null)
+                return Forbid();
+
+            return Ok(permission);
         }
     }
 }

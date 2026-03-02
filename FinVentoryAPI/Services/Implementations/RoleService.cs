@@ -1,5 +1,6 @@
 ﻿using FinVentoryAPI.Data;
 using FinVentoryAPI.DTOs.RoleDTOs;
+using FinVentoryAPI.DTOs.RoleRightsDTOs;
 using FinVentoryAPI.Entities;
 using FinVentoryAPI.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -72,5 +73,7 @@ namespace FinVentoryAPI.Services.Implementations
 
             return "Role deleted successfully";
         }
+
+       
     }
 }

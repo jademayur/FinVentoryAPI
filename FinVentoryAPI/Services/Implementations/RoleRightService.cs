@@ -181,5 +181,28 @@ namespace FinVentoryAPI.Services.Implementations
 
             };
         }
+
+        public async Task<FormPermissionDto> GetFormPermissionsAsync(int menuItemId, int roleId)
+        {
+            var rights = await _context.RoleRights
+                .FirstOrDefaultAsync(x => x.MenuItemId == menuItemId && x.RoleId == roleId);
+
+            if (rights == null)
+                return null;
+
+            return new FormPermissionDto
+            {
+                MenuItemId = menuItemId,
+                CanView = rights.CanView,
+                CanAdd = rights.CanAdd,
+                CanDelete = rights.CanDelete,
+                CanEdit = rights.CanEdit,
+                CanExport = rights.CanExport,
+                CanPrint = rights.CanPrint,
+                CanApprove = rights.CanApprove
+
+            };
+
+        }
     }
 }

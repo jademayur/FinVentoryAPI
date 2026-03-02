@@ -17,5 +17,8 @@ namespace FinVentoryAPI.Services.Interfaces
         Task<bool> DeleteAsync(int id, int userId);
 
         Task<List<MenuItemResponseDto>> GetMenuByRoleAsync(int roleId);
+
+        Task<FormPermissionDto> GetFormPermissionsAsync(int MenuItemID , int roleId);
+
     }
 }
