@@ -22,6 +22,8 @@ namespace FinVentoryAPI.Data
         public DbSet<MenuItem> MenuItems { get; set; }
         public DbSet<RoleRight> RoleRights { get; set; }
 
+        public DbSet<AccountGroup> AccountGroups { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
