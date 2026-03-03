@@ -23,8 +23,9 @@ builder.Services.AddScoped<IModuleService, ModuleService>();
 builder.Services.AddScoped<IMenuGroupService, MenuGroupService>();
 builder.Services.AddScoped<IMenuItemService, MenuItemService>();
 builder.Services.AddScoped<IRoleRightService, RoleRightService>();
+builder.Services.AddScoped<IAccountGroupService, AccountGroupService>();
 
-
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll",
