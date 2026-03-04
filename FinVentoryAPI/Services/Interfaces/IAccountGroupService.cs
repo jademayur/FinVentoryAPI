@@ -14,5 +14,7 @@ namespace FinVentoryAPI.Services.Interfaces
         Task<bool> UpdateAsync(int id, UpdateAccountGroupDto dto);
 
         Task<bool> DeleteAsync(int id);
+
+        Task<PagedResponseDto<AccountGroupResponseDto>> GetPagedAsync(PagedRequestDto request);
     }
 }

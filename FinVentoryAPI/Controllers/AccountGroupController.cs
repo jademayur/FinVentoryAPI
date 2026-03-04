@@ -93,5 +93,12 @@ namespace FinVentoryAPI.Controllers
 
             return Ok(new { message = "Account group deleted successfully." });
         }
+
+        [HttpPost("list")]
+        public async Task<IActionResult> GetPaged([FromBody] PagedRequestDto request)
+        {       
+            var result = await _service.GetPagedAsync(request);
+            return Ok(result);
+        }
     }
 }

@@ -226,5 +226,90 @@ namespace FinVentoryAPI.Services.Implementations
                 CreatedDate = group.CreatedDate
             };
         }
+
+        public async Task<PagedResponseDto<AccountGroupResponseDto>> GetPagedAsync(PagedRequestDto request)
+        {
+            var companyId = GetCompanyId();
+
+            var query = _context.AccountGroups
+                .Where(x => x.CompanyId == companyId && !x.IsDeleted)
+                .AsQueryable();
+
+            // 🔍 SEARCH
+            if (!string.IsNullOrWhiteSpace(request.Search))
+            {
+                var search = request.Search.ToLower();
+                query = query.Where(x => x.GroupName.ToLower().Contains(search));
+            }
+
+            // 🎯 FILTER
+            if (request.GroupTypeId.HasValue)
+                query = query.Where(x => (int)x.GroupType == request.GroupTypeId);
+
+            if (request.BalanceToId.HasValue)
+                query = query.Where(x => (int)x.BalanceTo == request.BalanceToId);
+
+            if (request.IsActive.HasValue)
+                query = query.Where(x => x.IsActive == request.IsActive);
+
+            // 📊 SORT
+            switch (request.SortBy?.ToLower())
+            {
+                case "groupname":
+                    query = request.SortDirection == "desc"
+                        ? query.OrderByDescending(x => x.GroupName)
+                        : query.OrderBy(x => x.GroupName);
+                    break;
+
+                case "isactive":
+                    query = request.SortDirection == "desc"
+                        ? query.OrderByDescending(x => x.IsActive)
+                        : query.OrderBy(x => x.IsActive);
+                    break;
+
+                case "grouptype":
+                    query = request.SortDirection == "desc"
+                        ? query.OrderByDescending(x => x.GroupType)
+                        : query.OrderBy(x => x.GroupType);
+                    break;
+
+                default:
+                    query = query.OrderBy(x => x.GroupName);
+                    break;
+            }
+
+            var totalRecords = await query.CountAsync();
+
+            var data = await query
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .Select(x => new AccountGroupResponseDto
+                {
+                    AccountGroupId = x.AccountGroupId,
+                    GroupName = x.GroupName,
+
+                    ParentGroupId = x.ParentGroupId,
+                    ParentGroupName = x.ParentGroup != null
+                        ? x.ParentGroup.GroupName
+                        : null,
+
+                    GroupTypeId = (int)x.GroupType,
+                    GroupTypeName = x.GroupType.ToString(),
+
+                    BalanceToId = (int)x.BalanceTo,
+                    BalanceToName = x.BalanceTo.ToString(),
+
+                    IsActive = x.IsActive
+                })
+                .ToListAsync();
+
+            return new PagedResponseDto<AccountGroupResponseDto>
+            {
+                TotalRecords = totalRecords,
+                PageNumber = request.PageNumber,
+                PageSize = request.PageSize,
+                Data = data
+            };
+        }
     }
 }
