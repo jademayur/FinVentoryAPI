@@ -52,11 +52,13 @@ namespace FinVentoryAPI.Services.Implementations
 
             var accountGroup = new AccountGroup
             {
+                CompanyId = companyId,
                 GroupName = dto.GroupName,
                 ParentGroupId = dto.ParentGroupId,
                 GroupType = dto.GroupType,
                 BalanceTo = dto.BalanceTo,
-                SortOrder = dto.SortOrder
+                SortOrder = dto.SortOrder,
+                CreatedBy = dto.CreatedBy
             };
 
             _context.AccountGroups.Add(accountGroup);
