@@ -237,14 +237,14 @@ namespace FinVentoryAPI.Services.Implementations
                 .Where(x => x.CompanyId == companyId && !x.IsDeleted)
                 .AsQueryable();
 
-            // 🔍 SEARCH
+            // SEARCH
             if (!string.IsNullOrWhiteSpace(request.Search))
             {
                 var search = request.Search.ToLower();
                 query = query.Where(x => x.GroupName.ToLower().Contains(search));
             }
 
-            // 🎯 FILTER
+            // FILTER
             if (request.GroupTypeId.HasValue)
                 query = query.Where(x => (int)x.GroupType == request.GroupTypeId);
 
@@ -254,7 +254,7 @@ namespace FinVentoryAPI.Services.Implementations
             if (request.IsActive.HasValue)
                 query = query.Where(x => x.IsActive == request.IsActive);
 
-            // 📊 SORT
+            //  SORT
             switch (request.SortBy?.ToLower())
             {
                 case "groupname":
