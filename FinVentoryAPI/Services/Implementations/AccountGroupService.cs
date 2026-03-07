@@ -1,9 +1,10 @@
 ﻿using FinVentoryAPI.Data;
 using FinVentoryAPI.DTOs.AccountGroupDTOs;
 using FinVentoryAPI.Entities;
+using FinVentoryAPI.Helpers;
 using FinVentoryAPI.Services.Interfaces;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 
 namespace FinVentoryAPI.Services.Implementations
 {
@@ -296,10 +297,12 @@ namespace FinVentoryAPI.Services.Implementations
                         : null,
 
                     GroupTypeId = (int)x.GroupType,
-                    GroupTypeName = x.GroupType.ToString(),
+                    GroupTypeName = EnumHelper.GetDisplayName(x.GroupType),
 
                     BalanceToId = (int)x.BalanceTo,
-                    BalanceToName = x.BalanceTo.ToString(),
+                    BalanceToName = EnumHelper.GetDisplayName(x.BalanceTo),
+
+                    SortOrder = x.SortOrder,
 
                     IsActive = x.IsActive
                 })
