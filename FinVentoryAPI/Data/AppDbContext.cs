@@ -23,6 +23,7 @@ namespace FinVentoryAPI.Data
         public DbSet<RoleRight> RoleRights { get; set; }
 
         public DbSet<AccountGroup> AccountGroups { get; set; }
+        public DbSet<Account> Accounts { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

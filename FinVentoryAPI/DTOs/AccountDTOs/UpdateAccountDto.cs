@@ -2,7 +2,7 @@
 
 namespace FinVentoryAPI.DTOs.AccountDTOs
 {
-    public class UpdateAccountGroupDto
+    public class UpdateAccountDto
     {
         public int AccountId { get; set; }
         [Required(ErrorMessage = "Account name is required.")]

@@ -1,4 +1,4 @@
-﻿namespace FinVentoryAPI.DTOs.AccountGroupDTOs
+﻿namespace FinVentoryAPI.DTOs.PagedRequestDto
 {
     public class PagedResponseDto<T>
     {

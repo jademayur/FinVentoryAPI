@@ -1,4 +1,5 @@
-﻿using FinVentoryAPI.DTOs.AccountGroupDTOs;
+﻿ using FinVentoryAPI.DTOs.AccountGroupDTOs;
+using FinVentoryAPI.DTOs.PagedRequestDto;
 
 
 namespace FinVentoryAPI.Services.Interfaces

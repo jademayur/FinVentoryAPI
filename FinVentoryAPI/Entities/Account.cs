@@ -11,7 +11,9 @@ namespace FinVentoryAPI.Entities
         public int AccountGroupId { get; set; }
         public AccountType AccountType { get; set; } 
         public BookType? BookType { get; set; }
-        public BookSubType? BookSubType { get; set; } 
+        public BookSubType? BookSubType { get; set; }
+
+        public virtual AccountGroup? AccountGroup { get; set; } = null!;
 
 
     }
