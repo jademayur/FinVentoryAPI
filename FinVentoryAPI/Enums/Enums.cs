@@ -20,10 +20,10 @@ namespace FinVentoryAPI.Enums
         BalanceSheet = 3
     }
 
-    public enum VoucherType
+    public enum BookType
     {
        [Display(Name = "NO BOOK")]
-        NO  = 0,
+        NONE  = 0,
         [Display(Name = "CASH BOOK")]
         CASH  = 1,
         [Display(Name = "BANK BOOK")]
@@ -35,5 +35,18 @@ namespace FinVentoryAPI.Enums
         [Display(Name = "J.V BOOK")]
         JV  = 5    	
     }
-    
+
+    public enum AccountType
+    {
+        General = 1,
+        Head = 2
+    }
+
+    public enum BookSubType
+    {
+        None = 0,
+        Goods = 1,
+        Services = 2
+    }
+
 }
