@@ -1,10 +1,12 @@
 ﻿using FinVentoryAPI.Data;
 using FinVentoryAPI.DTOs.AccountGroupDTOs;
+using FinVentoryAPI.DTOs.PagedRequestDto;
 using FinVentoryAPI.Entities;
 using FinVentoryAPI.Helpers;
 using FinVentoryAPI.Services.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace FinVentoryAPI.Services.Implementations
 {
@@ -245,44 +247,89 @@ namespace FinVentoryAPI.Services.Implementations
                 query = query.Where(x => x.GroupName.ToLower().Contains(search));
             }
 
-            // FILTER
-            if (request.GroupTypeId.HasValue)
-                query = query.Where(x => (int)x.GroupType == request.GroupTypeId);
-
-            if (request.BalanceToId.HasValue)
-                query = query.Where(x => (int)x.BalanceTo == request.BalanceToId);
-
-            if (request.IsActive.HasValue)
-                query = query.Where(x => x.IsActive == request.IsActive);
-
-            //  SORT
-            switch (request.SortBy?.ToLower())
+            // FILTERS
+            if (request.Filters != null)
             {
-                case "groupname":
-                    query = request.SortDirection == "desc"
-                        ? query.OrderByDescending(x => x.GroupName)
-                        : query.OrderBy(x => x.GroupName);
-                    break;
+                if (request.Filters.ContainsKey("groupTypeId"))
+                {
+                    //var groupTypeId = Convert.ToInt32(request.Filters["groupTypeId"]);
+                    var groupTypeId = ((JsonElement)request.Filters["groupTypeId"]).GetInt32();
+                    query = query.Where(x => (int)x.GroupType == groupTypeId);
+                }
 
-                case "isactive":
-                    query = request.SortDirection == "desc"
-                        ? query.OrderByDescending(x => x.IsActive)
-                        : query.OrderBy(x => x.IsActive);
-                    break;
+                if (request.Filters.ContainsKey("balanceToId"))
+                {
+                    //var balanceToId = Convert.ToInt32(request.Filters["balanceToId"]);
+                    var balanceToId = ((JsonElement)request.Filters["balanceToId"]).GetInt32();
+                    query = query.Where(x => (int)x.BalanceTo == balanceToId);
+                }
 
-                case "grouptype":
-                    query = request.SortDirection == "desc"
-                        ? query.OrderByDescending(x => x.GroupType)
-                        : query.OrderBy(x => x.GroupType);
-                    break;
+                if (request.Filters.ContainsKey("isActive"))
+                {
+                    var isActive = ((JsonElement)request.Filters["isActive"]).GetBoolean();
+                    //var isActive = Convert.ToBoolean(request.Filters["isActive"]);
+                    query = query.Where(x => x.IsActive == isActive);
+                }
 
-                default:
-                    query = query.OrderBy(x => x.GroupName);
-                    break;
+                if (request.Filters.ContainsKey("parentGroupId"))
+                {
+                    var parentGroupId = ((JsonElement)request.Filters["parentGroupId"]).GetInt32();
+                    //var parentGroupId = Convert.ToInt32(request.Filters["parentGroupId"]);
+                    query = query.Where(x => x.ParentGroupId == parentGroupId);
+                }
             }
 
+            // SORTING
+            if (request.Sorts != null && request.Sorts.Any())
+            {
+                var sort = request.Sorts.First();
+
+                switch (sort.Column.ToLower())
+                {
+                    case "groupname":
+                        query = sort.Direction == "desc"
+                            ? query.OrderByDescending(x => x.GroupName)
+                            : query.OrderBy(x => x.GroupName);
+                        break;
+
+                    case "grouptype":
+                        query = sort.Direction == "desc"
+                            ? query.OrderByDescending(x => x.GroupType)
+                            : query.OrderBy(x => x.GroupType);
+                        break;
+
+                    case "balanceto":
+                        query = sort.Direction == "desc"
+                            ? query.OrderByDescending(x => x.BalanceTo)
+                            : query.OrderBy(x => x.BalanceTo);
+                        break;
+
+                    case "isactive":
+                        query = sort.Direction == "desc"
+                            ? query.OrderByDescending(x => x.IsActive)
+                            : query.OrderBy(x => x.IsActive);
+                        break;
+
+                    case "sortorder":
+                        query = sort.Direction == "desc"
+                            ? query.OrderByDescending(x => x.SortOrder)
+                            : query.OrderBy(x => x.SortOrder);
+                        break;
+
+                    default:
+                        query = query.OrderBy(x => x.GroupName);
+                        break;
+                }
+            }
+            else
+            {
+                query = query.OrderBy(x => x.GroupName);
+            }
+
+            // TOTAL RECORD COUNT
             var totalRecords = await query.CountAsync();
 
+            // PAGINATION + DATA
             var data = await query
                 .Skip((request.PageNumber - 1) * request.PageSize)
                 .Take(request.PageSize)
@@ -303,7 +350,6 @@ namespace FinVentoryAPI.Services.Implementations
                     BalanceToName = EnumHelper.GetDisplayName(x.BalanceTo),
 
                     SortOrder = x.SortOrder,
-
                     IsActive = x.IsActive
                 })
                 .ToListAsync();
@@ -315,6 +361,7 @@ namespace FinVentoryAPI.Services.Implementations
                 PageSize = request.PageSize,
                 Data = data
             };
+
         }
     }
 }
