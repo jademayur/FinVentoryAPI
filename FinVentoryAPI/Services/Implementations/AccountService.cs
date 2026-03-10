@@ -8,6 +8,7 @@ using FinVentoryAPI.Migrations;
 using FinVentoryAPI.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.Design;
+using Account = FinVentoryAPI.Entities.Account;
 
 namespace FinVentoryAPI.Services.Implementations
 {
@@ -47,7 +48,7 @@ namespace FinVentoryAPI.Services.Implementations
                 throw new Exception("Account group already exists.");
 
             var account = new Account
-             {
+            {
                 AccountName = dto.AccountName,
                 AccountGroupId = dto.AccountGroupId,
                 AccountCode = dto.AccountCode,
