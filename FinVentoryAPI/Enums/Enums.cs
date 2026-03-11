@@ -22,7 +22,7 @@ namespace FinVentoryAPI.Enums
 
     public enum BookType
     {
-       [Display(Name = "NO BOOK")]
+        [Display(Name = "NO BOOK")]
         NONE  = 0,
         [Display(Name = "CASH BOOK")]
         CASH  = 1,

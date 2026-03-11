@@ -14,5 +14,6 @@ namespace FinVentoryAPI.DTOs.AccountDTOs
         public Enums.AccountType AccountType { get; set; }
         public Enums.BookType? BookType { get; set; }
         public Enums.BookSubType? BookSubType { get; set; }
+        
     }
 }

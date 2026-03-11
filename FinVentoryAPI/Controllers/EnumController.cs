@@ -20,5 +20,23 @@ namespace FinVentoryAPI.Controllers
         {
             return Ok(EnumHelper.GetEnumList<BalanceTo>());
         }
+
+        [HttpGet("book-types")]
+        public IActionResult GetBookType()
+        {
+            return Ok(EnumHelper.GetEnumList<BookType>());
+        }
+
+        [HttpGet("account-types")]
+        public IActionResult GetAccountType()
+        {
+            return Ok(EnumHelper.GetEnumList<AccountType>());
+        }
+
+        [HttpGet("book-sub-types")]
+        public IActionResult GetBookSubType()
+        {
+            return Ok(EnumHelper.GetEnumList<BookSubType>());
+        }
     }
 }

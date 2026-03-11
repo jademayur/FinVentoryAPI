@@ -8,6 +8,7 @@ using FinVentoryAPI.Migrations;
 using FinVentoryAPI.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.Design;
+using System.Text.Json;
 using Account = FinVentoryAPI.Entities.Account;
 
 namespace FinVentoryAPI.Services.Implementations
@@ -56,6 +57,7 @@ namespace FinVentoryAPI.Services.Implementations
                 BookType = (Enums.BookType?)(int?)dto.BookType,
                 BookSubType = (Enums.BookSubType?)(int?)dto.BookSubType,
                 CompanyId = CompanyId
+                
             };
 
 
@@ -237,25 +239,25 @@ namespace FinVentoryAPI.Services.Implementations
             {
                 if (request.Filters.ContainsKey("accountTypeId"))
                 {
-                    var accountTypeId = Convert.ToInt32(request.Filters["accountTypeId"]);
+                    var accountTypeId = ((JsonElement)request.Filters["accountTypeId"]).GetInt32();
                     query = query.Where(x => (int)x.AccountType == accountTypeId);
                 }
 
                 if (request.Filters.ContainsKey("accountGroupId"))
                 {
-                    var groupId = Convert.ToInt32(request.Filters["accountGroupId"]);
+                    var groupId = ((JsonElement)request.Filters["accountGroupId"]).GetInt32();
                     query = query.Where(x => x.AccountGroupId == groupId);
                 }
 
                 if (request.Filters.ContainsKey("isActive"))
                 {
-                    var isActive = Convert.ToBoolean(request.Filters["isActive"]);
+                    var isActive = ((JsonElement)request.Filters["isActive"]).GetBoolean();
                     query = query.Where(x => x.IsActive == isActive);
                 }
 
                 if (request.Filters.ContainsKey("bookTypeId"))
                 {
-                    var bookTypeId = Convert.ToInt32(request.Filters["bookTypeId"]);
+                    var bookTypeId = ((JsonElement)request.Filters["bookTypeId"]).GetInt32();
                     query = query.Where(x => (int)x.BookType == bookTypeId);
                 }
             }
