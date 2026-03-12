@@ -230,17 +230,19 @@ namespace FinVentoryAPI.Services.Implementations
             if (!string.IsNullOrWhiteSpace(request.Search))
             {
                 var search = request.Search.ToLower();
-                query = query.Where(x => x.AccountName.ToLower().Contains(search)
-                                      || x.AccountCode!.ToLower().Contains(search));
+
+                query = query.Where(x =>
+                    x.AccountName.ToLower().Contains(search) ||
+                    (x.AccountCode ?? "").ToLower().Contains(search));
             }
 
             // FILTERS
             if (request.Filters != null)
             {
-                if (request.Filters.ContainsKey("accountTypeId"))
+                if (request.Filters.ContainsKey("accountType"))
                 {
-                    var accountTypeId = ((JsonElement)request.Filters["accountTypeId"]).GetInt32();
-                    query = query.Where(x => (int)x.AccountType == accountTypeId);
+                    var accountType = ((JsonElement)request.Filters["accountType"]).GetInt32();
+                    query = query.Where(x => (int)x.AccountType == accountType);
                 }
 
                 if (request.Filters.ContainsKey("accountGroupId"))
@@ -275,13 +277,13 @@ namespace FinVentoryAPI.Services.Implementations
                             : query.OrderBy(x => x.AccountName);
                         break;
 
-                    case "accountcode":
+                    case "accountgroupname":
                         query = sort.Direction == "desc"
-                            ? query.OrderByDescending(x => x.AccountCode)
-                            : query.OrderBy(x => x.AccountCode);
+                            ? query.OrderByDescending(x => x.AccountGroup)
+                            : query.OrderBy(x => x.AccountGroup);
                         break;
 
-                    case "accounttypename":
+                    case "accounttype":
                         query = sort.Direction == "desc"
                             ? query.OrderByDescending(x => x.AccountType)
                             : query.OrderBy(x => x.AccountType);
@@ -306,7 +308,7 @@ namespace FinVentoryAPI.Services.Implementations
             // TOTAL COUNT
             var totalRecords = await query.CountAsync();
 
-            // PAGINATION + DATA
+            // PAGINATION
             var data = await query
                 .Skip((request.PageNumber - 1) * request.PageSize)
                 .Take(request.PageSize)
@@ -315,14 +317,19 @@ namespace FinVentoryAPI.Services.Implementations
                     AccountId = x.AccountId,
                     AccountName = x.AccountName,
                     AccountCode = x.AccountCode,
-                    AccountGroupId = x.AccountGroupId,               
+
+                    AccountGroupId = x.AccountGroupId,
                     AccountGroupName = x.AccountGroup != null ? x.AccountGroup.GroupName : null,
+
                     AccountTypeId = (int)x.AccountType,
                     AccountTypeName = x.AccountType.ToString(),
+
                     BookTypeId = (int?)x.BookType,
-                    BookTypeName = x.BookType.ToString(),
+                    BookTypeName = x.BookType != null ? x.BookType.ToString() : null,
+
                     BookSubTypeId = (int?)x.BookSubType,
-                    BookSubTypeName = x.BookSubType.ToString(),
+                    BookSubTypeName = x.BookSubType != null ? x.BookSubType.ToString() : null,
+
                     IsActive = x.IsActive,
                     CreatedDate = x.CreatedDate
                 })
