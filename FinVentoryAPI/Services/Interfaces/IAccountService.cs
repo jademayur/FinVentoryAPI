@@ -1,5 +1,6 @@
 ﻿using FinVentoryAPI.DTOs.AccountDTOs;
 using FinVentoryAPI.DTOs.PagedRequestDto;
+using static FinVentoryAPI.DTOs.AccountDTOs.ChartOfAccountDTO;
 
 namespace FinVentoryAPI.Services.Interfaces
 {
@@ -11,5 +12,6 @@ namespace FinVentoryAPI.Services.Interfaces
         Task<AccountResponseDto> GetByIdAsync(int id);
         Task<List<AccountResponseDto>> GetAllAsync();
         Task<PagedResponseDto<AccountResponseDto>> GetPagedAsync(PagedRequestDto request);
+        Task<List<ChartOfAccountNodeDto>> GetChartOfAccountsAsync();
     }
 }

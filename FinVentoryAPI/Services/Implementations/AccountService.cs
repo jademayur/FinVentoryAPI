@@ -9,6 +9,7 @@ using FinVentoryAPI.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.Design;
 using System.Text.Json;
+using static FinVentoryAPI.DTOs.AccountDTOs.ChartOfAccountDTO;
 using Account = FinVentoryAPI.Entities.Account;
 
 namespace FinVentoryAPI.Services.Implementations
@@ -342,6 +343,75 @@ namespace FinVentoryAPI.Services.Implementations
                 PageSize = request.PageSize,
                 Data = data
             };
+        }
+
+        public async Task<List<ChartOfAccountNodeDto>> GetChartOfAccountsAsync()
+        {
+            var companyId = GetCompanyId();
+
+            var groups = await _context.AccountGroups
+                .Where(x => x.CompanyId == companyId && !x.IsDeleted)
+                .OrderBy(x => x.SortOrder)
+                .ToListAsync();
+
+            var accounts = await _context.Accounts
+                .Where(x => x.CompanyId == companyId && !x.IsDeleted)
+                .ToListAsync();
+
+            var rootGroups = groups
+                .Where(x => x.ParentGroupId == null)
+                .ToList();
+
+            List<ChartOfAccountNodeDto> result = new();
+
+            foreach (var group in rootGroups)
+            {
+                result.Add(BuildGroupTree(group, groups, accounts));
+            }
+
+            return result;
+        }
+
+        private ChartOfAccountNodeDto BuildGroupTree(
+            AccountGroup group,
+            List<AccountGroup> allGroups,
+            List<Account> allAccounts)
+        {
+            var node = new ChartOfAccountNodeDto
+            {
+                Id = group.AccountGroupId,
+                Name = group.GroupName,
+                NodeType = "Group"
+            };
+
+            // Child Groups
+            var childGroups = allGroups
+                .Where(g => g.ParentGroupId == group.AccountGroupId)
+                .OrderBy(x => x.SortOrder)
+                .ToList();
+
+            foreach (var child in childGroups)
+            {
+                node.Children.Add(BuildGroupTree(child, allGroups, allAccounts));
+            }
+
+            // Accounts
+            var groupAccounts = allAccounts
+                .Where(a => a.AccountGroupId == group.AccountGroupId)
+                .ToList();
+
+            foreach (var account in groupAccounts)
+            {
+                node.Children.Add(new ChartOfAccountNodeDto
+                {
+                    Id = account.AccountId,
+                    Name = account.AccountName,
+                    NodeType = "Account",
+                    AccountCode = account.AccountCode
+                });
+            }
+
+            return node;
         }
 
 

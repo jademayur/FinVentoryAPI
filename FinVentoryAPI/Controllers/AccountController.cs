@@ -1,6 +1,7 @@
 ﻿using FinVentoryAPI.DTOs.AccountDTOs;
 using FinVentoryAPI.DTOs.AccountGroupDTOs;
 using FinVentoryAPI.DTOs.PagedRequestDto;
+using FinVentoryAPI.Services.Implementations;
 using FinVentoryAPI.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -84,6 +85,13 @@ namespace FinVentoryAPI.Controllers
         public async Task<IActionResult> GetPaged([FromBody] PagedRequestDto request)
         {
             var result = await _service.GetPagedAsync(request);
+            return Ok(result);
+        }
+
+        [HttpGet("chart-of-accounts")]
+        public async Task<IActionResult> GetChartOfAccounts()
+        {
+            var result = await _service.GetChartOfAccountsAsync();
             return Ok(result);
         }
     }
