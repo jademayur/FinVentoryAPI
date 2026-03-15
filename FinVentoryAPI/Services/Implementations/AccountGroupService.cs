@@ -13,36 +13,22 @@ namespace FinVentoryAPI.Services.Implementations
     public class AccountGroupService : IAccountGroupService
     {
         private readonly AppDbContext _context;
-        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly Common _common;
 
         public AccountGroupService(
-            AppDbContext context,
-            IHttpContextAccessor httpContextAccessor)
+            AppDbContext context,           
+            Common common)
         {
-            _context = context;
-            _httpContextAccessor = httpContextAccessor;
-        }
-
-        // ========================================
-        // PRIVATE: Get CompanyId From Token
-        // ========================================
-        private int GetCompanyId()
-        {
-            var claim = _httpContextAccessor.HttpContext?
-                .User?.FindFirst("CompanyId")?.Value;
-
-            if (string.IsNullOrEmpty(claim))
-                throw new Exception("CompanyId not found in token.");
-
-            return int.Parse(claim);
-        }
+            _context = context;          ;
+            _common = common;
+        }       
 
         // ========================================
         // CREATE
         // ========================================
         public async Task<AccountGroupResponseDto> CreateAsync(CreateAccountGroupDto dto)
         {
-            var companyId = GetCompanyId();
+            var companyId = _common.GetCompanyId();
 
             var duplicate = await _context.AccountGroups
                 .AnyAsync(x =>
@@ -75,7 +61,7 @@ namespace FinVentoryAPI.Services.Implementations
         // ========================================
         public async Task<bool> UpdateAsync(int id, UpdateAccountGroupDto dto)
         {
-            var companyId = GetCompanyId();
+            var companyId = _common.GetCompanyId();
 
             var accountGroup = await _context.AccountGroups
                 .FirstOrDefaultAsync(x =>
@@ -102,6 +88,8 @@ namespace FinVentoryAPI.Services.Implementations
             accountGroup.BalanceTo = dto.BalanceTo;
             accountGroup.SortOrder = dto.SortOrder;
             accountGroup.IsActive = dto.IsActive;
+            accountGroup.ModifiedBy = _common.GetUserId();
+            accountGroup.ModifiedDate = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
 
@@ -113,7 +101,7 @@ namespace FinVentoryAPI.Services.Implementations
         // ========================================
         public async Task<List<AccountGroupResponseDto>> GetAllAsync()
         {
-            var companyId = GetCompanyId();
+            var companyId = _common.GetCompanyId();
 
             var groups = await _context.AccountGroups
                 .Where(x => x.CompanyId == companyId && !x.IsDeleted)
@@ -145,7 +133,7 @@ namespace FinVentoryAPI.Services.Implementations
         // ========================================
         public async Task<AccountGroupResponseDto?> GetByIdAsync(int id)
         {
-            var companyId = GetCompanyId();
+            var companyId = _common.GetCompanyId();
 
             var group = await _context.AccountGroups
                 .Include(x => x.ParentGroup)
@@ -181,7 +169,7 @@ namespace FinVentoryAPI.Services.Implementations
         // ========================================
         public async Task<bool> DeleteAsync(int id)
         {
-            var companyId = GetCompanyId();
+            var companyId = _common.GetCompanyId();
 
             var group = await _context.AccountGroups
                 .FirstOrDefaultAsync(x =>
@@ -194,6 +182,8 @@ namespace FinVentoryAPI.Services.Implementations
 
             group.IsDeleted = true;
             group.IsActive = false;
+            group.ModifiedBy = _common.GetUserId();
+            group.ModifiedDate = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
 
@@ -205,7 +195,7 @@ namespace FinVentoryAPI.Services.Implementations
         // ========================================
         private async Task<AccountGroupResponseDto> MapToResponseAsync(int id)
         {
-            var companyId = GetCompanyId();
+            var companyId = _common.GetCompanyId();
 
             var group = await _context.AccountGroups
                 .Include(x => x.ParentGroup)
@@ -234,7 +224,7 @@ namespace FinVentoryAPI.Services.Implementations
 
         public async Task<PagedResponseDto<AccountGroupResponseDto>> GetPagedAsync(PagedRequestDto request)
         {
-            var companyId = GetCompanyId();
+            var companyId = _common.GetCompanyId();
 
             var query = _context.AccountGroups
                 .Where(x => x.CompanyId == companyId && !x.IsDeleted)

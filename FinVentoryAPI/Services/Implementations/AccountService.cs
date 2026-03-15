@@ -7,6 +7,7 @@ using FinVentoryAPI.Helpers;
 using FinVentoryAPI.Migrations;
 using FinVentoryAPI.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Identity.Client;
 using System.ComponentModel.Design;
 using System.Text.Json;
 using static FinVentoryAPI.DTOs.AccountDTOs.ChartOfAccountDTO;
@@ -17,38 +18,20 @@ namespace FinVentoryAPI.Services.Implementations
     public class AccountService : IAccountService
     {
         private readonly AppDbContext _context;
-        private readonly IHttpContextAccessor _httpContextAccessor;
-        public AccountService(AppDbContext context,  IHttpContextAccessor httpContextAccessor)
+        private readonly Common _common;
+
+        public AccountService(AppDbContext context, Common common)
         {
             _context = context;
-            _httpContextAccessor = new HttpContextAccessor();
+            _common = common;
+           
         }
 
-        private int GetCompanyId()
-        {
-            var claim = _httpContextAccessor.HttpContext?
-                .User?.FindFirst("CompanyId")?.Value;
-
-            if (string.IsNullOrEmpty(claim))
-                throw new Exception("CompanyId not found in token.");
-
-            return int.Parse(claim);
-        }
-
-        private int GetUserId()
-        {
-            var claim = _httpContextAccessor.HttpContext?
-                .User?.FindFirst("UserId")?.Value;
-
-            if (string.IsNullOrEmpty(claim))
-                throw new Exception("User Id not found in token.");
-
-            return int.Parse(claim);
-        }
+      
 
         public async Task<AccountResponseDto> CreateAsync(CreateAccountDto dto)
         {
-            var CompanyId = GetCompanyId();
+            var CompanyId = _common.GetCompanyId();
                          
             var duplicate = await _context.Accounts          
                 .AnyAsync(x =>
@@ -68,7 +51,7 @@ namespace FinVentoryAPI.Services.Implementations
                 BookType = (Enums.BookType?)(int?)dto.BookType,
                 BookSubType = (Enums.BookSubType?)(int?)dto.BookSubType,
                 CompanyId = CompanyId,
-                CreatedBy = GetUserId(),
+                CreatedBy = _common.GetUserId(),
 
 
             };
@@ -97,7 +80,7 @@ namespace FinVentoryAPI.Services.Implementations
 
         public async Task<bool> UpdateAsync(int id,UpdateAccountDto dto) 
         {
-            var CompanyId = GetCompanyId();
+            var CompanyId = _common.GetCompanyId();
 
             var account = await _context.Accounts
                 .FirstOrDefaultAsync(x =>
@@ -127,6 +110,8 @@ namespace FinVentoryAPI.Services.Implementations
             account.BookType = dto.BookType;
             account.BookSubType = dto.BookSubType;
             account.IsActive = dto.IsActive;
+            account.ModifiedBy = _common.GetUserId();
+            account.ModifiedDate = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
 
@@ -136,7 +121,7 @@ namespace FinVentoryAPI.Services.Implementations
 
         public async Task<List<AccountResponseDto>> GetAllAsync()
         {
-            var companyId = GetCompanyId();
+            var companyId = _common.GetCompanyId();
 
             var accounts = await _context.Accounts
                 .Where(x =>x.CompanyId == companyId && !x.IsDeleted )
@@ -164,7 +149,7 @@ namespace FinVentoryAPI.Services.Implementations
 
         public async Task<AccountResponseDto?> GetByIdAsync(int id)
         {
-            var companyId = GetCompanyId();
+            var companyId = _common.GetCompanyId();
 
             var account = await _context.Accounts
             .Include(x => x.AccountGroup)
@@ -196,7 +181,7 @@ namespace FinVentoryAPI.Services.Implementations
 
         public async Task<bool> DeleteAsync(int id)
         {
-            var companyId = GetCompanyId();
+            var companyId = _common.GetCompanyId();
 
             var group = await _context.Accounts
                 .FirstOrDefaultAsync(x =>
@@ -209,6 +194,8 @@ namespace FinVentoryAPI.Services.Implementations
 
             group.IsDeleted = true;
             group.IsActive = false;
+            group.ModifiedBy = _common.GetUserId();
+            group.ModifiedDate = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
 
@@ -216,38 +203,9 @@ namespace FinVentoryAPI.Services.Implementations
         }
 
 
-        //private async Task<AccountResponseDto> MapToResponseAsync (int id)
-        //{
-        //    var companyId = GetCompanyId();
-
-        //    var account = await _context.Accounts
-        //    .Include(x => x.AccountGroup)
-        //    .FirstOrDefaultAsync(x =>
-        //        x.AccountId == id &&
-        //        x.CompanyId == companyId &&
-        //        !x.IsDeleted);
-        //    return new AccountResponseDto
-        //    {
-        //        AccountId = account.AccountId,
-        //        AccountName = account.AccountName,
-        //        AccountCode = account.AccountCode,
-        //        AccountGroupId = account.AccountGroupId,
-        //        AccountGroupName = account.AccountGroup.GroupName,
-        //        AccountTypeId = (int)account.AccountType,
-        //        AccountTypeName = account.AccountType.ToString(),
-        //        BookTypeId = (int?)account.BookType,
-        //        BookTypeName = account.BookType.ToString(),
-        //        BookSubTypeId = (int?)account.BookSubType,
-        //        BookSubTypeName = account.BookSubType.ToString(),
-        //        IsActive = account.IsActive
-
-        //    };
-
-        //}
-
         public async Task<PagedResponseDto<AccountResponseDto>> GetPagedAsync(PagedRequestDto request)
         {
-            var companyId = GetCompanyId();
+            var companyId = _common.GetCompanyId();
 
             var query = _context.Accounts
                 .Where(x => x.CompanyId == companyId && !x.IsDeleted)
@@ -373,7 +331,7 @@ namespace FinVentoryAPI.Services.Implementations
 
         public async Task<List<ChartOfAccountNodeDto>> GetChartOfAccountsAsync()
         {
-            var companyId = GetCompanyId();
+            var companyId = _common.GetCompanyId();
 
             var groups = await _context.AccountGroups
                 .Where(x => x.CompanyId == companyId && !x.IsDeleted)
