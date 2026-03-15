@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using FinVentoryAPI.Helpers;
+
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -25,7 +27,9 @@ builder.Services.AddScoped<IMenuItemService, MenuItemService>();
 builder.Services.AddScoped<IRoleRightService, RoleRightService>();
 builder.Services.AddScoped<IAccountGroupService, AccountGroupService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
-
+builder.Services.AddScoped<ITaxService, TaxService>();
+builder.Services.AddScoped<IHsnService, HsnService>();
+builder.Services.AddScoped<Common>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddCors(options =>
 {

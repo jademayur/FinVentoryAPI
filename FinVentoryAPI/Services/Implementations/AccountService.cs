@@ -35,6 +35,16 @@ namespace FinVentoryAPI.Services.Implementations
             return int.Parse(claim);
         }
 
+        private int GetUserId()
+        {
+            var claim = _httpContextAccessor.HttpContext?
+                .User?.FindFirst("UserId")?.Value;
+
+            if (string.IsNullOrEmpty(claim))
+                throw new Exception("User Id not found in token.");
+
+            return int.Parse(claim);
+        }
 
         public async Task<AccountResponseDto> CreateAsync(CreateAccountDto dto)
         {
@@ -57,15 +67,31 @@ namespace FinVentoryAPI.Services.Implementations
                 AccountType = (Enums.AccountType)(int)dto.AccountType,
                 BookType = (Enums.BookType?)(int?)dto.BookType,
                 BookSubType = (Enums.BookSubType?)(int?)dto.BookSubType,
-                CompanyId = CompanyId
-                
+                CompanyId = CompanyId,
+                CreatedBy = GetUserId(),
+
+
             };
 
 
             _context.Accounts.Add(account);
             await _context.SaveChangesAsync();
 
-            return await MapToResponseAsync(account.AccountId);
+            return new AccountResponseDto
+            {
+                AccountId = account.AccountId,
+                AccountName = account.AccountName,
+                AccountCode = account.AccountCode,
+                AccountGroupId = account.AccountGroupId,
+                AccountGroupName = account.AccountGroup?.GroupName,
+                AccountTypeId = (int)account.AccountType,
+                AccountTypeName = account.AccountType.ToString(),
+                BookTypeId = (int?)account.BookType,
+                BookTypeName = account.BookType?.ToString(),
+                BookSubTypeId = (int?)account.BookSubType,
+                BookSubTypeName = account.BookSubType?.ToString(),
+                IsActive = account.IsActive
+            };
 
         }
 
@@ -190,34 +216,34 @@ namespace FinVentoryAPI.Services.Implementations
         }
 
 
-        private async Task<AccountResponseDto> MapToResponseAsync (int id)
-        {
-            var companyId = GetCompanyId();
+        //private async Task<AccountResponseDto> MapToResponseAsync (int id)
+        //{
+        //    var companyId = GetCompanyId();
 
-            var account = await _context.Accounts
-            .Include(x => x.AccountGroup)
-            .FirstOrDefaultAsync(x =>
-                x.AccountId == id &&
-                x.CompanyId == companyId &&
-                !x.IsDeleted);
-            return new AccountResponseDto
-            {
-                AccountId = account.AccountId,
-                AccountName = account.AccountName,
-                AccountCode = account.AccountCode,
-                AccountGroupId = account.AccountGroupId,
-                AccountGroupName = account.AccountGroup.GroupName,
-                AccountTypeId = (int)account.AccountType,
-                AccountTypeName = account.AccountType.ToString(),
-                BookTypeId = (int?)account.BookType,
-                BookTypeName = account.BookType.ToString(),
-                BookSubTypeId = (int?)account.BookSubType,
-                BookSubTypeName = account.BookSubType.ToString(),
-                IsActive = account.IsActive
+        //    var account = await _context.Accounts
+        //    .Include(x => x.AccountGroup)
+        //    .FirstOrDefaultAsync(x =>
+        //        x.AccountId == id &&
+        //        x.CompanyId == companyId &&
+        //        !x.IsDeleted);
+        //    return new AccountResponseDto
+        //    {
+        //        AccountId = account.AccountId,
+        //        AccountName = account.AccountName,
+        //        AccountCode = account.AccountCode,
+        //        AccountGroupId = account.AccountGroupId,
+        //        AccountGroupName = account.AccountGroup.GroupName,
+        //        AccountTypeId = (int)account.AccountType,
+        //        AccountTypeName = account.AccountType.ToString(),
+        //        BookTypeId = (int?)account.BookType,
+        //        BookTypeName = account.BookType.ToString(),
+        //        BookSubTypeId = (int?)account.BookSubType,
+        //        BookSubTypeName = account.BookSubType.ToString(),
+        //        IsActive = account.IsActive
 
-            };
+        //    };
 
-        }
+        //}
 
         public async Task<PagedResponseDto<AccountResponseDto>> GetPagedAsync(PagedRequestDto request)
         {

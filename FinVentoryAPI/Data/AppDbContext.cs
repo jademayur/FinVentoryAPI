@@ -16,14 +16,14 @@ namespace FinVentoryAPI.Data
         public DbSet<User> Users { get; set; }
         public DbSet<UserCompany> UserCompany { get; set; }
         public DbSet<Location> Locations { get; set; }
-
         public DbSet<Module> Modules { get; set; }
         public DbSet<MenuGroup> MenuGroups { get; set; }
         public DbSet<MenuItem> MenuItems { get; set; }
         public DbSet<RoleRight> RoleRights { get; set; }
-
         public DbSet<AccountGroup> AccountGroups { get; set; }
         public DbSet<Account> Accounts { get; set; }
+        public DbSet <Tax> Taxes { get; set; }
+        public DbSet<Hsn> Hsns { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
