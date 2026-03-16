@@ -53,7 +53,12 @@ namespace FinVentoryAPI.Services.Implementations
 
             return new TaxResponseDto
             {
-
+                TaxName = tax.TaxName,
+                TaxType = tax.TaxType,
+                TaxRate = tax.TaxRate,
+                IGST = tax.IGST,
+                SGST = tax.SGST,
+                CGST = tax.CGST,
             };
         }
 
@@ -100,12 +105,12 @@ namespace FinVentoryAPI.Services.Implementations
         {
             var companyId = _common.GetCompanyId();
 
-            var accounts = await _context.Taxes
+            var tax = await _context.Taxes
                 .Where(x => x.CompanyId == companyId && !x.IsDeleted)
                 .OrderBy(x => x.TaxId)
                 .ToListAsync();
 
-            return accounts.Select(x => new TaxResponseDto
+            return tax.Select(x => new TaxResponseDto
             {
                TaxId= x.TaxId,
                TaxName = x.TaxName,
