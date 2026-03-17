@@ -29,7 +29,12 @@ builder.Services.AddScoped<IAccountGroupService, AccountGroupService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<ITaxService, TaxService>();
 builder.Services.AddScoped<IHsnService, HsnService>();
+builder.Services.AddScoped<IItemGroupService, ItemGroupService>();
 builder.Services.AddScoped<Common>();
+builder.Services.AddScoped<IBrandService, BrandService>();
+builder.Services.AddScoped<IWarehouseService, WarehouseService>();
+
+
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddCors(options =>
 {

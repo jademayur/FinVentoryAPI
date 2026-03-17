@@ -83,7 +83,7 @@ namespace FinVentoryAPI.Services.Implementations
 
             if (duplicate)
                 throw new Exception("Another HSN with same name already exists.");
-
+            hsn.HsnId = dto.HsnId;
             hsn.HsnName = dto.HsnName;
             hsn.HSNType = dto.HsnType;
             hsn.Description = dto.Description;
@@ -253,6 +253,7 @@ namespace FinVentoryAPI.Services.Implementations
                 .Take(request.PageSize)
                 .Select(x => new HsnResponseDto
                 {
+                    HsnId = x.HsnId,
                    HsnName = x.HsnName,
                    Description = x.Description,
                    HsnType = x.HSNType,

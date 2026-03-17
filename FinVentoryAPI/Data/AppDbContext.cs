@@ -24,7 +24,9 @@ namespace FinVentoryAPI.Data
         public DbSet<Account> Accounts { get; set; }
         public DbSet <Tax> Taxes { get; set; }
         public DbSet<Hsn> Hsns { get; set; }
-
+        public DbSet <ItemGroup> ItemGroups { get; set; }
+        public DbSet <Brand>  Brands { get; set; }
+        public DbSet <Warehouse> Warehouses { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
