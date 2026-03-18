@@ -40,7 +40,8 @@ namespace FinVentoryAPI.Services.Implementations
                 CompanyId = companyId,
                 ItemGroupName = dto.ItemGroupName,
                 ParentGroupId = dto.ParentGroupId,
-                GroupCode = dto.GroupCode             
+                GroupCode = dto.GroupCode,
+                CreatedBy = _common.GetUserId()
             };
 
             _context.ItemGroups.Add(itemGroup);

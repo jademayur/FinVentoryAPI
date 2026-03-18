@@ -49,6 +49,7 @@ namespace FinVentoryAPI.Services.Implementations
                 City = dto.City,
                 ContactPerson = dto.ContactPerson,
                 MobileNo = dto.MobileNo,
+                CreatedBy = _common.GetUserId()
             };
 
             _context.Warehouses.Add(warehouse);
@@ -130,7 +131,8 @@ namespace FinVentoryAPI.Services.Implementations
                 ParentWarehouseName = x.ParentWarehouse != null
                     ? x.ParentWarehouse.WarehouseName
                     : null,
-                IsActive = x.IsActive,              
+                IsActive = x.IsActive,
+               
             }).ToList();
         }
 

@@ -39,6 +39,7 @@ namespace FinVentoryAPI.Services.Implementations
             {
                 CompanyId = companyId,
                 BrandName = dto.BrandName,
+                CreatedBy = _common.GetUserId()
             };
 
             _context.Brands.Add(brand);
@@ -49,6 +50,7 @@ namespace FinVentoryAPI.Services.Implementations
                 BrandId = brand.BrandId,
                 BrandName = brand.BrandName,
                 IsActive = brand.IsActive,
+               
             };           
         }
 
