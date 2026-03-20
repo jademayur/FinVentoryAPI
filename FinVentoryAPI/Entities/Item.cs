@@ -1,4 +1,6 @@
-﻿namespace FinVentoryAPI.Entities
+﻿using FinVentoryAPI.Enums;
+
+namespace FinVentoryAPI.Entities
 {
     public class Item : BaseEntity
     {
@@ -9,9 +11,9 @@
         public string? ItemCode { get; set; }
         public string ItemName { get; set; } = string.Empty;
         public string? Description { get; set; }
-        public string ItemType { get; set; } = string.Empty;
+        public ItemType ItemType { get; set; } 
         // Goods / Service
-        public string ItemCategory { get; set; } = string.Empty;
+        public ItemCategory ItemCategory { get; set; } 
         // RawMaterial / SemiFinished / FinishedGoods / Trading
         public string? Barcode { get; set; }
 
@@ -25,11 +27,11 @@
         public int? AlternateUnitId { get; set; }
         public decimal? ConversionFactor { get; set; } // e.g. 1 Box = 10 Nos
         // Inventory
-        public bool AllowNagativeStock { get; set; }
-        public string ItemManageBy { get; set; } 
+        public bool AllowNagativeStock { get; set; } = false;
+        public ItemManageBy ItemManageBy { get; set; } 
         // Regular / Batch / Serial
 
-        public string CostingMethod { get; set; }
+        public CostingMethod CostingMethod { get; set; }
         // MovingAverage / FIFO / Standard
 
         // 🔗 Accounting
@@ -46,6 +48,6 @@
         public Account? PurchaseAccount { get; set; }
 
         public ICollection<ItemPrice>? Prices { get; set; }
-       
+        public ItemGroup? ItemGroup { get; set; }
     }
 }

@@ -38,5 +38,30 @@ namespace FinVentoryAPI.Controllers
         {
             return Ok(EnumHelper.GetEnumList<BookSubType>());
         }
+
+        [HttpGet("item-types")]
+        public IActionResult GetItemType() 
+        {
+            return Ok(EnumHelper.GetEnumList<ItemType>());
+        }
+
+        [HttpGet("item-categories")]
+        public IActionResult GetItemCategory()
+        {
+            return Ok(EnumHelper.GetEnumList<ItemCategory>());
+        }
+
+        [HttpGet("item-manage-by")]
+        public IActionResult GetItemManageBy()
+        {
+            return Ok(EnumHelper.GetEnumList<ItemManageBy>());
+        }
+
+        [HttpGet("costing-methods")]
+        public IActionResult GetCostingMethod() 
+        { 
+            return Ok(EnumHelper.GetEnumList<CostingMethod>());
+        }
+
     }
 }

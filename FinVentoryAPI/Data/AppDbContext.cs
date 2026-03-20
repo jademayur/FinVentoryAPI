@@ -27,6 +27,8 @@ namespace FinVentoryAPI.Data
         public DbSet <ItemGroup> ItemGroups { get; set; }
         public DbSet <Brand>  Brands { get; set; }
         public DbSet <Warehouse> Warehouses { get; set; }
+        public DbSet<Item> Items { get; set; }
+        public DbSet<ItemPrice> ItemsPrices { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

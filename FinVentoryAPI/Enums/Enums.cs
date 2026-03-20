@@ -49,4 +49,32 @@ namespace FinVentoryAPI.Enums
         Services = 2
     }
 
+    public enum ItemType
+    {
+        Goods = 1,
+        Service = 2
+    }
+
+    public enum ItemCategory
+    {
+        RawMaterial = 1,
+        SemiFinished = 2,
+        FinishedGoods = 3,
+        Trading = 4
+    }
+
+    public enum ItemManageBy
+    {
+        Regular = 1,
+        Batch = 2,
+        Serial = 3
+    }
+
+    public enum CostingMethod
+    {
+        MovingAverage = 1,
+        FIFO = 2,
+        Standard = 3
+    }
+
 }
