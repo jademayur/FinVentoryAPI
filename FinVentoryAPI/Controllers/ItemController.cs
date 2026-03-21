@@ -18,8 +18,11 @@ namespace FinVentoryAPI.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create(CreateItemDto dto)
+        public async Task<IActionResult> Create([FromBody] CreateItemDto dto)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
             try
             {
                 var result = await _service.CreateAsync(dto);
@@ -27,18 +30,21 @@ namespace FinVentoryAPI.Controllers
             }
             catch (Exception ex)
             {
+                // Return structured error so Angular can read err?.error?.message
                 return BadRequest(new { message = ex.Message });
             }
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, UpdateItemDto dto)
+        public async Task<IActionResult> Update(int id, [FromBody] UpdateItemDto dto)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
             try
             {
-                var updated = await _service.UpdateAsync(id, dto);
-
-                if (!updated)
+                var result = await _service.UpdateAsync(id, dto);
+                if (!result)
                     return NotFound(new { message = "Item not found." });
 
                 return Ok(new { message = "Item updated successfully." });
@@ -48,7 +54,6 @@ namespace FinVentoryAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
-
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {

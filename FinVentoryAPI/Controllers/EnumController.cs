@@ -63,5 +63,53 @@ namespace FinVentoryAPI.Controllers
             return Ok(EnumHelper.GetEnumList<CostingMethod>());
         }
 
+        [HttpGet("base-units")]
+        public IActionResult GetBaseUnit()
+        {
+            return Ok(EnumHelper.GetEnumList<BaseUnit>());
+        }
+
+        // ── Alternate Units filtered by selected Base Unit ─────────
+        // GET /api/Enum/alternate-units?baseUnitId=1
+        [HttpGet("alternate-units")]
+        public IActionResult GetAlternativeUnit([FromQuery] int baseUnitId)
+        {
+            if (!Enum.IsDefined(typeof(BaseUnit), baseUnitId))
+                return BadRequest("Invalid base unit.");
+
+            var baseUnit = (BaseUnit)baseUnitId;
+
+            // Get only the AlternateUnit values that have a valid factor for this base unit
+            var validAlternates = EnumHelper.Factors
+                .Where(kvp => kvp.Key.Item1 == baseUnit)
+                .Select(kvp => new
+                {
+                    id = Convert.ToInt32(kvp.Key.Item2),
+                    name = EnumHelper.GetDisplayName(kvp.Key.Item2),
+                    factor = kvp.Value          // auto-fill conversion factor on frontend
+                })
+                .ToList();
+
+            return Ok(validAlternates);
+        }
+
+        // ── Get conversion factor for a specific pair ──────────────
+        // GET /api/Enum/conversion-factor?baseUnitId=1&altUnitId=2
+        [HttpGet("conversion-factor")]
+        public IActionResult GetConversionFactor([FromQuery] int baseUnitId, [FromQuery] int altUnitId)
+        {
+            if (!Enum.IsDefined(typeof(BaseUnit), baseUnitId)) return BadRequest("Invalid base unit.");
+            if (!Enum.IsDefined(typeof(AlternateUnit), altUnitId)) return BadRequest("Invalid alternate unit.");
+
+            var baseUnit = (BaseUnit)baseUnitId;
+            var altUnit = (AlternateUnit)altUnitId;
+            var factor = EnumHelper.GetFactor(baseUnit, altUnit);
+
+            if (factor == null)
+                return NotFound(new { message = "No conversion factor defined for this pair." });
+
+            return Ok(new { factor });
+        }
+
     }
 }

@@ -49,5 +49,6 @@ namespace FinVentoryAPI.Entities
 
         public ICollection<ItemPrice>? Prices { get; set; }
         public ItemGroup? ItemGroup { get; set; }
+        public Brand? Brand { get; set; }
     }
 }

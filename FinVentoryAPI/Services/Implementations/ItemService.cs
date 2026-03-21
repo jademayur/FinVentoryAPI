@@ -187,12 +187,17 @@ namespace FinVentoryAPI.Services.Implementations
         }
 
         // ✅ GET BY ID
+        // Fix GetByIdAsync — maps ALL fields so edit mode shows correct data
+        // File: Services/Implementations/ItemService.cs
+
         public async Task<ItemResponseDto?> GetByIdAsync(int id)
         {
             var companyId = _common.GetCompanyId();
 
             var item = await _context.Items
                 .Include(x => x.Prices)
+                .Include(x => x.ItemGroup)
+                .Include(x => x.Brand)
                 .FirstOrDefaultAsync(x =>
                     x.ItemId == id &&
                     x.CompanyId == companyId &&
@@ -203,15 +208,51 @@ namespace FinVentoryAPI.Services.Implementations
 
             return new ItemResponseDto
             {
+                // ── Identity ──────────────────────────────────────────
                 ItemId = item.ItemId,
+                CompanyId = item.CompanyId,
+
+                // ── Basic Info ────────────────────────────────────────
                 ItemName = item.ItemName,
-                ItemCode = item.ItemCode,
+                ItemCode = item.ItemCode ?? "",
+                Description = item.Description,
                 Barcode = item.Barcode,
                 ItemType = item.ItemType,
                 ItemCategory = item.ItemCategory,
 
-                Prices = item.Prices.Select(p => new ItemPriceResponseDto
+                // ── Classification ────────────────────────────────────
+                ItemGroupId = item.ItemGroupId,
+                ItemGroupName = item.ItemGroup?.ItemGroupName,
+                BrandId = item.BrandId,
+                BrandName = item.Brand?.BrandName,
+                HSNCodeId = item.HSNCodeId,
+
+                // ── Units ─────────────────────────────────────────────
+                BaseUnitId = item.BaseUnitId,
+                AlternateUnitId = item.AlternateUnitId,
+                ConversionFactor = item.ConversionFactor,
+
+                // ── Inventory ─────────────────────────────────────────
+                AllowNagativeStock = item.AllowNagativeStock,
+                ItemManageBy = item.ItemManageBy,
+                CostingMethod = item.CostingMethod,
+
+                // ── Accounting ────────────────────────────────────────
+                InventoryAccountId = item.InventoryAccountId,
+                COGSAccountId = item.COGSAccountId,
+                SalesAccountId = item.SalesAccountId,
+                PurchaseAccountId = item.PurchaseAccountId,
+
+                // ── Status & Audit ────────────────────────────────────
+                IsActive = item.IsActive,
+                CreatedDate = item.CreatedDate,
+                UpdatedDate = item.ModifiedDate,
+
+                // ── Prices ────────────────────────────────────────────
+                Prices = item.Prices?.Select(p => new ItemPriceResponseDto
                 {
+                    ItemPriceId = p.ItemPriceId,
+                    ItemId = p.ItemId,
                     PriceType = p.PriceType,
                     Rate = p.Rate,
                     IsTaxIncluded = p.IsTaxIncluded

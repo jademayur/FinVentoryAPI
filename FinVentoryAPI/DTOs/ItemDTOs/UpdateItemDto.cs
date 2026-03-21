@@ -72,7 +72,7 @@ namespace FinVentoryAPI.DTOs.ItemDTOs
         public int? SalesAccountId { get; set; }
         public int? PurchaseAccountId { get; set; }
 
-        public ICollection<ItemPrice>? Prices { get; set; }
+        public ICollection<ItemPriceDto>? Prices { get; set; }
 
     }
 }

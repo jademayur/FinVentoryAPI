@@ -8,7 +8,7 @@ namespace FinVentoryAPI.Enums
         Liability = 2,
         Income = 3,
         Expense = 4
-        
+
     }
 
     public enum BalanceTo
@@ -23,17 +23,17 @@ namespace FinVentoryAPI.Enums
     public enum BookType
     {
         [Display(Name = "NO BOOK")]
-        NONE  = 0,
+        NONE = 0,
         [Display(Name = "CASH BOOK")]
-        CASH  = 1,
+        CASH = 1,
         [Display(Name = "BANK BOOK")]
-        BANK  = 2,
+        BANK = 2,
         [Display(Name = "SALES BOOK")]
-        SALE  = 3,
+        SALE = 3,
         [Display(Name = "PURCHASE BOOK")]
-        PRCH  = 4,
+        PRCH = 4,
         [Display(Name = "J.V BOOK")]
-        JV  = 5    	
+        JV = 5
     }
 
     public enum AccountType
@@ -77,4 +77,83 @@ namespace FinVentoryAPI.Enums
         Standard = 3
     }
 
+    public enum BaseUnit
+    {
+        // Weight
+        [Display(Name = "Kilogram")] KG = 1,
+        [Display(Name = "Gram")] GM = 2,
+        [Display(Name = "Ton")] TON = 3,
+        [Display(Name = "Pound")] LB = 4,
+        [Display(Name = "Ounce")] OZ = 5,
+
+        // Volume
+        [Display(Name = "Liter")] LTR = 6,
+        [Display(Name = "Milliliter")] ML = 7,
+        [Display(Name = "Gallon")] GAL = 8,
+        [Display(Name = "Fluid Ounce")] FLOZ = 9,
+
+        // Length
+        [Display(Name = "Meter")] MTR = 10,
+        [Display(Name = "Centimeter")] CM = 11,
+        [Display(Name = "Millimeter")] MM = 12,
+        [Display(Name = "Inch")] INCH = 13,
+        [Display(Name = "Foot")] FT = 14,
+        [Display(Name = "Yard")] YD = 15,
+
+        // Quantity
+        [Display(Name = "Piece")] PCS = 16,
+        [Display(Name = "Dozen")] DOZ = 17,
+        [Display(Name = "Box")] BOX = 18,
+        [Display(Name = "Pack")] PACK = 19,
+        [Display(Name = "Carton")] CTN = 20,
+        [Display(Name = "Bag")] BAG = 21,
+        [Display(Name = "Roll")] ROLL = 22,
+        [Display(Name = "Set")] SET = 23,
+        [Display(Name = "Pair")] PAIR = 24,
+        [Display(Name = "Bundle")] BDL = 25,
+    }
+
+    public enum AlternateUnit
+    {
+        // Weight
+        [Display(Name = "Gram")] GM = 1,
+        [Display(Name = "Milligram")] MG = 2,
+        [Display(Name = "Ton")] TON = 3,
+        [Display(Name = "Pound")] LB = 4,
+        [Display(Name = "Ounce")] OZ = 5,
+        [Display(Name = "Quintal")] QNT = 6,
+
+        // Volume
+        [Display(Name = "Milliliter")] ML = 7,
+        [Display(Name = "Gallon")] GAL = 8,
+        [Display(Name = "Fluid Ounce")] FLOZ = 9,
+        [Display(Name = "Cup")] CUP = 10,
+        [Display(Name = "Pint")] PT = 11,
+        [Display(Name = "Quart")] QT = 12,
+
+        // Length
+        [Display(Name = "Centimeter")] CM = 13,
+        [Display(Name = "Millimeter")] MM = 14,
+        [Display(Name = "Inch")] INCH = 15,
+        [Display(Name = "Foot")] FT = 16,
+        [Display(Name = "Yard")] YD = 17,
+        [Display(Name = "Kilometer")] KM = 18,
+        [Display(Name = "Mile")] MI = 19,
+
+        // Quantity
+        [Display(Name = "Piece")] PCS = 20,
+        [Display(Name = "Dozen")] DOZ = 21,
+        [Display(Name = "Box")] BOX = 22,
+        [Display(Name = "Pack")] PACK = 23,
+        [Display(Name = "Carton")] CTN = 24,
+        [Display(Name = "Bag")] BAG = 25,
+        [Display(Name = "Roll")] ROLL = 26,
+        [Display(Name = "Set")] SET = 27,
+        [Display(Name = "Pair")] PAIR = 28,
+        [Display(Name = "Bundle")] BDL = 29,
+        [Display(Name = "Gross")] GRS = 30,  // 144 pcs
+        [Display(Name = "Ream")] REAM = 31,  // 500 sheets
+
+
+    }
 }
