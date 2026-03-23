@@ -1,9 +1,7 @@
-﻿namespace FinVentoryAPI.Entities
+﻿namespace FinVentoryAPI.DTOs.BusinessPartnerDTOs
 {
-    public class BusinessPartnerContact
+    public class BPContactDto
     {
-        public int BPContactId { get; set; }
-        public int BusinessPartnerId { get; set; }
         public string? Name { get; set; }
         public string? Mobile { get; set; }
         public string? Email { get; set; }

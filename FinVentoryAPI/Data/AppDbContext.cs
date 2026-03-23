@@ -30,6 +30,11 @@ namespace FinVentoryAPI.Data
         public DbSet<Item> Items { get; set; }
         public DbSet<ItemPrice> ItemsPrices { get; set; }
 
+        public DbSet<BusinessPartner> BusinessPartners { get; set; }
+        public DbSet<BusinessPartnerAddress> BusinessPartnerAddresses { get; set; }
+        public DbSet<BusinessPartnerContact> BusinessPartnerContacts { get; set; }
+
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             // MenuItem → Module
@@ -59,8 +64,63 @@ namespace FinVentoryAPI.Data
                 .WithMany()
                 .HasForeignKey(u => u.RoleId)
                 .OnDelete(DeleteBehavior.NoAction); // important to prevent cascade issues
+
+            modelBuilder.Entity<Item>()
+                 .HasOne(i => i.Brand)
+                 .WithMany()
+                 .HasForeignKey(i => i.BrandId)
+                 .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<BusinessPartnerAddress>()
+              .HasKey(x => x.BPAddressId);
+
+            modelBuilder.Entity<BusinessPartnerContact>()
+                .HasKey(x => x.BPContactId);
+
+            modelBuilder.Entity<BusinessPartner>()
+    .Property(x => x.CreditLimit)
+    .HasPrecision(18, 2);
+
+            modelBuilder.Entity<Hsn>()
+    .Property(x => x.Cess)
+    .HasPrecision(5, 2);
+
+            modelBuilder.Entity<Item>()
+                .Property(x => x.ConversionFactor)
+                .HasPrecision(18, 4);
+
+            modelBuilder.Entity<ItemPrice>()
+                .Property(x => x.Rate)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<Tax>(entity =>
+            {
+                entity.Property(x => x.CGST).HasPrecision(5, 2);
+                entity.Property(x => x.SGST).HasPrecision(5, 2);
+                entity.Property(x => x.IGST).HasPrecision(5, 2);
+                entity.Property(x => x.TaxRate).HasPrecision(5, 2);
+            });
+
+            modelBuilder.Entity<BusinessPartnerAddress>()
+                .HasOne<BusinessPartner>()
+                .WithMany(x => x.BPAddresses)
+                .HasForeignKey(x => x.BusinessPartnerId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<BusinessPartnerContact>()
+                .HasOne<BusinessPartner>()
+                .WithMany(x => x.BPContacts)
+                .HasForeignKey(x => x.BusinessPartnerId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<BusinessPartner>()
+                .HasOne(x => x.accountGroup)
+                .WithMany()
+                .HasForeignKey(x => x.AccountGroupId);
+
         }
 
+ 
 
 
 

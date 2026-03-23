@@ -34,6 +34,7 @@ builder.Services.AddScoped<Common>();
 builder.Services.AddScoped<IBrandService, BrandService>();
 builder.Services.AddScoped<IWarehouseService, WarehouseService>();
 builder.Services.AddScoped<IItemService, ItemService>();
+builder.Services.AddScoped<IBusinessPartnerService, BusinessPartnerService>();
 
 
 builder.Services.AddHttpContextAccessor();

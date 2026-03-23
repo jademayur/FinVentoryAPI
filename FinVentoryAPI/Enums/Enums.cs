@@ -156,4 +156,24 @@ namespace FinVentoryAPI.Enums
 
 
     }
+
+    public enum BusinessPartnerType
+    {
+        Customer = 1,
+        Supplier = 2,
+        Both = 3,
+        Agent = 4,
+    }
+    public enum AddressType
+    {
+        Billing = 1,
+        Shipping = 2,
+        Common = 3
+    }
+    public enum GSTType
+    {
+        Regular = 1,
+        NoRegister = 2,
+        Composite = 3
+    }
 }

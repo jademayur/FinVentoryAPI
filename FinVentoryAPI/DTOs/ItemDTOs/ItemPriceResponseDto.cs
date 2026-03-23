@@ -2,7 +2,7 @@
 {
     public class ItemPriceResponseDto
     {
-         public int ItemPriceId { get; set; }
+        public int ItemPriceId { get; set; }
         public int ItemId { get; set; }
  
         /// <summary>MRP / Retail / Wholesale / Purchase</summary>

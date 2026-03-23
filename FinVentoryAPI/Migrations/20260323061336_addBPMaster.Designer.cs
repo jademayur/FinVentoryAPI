@@ -4,6 +4,7 @@ using FinVentoryAPI.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace FinVentoryAPI.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260323061336_addBPMaster")]
+    partial class addBPMaster
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -175,6 +178,9 @@ namespace FinVentoryAPI.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("BusinessPartnerId"));
 
+                    b.Property<int>("AccountGroup")
+                        .HasColumnType("int");
+
                     b.Property<int>("AccountGroupId")
                         .HasColumnType("int");
 
@@ -202,7 +208,6 @@ namespace FinVentoryAPI.Migrations
                         .HasColumnType("int");
 
                     b.Property<decimal>("CreditLimit")
-                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("Email")
@@ -455,8 +460,7 @@ namespace FinVentoryAPI.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("HsnId"));
 
                     b.Property<decimal?>("Cess")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("CompanyId")
                         .HasColumnType("int");
@@ -530,8 +534,7 @@ namespace FinVentoryAPI.Migrations
                         .HasColumnType("int");
 
                     b.Property<decimal?>("ConversionFactor")
-                        .HasPrecision(18, 4)
-                        .HasColumnType("decimal(18,4)");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("CostingMethod")
                         .HasColumnType("int");
@@ -546,9 +549,6 @@ namespace FinVentoryAPI.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("HSNCodeId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("HsnId")
                         .HasColumnType("int");
 
                     b.Property<int?>("InventoryAccountId")
@@ -596,8 +596,6 @@ namespace FinVentoryAPI.Migrations
                     b.HasIndex("BrandId");
 
                     b.HasIndex("COGSAccountId");
-
-                    b.HasIndex("HsnId");
 
                     b.HasIndex("InventoryAccountId");
 
@@ -675,7 +673,6 @@ namespace FinVentoryAPI.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal>("Rate")
-                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.HasKey("ItemPriceId");
@@ -932,8 +929,7 @@ namespace FinVentoryAPI.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TaxId"));
 
                     b.Property<decimal>("CGST")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("CompanyId")
                         .HasColumnType("int");
@@ -945,8 +941,7 @@ namespace FinVentoryAPI.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<decimal>("IGST")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
@@ -961,16 +956,14 @@ namespace FinVentoryAPI.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<decimal>("SGST")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("TaxName")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal?>("TaxRate")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("TaxType")
                         .HasColumnType("nvarchar(max)");
@@ -1189,16 +1182,11 @@ namespace FinVentoryAPI.Migrations
                 {
                     b.HasOne("FinVentoryAPI.Entities.Brand", "Brand")
                         .WithMany()
-                        .HasForeignKey("BrandId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .HasForeignKey("BrandId");
 
                     b.HasOne("FinVentoryAPI.Entities.Account", "COGSAccount")
                         .WithMany()
                         .HasForeignKey("COGSAccountId");
-
-                    b.HasOne("FinVentoryAPI.Entities.Hsn", "Hsn")
-                        .WithMany()
-                        .HasForeignKey("HsnId");
 
                     b.HasOne("FinVentoryAPI.Entities.Account", "InventoryAccount")
                         .WithMany()
@@ -1221,8 +1209,6 @@ namespace FinVentoryAPI.Migrations
                     b.Navigation("Brand");
 
                     b.Navigation("COGSAccount");
-
-                    b.Navigation("Hsn");
 
                     b.Navigation("InventoryAccount");
 

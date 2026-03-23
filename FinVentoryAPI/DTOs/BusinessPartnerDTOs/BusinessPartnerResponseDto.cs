@@ -1,8 +1,10 @@
-﻿using FinVentoryAPI.Enums;
+﻿using FinVentoryAPI.DTOs.ItemDTOs;
+using FinVentoryAPI.Entities;
+using FinVentoryAPI.Enums;
 
-namespace FinVentoryAPI.Entities
+namespace FinVentoryAPI.DTOs.BusinessPartnerDTOs
 {
-    public class BusinessPartner : BaseEntity
+    public class BusinessPartnerResponseDto
     {
         public int BusinessPartnerId { get; set; }
         public int CompanyId { get; set; }
@@ -16,10 +18,9 @@ namespace FinVentoryAPI.Entities
         public int CreditDays { get; set; } = 0;
         public int AccountGroupId { get; set; }
         public int AccountId { get; set; }
-
-        public ICollection<BusinessPartnerAddress>? BPAddresses { get; set; }
-        public ICollection<BusinessPartnerContact>? BPContacts   { get; set; }
-        public AccountGroup? accountGroup { get; set; }
+        public bool IsActive { get; set; }
+        public List<BusinessPartnerAddressDto>? BPAddresses { get; set; }
+        public List<BusinessPartnerContactDto>? BPContacts { get; set; }
 
     }
 }

@@ -111,5 +111,23 @@ namespace FinVentoryAPI.Controllers
             return Ok(new { factor });
         }
 
+        [HttpGet("business-partner-types")]
+        public IActionResult GetBusinessPartnerType()
+        {
+            return Ok(EnumHelper.GetEnumList<BusinessPartnerType>());
+        }
+
+        [HttpGet("address-types")]
+        public IActionResult GetAddressType()
+        {
+            return Ok(EnumHelper.GetEnumList<AddressType>());
+        }
+
+        [HttpGet("gst-types")]
+        public IActionResult GetGstType()
+        {
+            return Ok(EnumHelper.GetEnumList<GSTType>());
+        }
+
     }
 }
