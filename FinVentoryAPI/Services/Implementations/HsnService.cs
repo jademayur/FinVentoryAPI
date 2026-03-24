@@ -42,8 +42,8 @@ namespace FinVentoryAPI.Services.Implementations
                 Description = dto.Description,
                 TaxId = dto.TaxId,
                 Cess = dto.Cess,
+                CessPostingAc = dto.CessPostingAc,
                 CreatedBy = _common.GetUserId()
-
             };
 
             _context.Hsns.Add(hsn);
@@ -56,7 +56,8 @@ namespace FinVentoryAPI.Services.Implementations
                 HsnType = hsn.HSNType,
                 Description = hsn.Description,
                 TaxId = dto.TaxId,
-                Cess = dto.Cess
+                Cess = dto.Cess,
+                CessPostingAc = dto.CessPostingAc,
             };
         }
 
@@ -69,10 +70,9 @@ namespace FinVentoryAPI.Services.Implementations
                    x.HsnId == id &&
                    x.CompanyId == CompanyId &&
                    !x.IsDeleted);
+
             if (hsn == null)
-            {
                 return false;
-            }
 
             var duplicate = await _context.Hsns
                .AnyAsync(x =>
@@ -83,16 +83,17 @@ namespace FinVentoryAPI.Services.Implementations
 
             if (duplicate)
                 throw new Exception("Another HSN with same name already exists.");
+
             hsn.HsnId = dto.HsnId;
             hsn.HsnName = dto.HsnName;
             hsn.HSNType = dto.HsnType;
             hsn.Description = dto.Description;
             hsn.TaxId = dto.TaxId;
             hsn.Cess = dto.Cess;
+            hsn.CessPostingAc = dto.CessPostingAc;
             hsn.IsActive = dto.IsActive;
             hsn.ModifiedBy = _common.GetUserId();
             hsn.ModifiedDate = dto.ModifiedDate;
-
 
             await _context.SaveChangesAsync();
 
@@ -104,6 +105,8 @@ namespace FinVentoryAPI.Services.Implementations
             var companyId = _common.GetCompanyId();
 
             var hsn = await _context.Hsns
+                .Include(x => x.tax)
+                .Include(x => x.account)
                 .Where(x => x.CompanyId == companyId && !x.IsDeleted)
                 .OrderBy(x => x.HsnId)
                 .ToListAsync();
@@ -115,9 +118,11 @@ namespace FinVentoryAPI.Services.Implementations
                 HsnType = x.HSNType,
                 Description = x.Description,
                 TaxId = x.TaxId,
+                TaxName = x.tax != null ? x.tax.TaxName : null,
                 Cess = x.Cess,
+                CessPostingAc = x.CessPostingAc,
+                CessPostingAcName = x.account != null ? x.account.AccountName : null,
                 IsActive = x.IsActive
-
             }).ToList();
         }
 
@@ -126,10 +131,12 @@ namespace FinVentoryAPI.Services.Implementations
             var companyId = _common.GetCompanyId();
 
             var hsn = await _context.Hsns
-            .FirstOrDefaultAsync(x =>
-                x.HsnId == id &&
-                x.CompanyId == companyId &&
-                !x.IsDeleted);
+                .Include(x => x.tax)
+                .Include(x => x.account)
+                .FirstOrDefaultAsync(x =>
+                    x.HsnId == id &&
+                    x.CompanyId == companyId &&
+                    !x.IsDeleted);
 
             if (hsn == null)
                 return null;
@@ -141,7 +148,10 @@ namespace FinVentoryAPI.Services.Implementations
                 HsnType = hsn.HSNType,
                 Description = hsn.Description,
                 TaxId = hsn.TaxId,
+                TaxName = hsn.tax != null ? hsn.tax.TaxName : null,
                 Cess = hsn.Cess,
+                CessPostingAc = hsn.CessPostingAc,
+                CessPostingAcName = hsn.account != null ? hsn.account.AccountName : null,
                 IsActive = hsn.IsActive
             };
         }
@@ -152,7 +162,7 @@ namespace FinVentoryAPI.Services.Implementations
 
             var tax = await _context.Hsns
                 .FirstOrDefaultAsync(x =>
-                    x.HsnId  == id &&
+                    x.HsnId == id &&
                     x.CompanyId == companyId &&
                     !x.IsDeleted);
 
@@ -174,6 +184,8 @@ namespace FinVentoryAPI.Services.Implementations
             var companyId = _common.GetCompanyId();
 
             var query = _context.Hsns
+                .Include(x => x.tax)
+                .Include(x => x.account)
                 .Where(x => x.CompanyId == companyId && !x.IsDeleted)
                 .AsQueryable();
 
@@ -181,9 +193,7 @@ namespace FinVentoryAPI.Services.Implementations
             if (!string.IsNullOrWhiteSpace(request.Search))
             {
                 var search = request.Search.ToLower();
-
-                query = query.Where(x =>
-                    x.HsnName.ToLower().Contains(search));
+                query = query.Where(x => x.HsnName.ToLower().Contains(search));
             }
 
             // FILTERS
@@ -200,7 +210,6 @@ namespace FinVentoryAPI.Services.Implementations
                     var isActive = ((JsonElement)request.Filters["isActive"]).GetBoolean();
                     query = query.Where(x => x.IsActive == isActive);
                 }
-
             }
 
             // SORTING
@@ -224,8 +233,8 @@ namespace FinVentoryAPI.Services.Implementations
 
                     case "taxname":
                         query = sort.Direction == "desc"
-                            ? query.OrderByDescending(x => x.tax.TaxName)
-                            : query.OrderBy(x => x.TaxId);
+                            ? query.OrderByDescending(x => x.tax != null ? x.tax.TaxName : null)
+                            : query.OrderBy(x => x.tax != null ? x.tax.TaxName : null);
                         break;
 
                     case "isactive":
@@ -254,14 +263,15 @@ namespace FinVentoryAPI.Services.Implementations
                 .Select(x => new HsnResponseDto
                 {
                     HsnId = x.HsnId,
-                   HsnName = x.HsnName,
-                   Description = x.Description,
-                   HsnType = x.HSNType,
-                   TaxId = x.TaxId,
-                   TaxName = x.tax.TaxName,
-                   Cess = x.Cess,
+                    HsnName = x.HsnName,
+                    Description = x.Description,
+                    HsnType = x.HSNType,
+                    TaxId = x.TaxId,
+                    TaxName = x.tax != null ? x.tax.TaxName : null,          // ✅ null-safe
+                    Cess = x.Cess,
+                    CessPostingAc = x.CessPostingAc,
+                    CessPostingAcName = x.account != null ? x.account.AccountName : null,  // ✅ null-safe
                     IsActive = x.IsActive,
-
                 })
                 .ToListAsync();
 

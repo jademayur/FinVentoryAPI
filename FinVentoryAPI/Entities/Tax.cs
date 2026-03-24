@@ -1,4 +1,6 @@
-﻿namespace FinVentoryAPI.Entities
+﻿using System.ComponentModel.DataAnnotations.Schema;
+
+namespace FinVentoryAPI.Entities
 {
     public class Tax : BaseEntity
     {
@@ -10,6 +12,19 @@
         public decimal IGST { get; set; }
         public decimal SGST { get; set; }
         public decimal CGST { get; set; }
+        public int? IGSTPostingAccountId { get; set; }
+        public int? CGSTPostingAccountId { get; set; }
+        public int? SGSTPostingAccountId { get; set; }
+
+        [ForeignKey(nameof(IGSTPostingAccountId))]
+        public Account? IGSTAccount { get; set; }
+
+        [ForeignKey(nameof(CGSTPostingAccountId))]
+        public Account? CGSTAccount { get; set; }
+
+        [ForeignKey(nameof(SGSTPostingAccountId))]
+        public Account? SGSTAccount { get; set; }
+
 
     }
 }

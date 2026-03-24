@@ -18,5 +18,8 @@ namespace FinVentoryAPI.DTOs.TaxTDOs
         [Required(ErrorMessage = "CGST Rate is required.")]
         [RegularExpression(@"^\d+(\.\d{1,4})?$", ErrorMessage = "Only valid numbers are allowed (e.g. 9 or 9.5).")]
         public decimal CGST { get; set; }
+        public int? IGSTPostingAccountId { get; set; }
+        public int? CGSTPostingAccountId { get; set; }
+        public int? SGSTPostingAccountId { get; set; }
     }
 }

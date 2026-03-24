@@ -44,6 +44,9 @@ namespace FinVentoryAPI.Services.Implementations
                 IGST = dto.IGST,
                 SGST = dto.SGST,
                 CGST = dto.CGST,
+                IGSTPostingAccountId = dto.IGSTPostingAccountId,
+                SGSTPostingAccountId = dto.SGSTPostingAccountId,
+                CGSTPostingAccountId = dto.CGSTPostingAccountId,
                 CreatedBy = _common.GetUserId(),
 
             };
@@ -95,6 +98,9 @@ namespace FinVentoryAPI.Services.Implementations
             tax.IsActive = dto.IsActive;
             tax.ModifiedBy = _common.GetUserId();
             tax.ModifiedDate = DateTime.UtcNow;
+            tax.IGSTPostingAccountId = dto.IGSTPostingAccountId;
+            tax.SGSTPostingAccountId = dto.SGSTPostingAccountId;
+            tax.CGSTPostingAccountId = dto.CGSTPostingAccountId;
 
             await _context.SaveChangesAsync();
 
@@ -106,6 +112,9 @@ namespace FinVentoryAPI.Services.Implementations
             var companyId = _common.GetCompanyId();
 
             var tax = await _context.Taxes
+                .Include(x => x.IGSTAccount)
+                .Include(x => x.CGSTAccount)
+                .Include(x => x.SGSTAccount)
                 .Where(x => x.CompanyId == companyId && !x.IsDeleted)
                 .OrderBy(x => x.TaxId)
                 .ToListAsync();
@@ -119,7 +128,14 @@ namespace FinVentoryAPI.Services.Implementations
                IGST = x.IGST,
                CGST = x.CGST,
                SGST = x.SGST,
-               IsActive = x.IsActive
+               IsActive = x.IsActive,
+               IGSTPostingAccountId = x.IGSTPostingAccountId,
+               IGSTPostingAccountName = x.IGSTAccount.AccountName,
+               CGSTPostingAccountId = x.CGSTPostingAccountId,
+               CGSTPostingAccountName = x.CGSTAccount.AccountName,
+                SGSTPostingAccountId = x.SGSTPostingAccountId,
+                SGSTPostingAccountName = x.SGSTAccount.AccountName,
+
 
             }).ToList();
         }
@@ -128,11 +144,14 @@ namespace FinVentoryAPI.Services.Implementations
         {
             var companyId = _common.GetCompanyId();
 
-            var tax = await _context.Taxes           
-            .FirstOrDefaultAsync(x =>
-                x.TaxId == id &&
-                x.CompanyId == companyId &&
-                !x.IsDeleted);
+            var tax = await _context.Taxes
+                .Include(x => x.IGSTAccount)
+                .Include(x => x.CGSTAccount)
+                .Include(x => x.SGSTAccount)
+                .FirstOrDefaultAsync(x =>
+                    x.TaxId == id &&
+                    x.CompanyId == companyId &&
+                    !x.IsDeleted);
 
             if (tax == null)
                 return null;
@@ -146,10 +165,15 @@ namespace FinVentoryAPI.Services.Implementations
                 IGST = tax.IGST,
                 CGST = tax.CGST,
                 SGST = tax.SGST,
-                IsActive = tax.IsActive
+                IsActive = tax.IsActive,
+                IGSTPostingAccountId = tax.IGSTPostingAccountId,
+                CGSTPostingAccountId = tax.CGSTPostingAccountId,
+                SGSTPostingAccountId = tax.SGSTPostingAccountId,
+                IGSTPostingAccountName = tax.IGSTAccount != null ? tax.IGSTAccount.AccountName : null,
+                CGSTPostingAccountName = tax.CGSTAccount != null ? tax.CGSTAccount.AccountName : null,
+                SGSTPostingAccountName = tax.SGSTAccount != null ? tax.SGSTAccount.AccountName : null,
             };
         }
-
         public async Task<bool> DeleteAsync(int id)
         {
             var companyId = _common.GetCompanyId();
@@ -178,6 +202,9 @@ namespace FinVentoryAPI.Services.Implementations
             var companyId = _common.GetCompanyId();
 
             var query = _context.Taxes
+                .Include(x => x.IGSTAccount)
+                .Include(x => x.CGSTAccount)
+                .Include(x => x.SGSTAccount)
                 .Where(x => x.CompanyId == companyId && !x.IsDeleted)
                 .AsQueryable();
 
@@ -265,7 +292,13 @@ namespace FinVentoryAPI.Services.Implementations
                     SGST = x.SGST,
                     IGST  = x.IGST,
                     IsActive = x.IsActive,
-                  
+                    IGSTPostingAccountId = x.IGSTPostingAccountId,
+                    SGSTPostingAccountId = x.SGSTPostingAccountId,
+                    CGSTPostingAccountId = x.CGSTPostingAccountId,
+                    IGSTPostingAccountName = x.IGSTAccount != null ? x.IGSTAccount.AccountName : null,
+                    CGSTPostingAccountName = x.CGSTAccount != null ? x.CGSTAccount.AccountName : null,
+                    SGSTPostingAccountName = x.SGSTAccount != null ? x.SGSTAccount.AccountName : null,
+
                 })
                 .ToListAsync();
 

@@ -12,5 +12,14 @@ namespace FinVentoryAPI.DTOs.TaxTDOs
         public decimal SGST { get; set; }
         public decimal CGST { get; set; }
         public bool  IsActive { get; set; }
+        public int? IGSTPostingAccountId { get; set; }
+        public int? CGSTPostingAccountId { get; set; }
+        public int? SGSTPostingAccountId { get; set; }    
+
+        public string? IGSTPostingAccountName { get; set; }
+        public string? CGSTPostingAccountName { get; set; }
+        public string? SGSTPostingAccountName { get; set; }
+
+
     }
 }

@@ -4,6 +4,7 @@ using FinVentoryAPI.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace FinVentoryAPI.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260323090728_AddedCessPostingAccount")]
+    partial class AddedCessPostingAccount
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -454,6 +457,9 @@ namespace FinVentoryAPI.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("HsnId"));
 
+                    b.Property<int?>("AccountId")
+                        .HasColumnType("int");
+
                     b.Property<decimal?>("Cess")
                         .HasPrecision(5, 2)
                         .HasColumnType("decimal(5,2)");
@@ -498,7 +504,7 @@ namespace FinVentoryAPI.Migrations
 
                     b.HasKey("HsnId");
 
-                    b.HasIndex("CessPostingAc");
+                    b.HasIndex("AccountId");
 
                     b.HasIndex("TaxId");
 
@@ -940,9 +946,6 @@ namespace FinVentoryAPI.Migrations
                         .HasPrecision(5, 2)
                         .HasColumnType("decimal(5,2)");
 
-                    b.Property<int?>("CGSTPostingAccountId")
-                        .HasColumnType("int");
-
                     b.Property<int>("CompanyId")
                         .HasColumnType("int");
 
@@ -955,9 +958,6 @@ namespace FinVentoryAPI.Migrations
                     b.Property<decimal>("IGST")
                         .HasPrecision(5, 2)
                         .HasColumnType("decimal(5,2)");
-
-                    b.Property<int?>("IGSTPostingAccountId")
-                        .HasColumnType("int");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
@@ -975,9 +975,6 @@ namespace FinVentoryAPI.Migrations
                         .HasPrecision(5, 2)
                         .HasColumnType("decimal(5,2)");
 
-                    b.Property<int?>("SGSTPostingAccountId")
-                        .HasColumnType("int");
-
                     b.Property<string>("TaxName")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -990,12 +987,6 @@ namespace FinVentoryAPI.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("TaxId");
-
-                    b.HasIndex("CGSTPostingAccountId");
-
-                    b.HasIndex("IGSTPostingAccountId");
-
-                    b.HasIndex("SGSTPostingAccountId");
 
                     b.ToTable("Taxes");
                 });
@@ -1198,7 +1189,7 @@ namespace FinVentoryAPI.Migrations
                 {
                     b.HasOne("FinVentoryAPI.Entities.Account", "account")
                         .WithMany()
-                        .HasForeignKey("CessPostingAc");
+                        .HasForeignKey("AccountId");
 
                     b.HasOne("FinVentoryAPI.Entities.Tax", "tax")
                         .WithMany()
@@ -1345,24 +1336,6 @@ namespace FinVentoryAPI.Migrations
                     b.Navigation("Module");
 
                     b.Navigation("Role");
-                });
-
-            modelBuilder.Entity("FinVentoryAPI.Entities.Tax", b =>
-                {
-                    b.HasOne("FinVentoryAPI.Entities.Account", null)
-                        .WithMany()
-                        .HasForeignKey("CGSTPostingAccountId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("FinVentoryAPI.Entities.Account", null)
-                        .WithMany()
-                        .HasForeignKey("IGSTPostingAccountId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("FinVentoryAPI.Entities.Account", null)
-                        .WithMany()
-                        .HasForeignKey("SGSTPostingAccountId")
-                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("FinVentoryAPI.Entities.User", b =>

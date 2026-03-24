@@ -78,12 +78,12 @@ namespace FinVentoryAPI.Data
                 .HasKey(x => x.BPContactId);
 
             modelBuilder.Entity<BusinessPartner>()
-    .Property(x => x.CreditLimit)
-    .HasPrecision(18, 2);
+                 .Property(x => x.CreditLimit)
+                 .HasPrecision(18, 2);
 
-            modelBuilder.Entity<Hsn>()
-    .Property(x => x.Cess)
-    .HasPrecision(5, 2);
+                         modelBuilder.Entity<Hsn>()
+                 .Property(x => x.Cess)
+                 .HasPrecision(5, 2);
 
             modelBuilder.Entity<Item>()
                 .Property(x => x.ConversionFactor)
@@ -117,6 +117,32 @@ namespace FinVentoryAPI.Data
                 .HasOne(x => x.accountGroup)
                 .WithMany()
                 .HasForeignKey(x => x.AccountGroupId);
+
+            modelBuilder.Entity<Hsn>()
+                .HasOne(x => x.account)
+                .WithMany()
+                .HasForeignKey(x => x.CessPostingAc);
+
+            modelBuilder.Entity<Tax>()
+                 .HasOne(x => x.IGSTAccount)   // ← tells EF to use this navigation
+                 .WithMany()
+                 .HasForeignKey(x => x.IGSTPostingAccountId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Tax>()
+                .HasOne(x => x.CGSTAccount)
+                .WithMany()
+                .HasForeignKey(x => x.CGSTPostingAccountId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Tax>()
+                .HasOne(x => x.SGSTAccount)
+                .WithMany()
+                .HasForeignKey(x => x.SGSTPostingAccountId)
+                .OnDelete(DeleteBehavior.Restrict); 
+
+
+
 
         }
 

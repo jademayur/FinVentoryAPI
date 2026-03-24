@@ -4,6 +4,7 @@ using FinVentoryAPI.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace FinVentoryAPI.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260324031643_updateTax")]
+    partial class updateTax
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -940,6 +943,9 @@ namespace FinVentoryAPI.Migrations
                         .HasPrecision(5, 2)
                         .HasColumnType("decimal(5,2)");
 
+                    b.Property<int?>("CGSTPostingAccountAccountId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("CGSTPostingAccountId")
                         .HasColumnType("int");
 
@@ -955,6 +961,9 @@ namespace FinVentoryAPI.Migrations
                     b.Property<decimal>("IGST")
                         .HasPrecision(5, 2)
                         .HasColumnType("decimal(5,2)");
+
+                    b.Property<int?>("IGSTPostingAccountAccountId")
+                        .HasColumnType("int");
 
                     b.Property<int?>("IGSTPostingAccountId")
                         .HasColumnType("int");
@@ -975,6 +984,9 @@ namespace FinVentoryAPI.Migrations
                         .HasPrecision(5, 2)
                         .HasColumnType("decimal(5,2)");
 
+                    b.Property<int?>("SGSTPostingAccountAccountId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("SGSTPostingAccountId")
                         .HasColumnType("int");
 
@@ -991,9 +1003,15 @@ namespace FinVentoryAPI.Migrations
 
                     b.HasKey("TaxId");
 
+                    b.HasIndex("CGSTPostingAccountAccountId");
+
                     b.HasIndex("CGSTPostingAccountId");
 
+                    b.HasIndex("IGSTPostingAccountAccountId");
+
                     b.HasIndex("IGSTPostingAccountId");
+
+                    b.HasIndex("SGSTPostingAccountAccountId");
 
                     b.HasIndex("SGSTPostingAccountId");
 
@@ -1349,20 +1367,38 @@ namespace FinVentoryAPI.Migrations
 
             modelBuilder.Entity("FinVentoryAPI.Entities.Tax", b =>
                 {
+                    b.HasOne("FinVentoryAPI.Entities.Account", "CGSTPostingAccount")
+                        .WithMany()
+                        .HasForeignKey("CGSTPostingAccountAccountId");
+
                     b.HasOne("FinVentoryAPI.Entities.Account", null)
                         .WithMany()
                         .HasForeignKey("CGSTPostingAccountId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FinVentoryAPI.Entities.Account", "IGSTPostingAccount")
+                        .WithMany()
+                        .HasForeignKey("IGSTPostingAccountAccountId");
 
                     b.HasOne("FinVentoryAPI.Entities.Account", null)
                         .WithMany()
                         .HasForeignKey("IGSTPostingAccountId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("FinVentoryAPI.Entities.Account", "SGSTPostingAccount")
+                        .WithMany()
+                        .HasForeignKey("SGSTPostingAccountAccountId");
+
                     b.HasOne("FinVentoryAPI.Entities.Account", null)
                         .WithMany()
                         .HasForeignKey("SGSTPostingAccountId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("CGSTPostingAccount");
+
+                    b.Navigation("IGSTPostingAccount");
+
+                    b.Navigation("SGSTPostingAccount");
                 });
 
             modelBuilder.Entity("FinVentoryAPI.Entities.User", b =>

@@ -12,7 +12,8 @@ namespace FinVentoryAPI.DTOs.HsnDTOs
         public string HsnType { get; set; } = string.Empty;
         [Required(ErrorMessage = "Tax is required.")]
         public int TaxId { get; set; }
-        public decimal? Cess { get; set; }   
+        public decimal? Cess { get; set; }
+        public int? CessPostingAc { get; set; }
         public bool IsActive { get; set; }
         public int ModifiedBy { get; set; }
         public DateTime ModifiedDate { get; set; }

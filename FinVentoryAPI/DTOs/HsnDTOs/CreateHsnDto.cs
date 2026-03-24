@@ -12,6 +12,7 @@ namespace FinVentoryAPI.DTOs.HsnDTOs
         [Required(ErrorMessage = "Tax is required.")]
         public int TaxId { get; set;} 
         public decimal? Cess { get; set; }
+        public int? CessPostingAc { get; set; }
 
 
 

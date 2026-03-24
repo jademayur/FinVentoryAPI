@@ -9,7 +9,12 @@
         public string HSNType { get; set; } = string.Empty;
         public int TaxId { get; set; }
         public decimal? Cess { get; set; }
+        public int? CessPostingAc { get; set; }
         public Tax? tax { get; set; }
+        public Account? account { get; set; }
+
+
+
 
     }
 }

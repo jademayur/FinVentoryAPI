@@ -9,6 +9,8 @@
         public int TaxId { get; set; }
         public string TaxName { get; set; } = string.Empty;
         public decimal? Cess { get; set; }
+        public int? CessPostingAc { get; set; }
+        public string? CessPostingAcName { get; set; }
         public bool IsActive { get; set; }
        
     }
