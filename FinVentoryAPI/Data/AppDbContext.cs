@@ -29,10 +29,10 @@ namespace FinVentoryAPI.Data
         public DbSet <Warehouse> Warehouses { get; set; }
         public DbSet<Item> Items { get; set; }
         public DbSet<ItemPrice> ItemsPrices { get; set; }
-
         public DbSet<BusinessPartner> BusinessPartners { get; set; }
         public DbSet<BusinessPartnerAddress> BusinessPartnerAddresses { get; set; }
         public DbSet<BusinessPartnerContact> BusinessPartnerContacts { get; set; }
+        public DbSet<OpeningBalance> OpeningBalances { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

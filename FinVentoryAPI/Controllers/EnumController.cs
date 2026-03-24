@@ -129,5 +129,11 @@ namespace FinVentoryAPI.Controllers
             return Ok(EnumHelper.GetEnumList<GSTType>());
         }
 
+        [HttpGet("BalanceType")]
+        public IActionResult GetBalanceType()
+        {
+            return Ok(EnumHelper.GetEnumList<BalanceType>());
+        }
+
     }
 }

@@ -176,4 +176,10 @@ namespace FinVentoryAPI.Enums
         NoRegister = 2,
         Composite = 3
     }
+
+    public enum BalanceType
+    {
+        Dr = 1,
+        Cr = 2,
+    }
 }

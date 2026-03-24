@@ -398,6 +398,33 @@ namespace FinVentoryAPI.Services.Implementations
             return node;
         }
 
+        public async Task<List<AccountResponseDto>> GetBalanceSheetAccountsAsync()
+        {
+            var companyId = _common.GetCompanyId();
+
+            var data = await _context.Accounts
+                .Where(x => x.CompanyId == companyId
+                         && !x.IsDeleted
+                         && x.AccountGroup.BalanceTo == BalanceTo.BalanceSheet) // ✅ Correct enum usage
+                .Select(x => new AccountResponseDto
+                {
+                    AccountId = x.AccountId,
+                    AccountName = x.AccountName,
+                    AccountCode = x.AccountCode,
+
+                    AccountGroupId = x.AccountGroupId,
+                    AccountGroupName = x.AccountGroup.GroupName,
+
+                    AccountTypeId = (int)x.AccountType,
+                    AccountTypeName = x.AccountType.ToString(),
+
+                    IsActive = x.IsActive
+                })
+                .OrderBy(x => x.AccountName)
+                .ToListAsync();
+
+            return data;
+        }
 
     }
 }

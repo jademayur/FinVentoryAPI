@@ -19,6 +19,17 @@
             return int.Parse(claim);
         }
 
+        public int GetFinancialYearId()
+        {
+            var claim = _httpContextAccessor.HttpContext?
+                .User?.FindFirst("FinancialYearId")?.Value;
+
+            if (string.IsNullOrEmpty(claim))
+                throw new Exception("FinancialYearId not found in token.");
+
+            return int.Parse(claim);
+        }
+
         public int GetUserId()
         {
             var claim = _httpContextAccessor.HttpContext?

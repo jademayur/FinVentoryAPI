@@ -94,5 +94,17 @@ namespace FinVentoryAPI.Controllers
             var result = await _service.GetChartOfAccountsAsync();
             return Ok(result);
         }
+
+        [HttpGet("balancesheet")]
+        public async Task<IActionResult> GetBalanceSheetAccounts()
+        {
+            var data = await _service.GetBalanceSheetAccountsAsync();
+
+            return Ok(new
+            {
+                success = true,
+                data = data
+            });
+        }
     }
 }
