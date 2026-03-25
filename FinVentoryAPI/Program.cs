@@ -36,6 +36,7 @@ builder.Services.AddScoped<IWarehouseService, WarehouseService>();
 builder.Services.AddScoped<IItemService, ItemService>();
 builder.Services.AddScoped<IBusinessPartnerService, BusinessPartnerService>();
 builder.Services.AddScoped<IOpeningBalanceService, OpeningBalanceService>();
+builder.Services.AddScoped<IFinancialReportService, FinancialReportService>();
 
 
 builder.Services.AddHttpContextAccessor();
