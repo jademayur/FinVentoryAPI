@@ -33,8 +33,7 @@ namespace FinVentoryAPI.Data
         public DbSet<BusinessPartnerAddress> BusinessPartnerAddresses { get; set; }
         public DbSet<BusinessPartnerContact> BusinessPartnerContacts { get; set; }
         public DbSet<OpeningBalance> OpeningBalances { get; set; }
-
-
+        public DbSet<OpeningItemBalance> OpeningItemBalances { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             // MenuItem → Module

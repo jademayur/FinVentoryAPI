@@ -1,4 +1,5 @@
 ﻿using FinVentoryAPI.Data;
+using FinVentoryAPI.DTOs.AccountDTOs;
 using FinVentoryAPI.DTOs.ItemDTOs;
 using FinVentoryAPI.DTOs.PagedRequestDto;
 using FinVentoryAPI.Entities;
@@ -426,6 +427,41 @@ namespace FinVentoryAPI.Services.Implementations
                 PageSize = request.PageSize,
                 Data = data
             };
+        }
+
+        public async Task<List<ItemResponseDto>> GetItemListAsync()
+        {
+            var companyId = _common.GetCompanyId();
+
+            var data = await _context.Items
+                .Where(x => x.CompanyId == companyId
+                         && !x.IsDeleted
+                         && x.ItemType == ItemType.Goods) // ✅ Correct enum usage
+                .Select(x => new ItemResponseDto
+                {
+                    ItemId = x.ItemId,
+                    CompanyId = x.CompanyId,
+
+                    ItemCode = x.ItemCode ?? "",
+                    ItemName = x.ItemName,
+                    Description = x.Description,
+                    Barcode = x.Barcode,
+
+                    ItemType = x.ItemType,
+                    ItemCategory = x.ItemCategory,
+
+                    ItemGroupId = x.ItemGroupId,
+                    ItemGroupName = x.ItemGroup != null ? x.ItemGroup.ItemGroupName : null,
+
+                    BrandId = x.BrandId,
+                    HSNCodeId = x.HSNCodeId,
+
+                    IsActive = x.IsActive
+                })
+                .OrderBy(x => x.ItemName)
+                .ToListAsync();
+
+            return data;
         }
     }
 }

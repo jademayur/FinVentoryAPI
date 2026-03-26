@@ -13,6 +13,8 @@ namespace FinVentoryAPI.Services.Interfaces
         Task<ItemResponseDto> GetByIdAsync(int id);
         Task<List<ItemResponseDto>> GetAllAsync();
         Task<PagedResponseDto<ItemResponseDto>> GetPagedAsync(PagedRequestDto request);
-       
+        Task<List<ItemResponseDto>> GetItemListAsync();
+
+
     }
 }

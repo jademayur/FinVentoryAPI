@@ -89,7 +89,18 @@ namespace FinVentoryAPI.Controllers
             var result = await _service.GetPagedAsync(request);
             return Ok(result);
         }
-       
+
+        [HttpGet("itemList")]
+        public async Task<IActionResult> GetItemList()
+        {
+            var data = await _service.GetItemListAsync();
+
+            return Ok(new
+            {
+                success = true,
+                data = data
+            });
+        }
 
     }
 }
