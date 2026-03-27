@@ -1,0 +1,35 @@
+﻿namespace FinVentoryAPI.Entities
+{
+    public class SalesInvoiceMain : BaseEntity
+    {
+        public int InvoiceId { get; set; }
+        public int CompanyId { get; set; }
+        public int FinYearId { get; set; }
+
+        // Invoice Info
+        public string InvoiceNo { get; set; } = string.Empty;  // Auto-generated
+        public DateTime InvoiceDate { get; set; }
+        public DateTime DueDate { get; set; }
+
+        public int BusinessPartnerId { get; set; }
+        public int LocationId { get; set; }       
+        public int AccountId { get; set; }
+
+        public decimal SubTotal { get; set; }       // Sum of all TaxableAmount
+        public decimal TaxAmount { get; set; }       // Sum of IGST+CGST+SGST
+        public decimal CessAmount { get; set; }      // Sum of all Cess
+        public decimal RoundOff { get; set; }        // +/- rounding
+        public decimal NetTotal { get; set; }        // SubTotal + TaxAmount + CessAmount + RoundOff
+
+        public string? Remarks { get; set; }
+        public string Status { get; set; } = "Draft";
+
+        // Navigation
+        public BusinessPartner? BusinessPartner { get; set; }
+        public Location? Location { get; set; }       
+        public Account? Account { get; set; }
+        public ICollection<SalesInvoiceDetail>? Details { get; set; }
+        public ICollection<SalesInvoiceTaxDetail>? TaxDetails { get; set; }
+
+    }
+}
