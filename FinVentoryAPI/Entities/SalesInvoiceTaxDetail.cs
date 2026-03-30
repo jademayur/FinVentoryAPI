@@ -1,7 +1,11 @@
-﻿namespace FinVentoryAPI.Entities
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace FinVentoryAPI.Entities
 {
     public class SalesInvoiceTaxDetail
     {
+        [Key]
         public int TaxDetailId { get; set; }
         public int InvoiceId { get; set; }   // FK → SalesInvoiceMain
         public int DetailId { get; set; }    // FK → SalesInvoiceDetail
@@ -36,6 +40,19 @@
         public SalesInvoiceMain? Invoice { get; set; }
         public SalesInvoiceDetail? Detail { get; set; }
         public Tax? Tax { get; set; }
+       
+
+
+        [ForeignKey(nameof(IGSTPostingAccountId))]
+        public Account? IGSTPostingAccount { get; set; }
+
+        [ForeignKey(nameof(CGSTPostingAccountId))]
+        public Account? CGSTPostingAccount { get; set; }
+
+        [ForeignKey(nameof(SGSTPostingAccountId))]
+        public Account? SGSTPostingAccount { get; set; }
+
+        [ForeignKey(nameof(CessPostingAccountId))]
         public Account? CessPostingAccount { get; set; }
     }
 }

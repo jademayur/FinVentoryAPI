@@ -1,7 +1,10 @@
-﻿namespace FinVentoryAPI.Entities
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace FinVentoryAPI.Entities
 {
     public class SalesInvoiceDetail
     {
+        [Key]
         public int DetailId { get; set; }
         public int InvoiceId { get; set; }  // FK → SalesInvoiceMain
 
