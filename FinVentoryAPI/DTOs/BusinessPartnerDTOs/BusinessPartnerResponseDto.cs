@@ -19,6 +19,7 @@ namespace FinVentoryAPI.DTOs.BusinessPartnerDTOs
         public int AccountGroupId { get; set; }
         public int AccountId { get; set; }
         public bool IsActive { get; set; }
+        public string? DefaultPriceType { get; set; } 
         public List<BusinessPartnerAddressDto>? BPAddresses { get; set; }
         public List<BusinessPartnerContactDto>? BPContacts { get; set; }
 

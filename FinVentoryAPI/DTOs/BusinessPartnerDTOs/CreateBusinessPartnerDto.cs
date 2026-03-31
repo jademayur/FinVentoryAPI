@@ -21,6 +21,7 @@ namespace FinVentoryAPI.DTOs.BusinessPartnerDTOs
         [Required(ErrorMessage = "Group Name is required.")]
         public int AccountGroupId { get; set; }
         public int AccountId { get; set; }
+        public string? DefaultPriceType { get; set; } = "MRP";
         public ICollection<BusinessPartnerAddress> BPAddresses { get; set; }
         public ICollection<BusinessPartnerContact>? BPContacts { get; set; }
        

@@ -70,7 +70,9 @@ namespace FinVentoryAPI.Services.Implementations
                 CreditDays = dto.CreditDays,
                 AccountGroupId = dto.AccountGroupId,
                 AccountId = account.AccountId,  // link to newly created account
-                CreatedBy = _common.GetUserId()
+                CreatedBy = _common.GetUserId(),
+                DefaultPriceType = dto.DefaultPriceType
+                
             };
 
             _context.BusinessPartners.Add(bp);
@@ -245,6 +247,7 @@ namespace FinVentoryAPI.Services.Implementations
             bp.IsActive = dto.IsActive;
             bp.ModifiedBy = _common.GetUserId();
             bp.ModifiedDate = DateTime.UtcNow;
+            bp.DefaultPriceType = dto.DefaultPriceType;
 
 
             // 🔥 Replace Addresses
@@ -344,6 +347,7 @@ namespace FinVentoryAPI.Services.Implementations
                 CreditDays = bp.CreditDays,
                 AccountGroupId = bp.AccountGroupId,
                 AccountId = bp.AccountId,
+                DefaultPriceType = bp.DefaultPriceType,
 
 
                 // ── Address ────────────────────────────────────────────
@@ -394,6 +398,7 @@ namespace FinVentoryAPI.Services.Implementations
               CreditDays = x.CreditDays,
               AccountGroupId = x.AccountGroupId,
               AccountId = x.AccountId,
+              DefaultPriceType = x.DefaultPriceType
 
             }).ToList();
         }
