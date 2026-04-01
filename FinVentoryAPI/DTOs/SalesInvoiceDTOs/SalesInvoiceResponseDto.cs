@@ -1,4 +1,6 @@
-﻿namespace FinVentoryAPI.DTOs.SalesInvoiceDTOs
+﻿using Microsoft.EntityFrameworkCore.Migrations;
+
+namespace FinVentoryAPI.DTOs.SalesInvoiceDTOs
 {
     public class SalesInvoiceResponseDto
     {
@@ -18,9 +20,12 @@
         public int LocationId { get; set; }
         public string LocationName { get; set; } = string.Empty;
 
-        // Account
-        public int AccountId { get; set; }
-        public string AccountName { get; set; } = string.Empty;
+        // ✅ Sales Book Account — stored in invoice
+        public int SalesAccountId { get; set; }
+        public string SalesAccountName { get; set; } = string.Empty;
+
+        // ✅ Receivable Account — from BusinessPartner (not stored in invoice)
+        public int ReceivableAccountId { get; set; }
 
         // Totals
         public decimal SubTotal { get; set; }
@@ -42,3 +47,5 @@
         public DateTime? ModifiedDate { get; set; }
     }
 }
+
+

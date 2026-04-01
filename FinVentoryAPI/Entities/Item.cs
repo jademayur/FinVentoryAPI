@@ -1,4 +1,5 @@
 ﻿using FinVentoryAPI.Enums;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace FinVentoryAPI.Entities
 {
@@ -50,6 +51,8 @@ namespace FinVentoryAPI.Entities
         public ICollection<ItemPrice>? Prices { get; set; }
         public ItemGroup? ItemGroup { get; set; }
         public Brand? Brand { get; set; }
+
+        [ForeignKey(nameof(HSNCodeId))]
         public Hsn? Hsn { get; set; }
     }
 }

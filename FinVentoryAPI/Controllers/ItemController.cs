@@ -102,5 +102,19 @@ namespace FinVentoryAPI.Controllers
             });
         }
 
+        [HttpGet("sales-invoice-items")]
+        public async Task<IActionResult> GetItemsForSalesInvoice()
+        {
+            try
+            {
+                var result = await _service.GetItemsForSalesInvoiceAsync();
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
     }
 }

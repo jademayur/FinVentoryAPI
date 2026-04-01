@@ -14,5 +14,7 @@ namespace FinVentoryAPI.Services.Interfaces
         Task<PagedResponseDto<AccountResponseDto>> GetPagedAsync(PagedRequestDto request);
         Task<List<ChartOfAccountNodeDto>> GetChartOfAccountsAsync();
         Task<List<AccountResponseDto>> GetBalanceSheetAccountsAsync();
+
+        Task<List<AccountResponseDto>> GetSalesAccountsAsync();
     }
 }

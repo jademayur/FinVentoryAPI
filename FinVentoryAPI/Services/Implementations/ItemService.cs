@@ -463,5 +463,55 @@ namespace FinVentoryAPI.Services.Implementations
 
             return data;
         }
+
+        // Add this method to ItemService.cs
+        public async Task<List<SalesInvoiceItemDto>> GetItemsForSalesInvoiceAsync()
+        {
+            var companyId = _common.GetCompanyId();
+
+            var items = await _context.Items
+                .Where(x => x.CompanyId == companyId
+                         && !x.IsDeleted
+                         && x.IsActive)
+                .Include(x => x.Prices)
+                .Include(x => x.Hsn)
+                    .ThenInclude(h => h!.tax)
+                .OrderBy(x => x.ItemName)
+                .ToListAsync();
+
+            return items.Select(x => new SalesInvoiceItemDto
+            {
+                ItemId = x.ItemId,
+                ItemName = x.ItemName,
+                ItemCode = x.ItemCode,
+
+                // HSN
+                HsnId = x.Hsn?.HsnId ?? 0,
+                HsnCode = x.Hsn?.HsnName ?? string.Empty,
+
+                // Tax
+                TaxId = x.Hsn?.tax?.TaxId ?? 0,
+                TaxName = x.Hsn?.tax?.TaxName ?? string.Empty,
+                IGSTRate = x.Hsn?.tax?.IGST ?? 0,
+                CGSTRate = x.Hsn?.tax?.CGST ?? 0,
+                SGSTRate = x.Hsn?.tax?.SGST ?? 0,
+                CessRate = x.Hsn?.Cess ?? 0,
+
+                // Posting Accounts
+                IGSTPostingAccountId = x.Hsn?.tax?.IGSTPostingAccountId,
+                CGSTPostingAccountId = x.Hsn?.tax?.CGSTPostingAccountId,
+                SGSTPostingAccountId = x.Hsn?.tax?.SGSTPostingAccountId,
+                CessPostingAccountId = x.Hsn?.CessPostingAc,
+
+                // Prices
+                Prices = x.Prices?.Select(p => new SalesInvoiceItemPriceDto
+                {
+                    PriceType = p.PriceType,
+                    Rate = p.Rate,
+                    IsTaxIncluded = p.IsTaxIncluded
+                }).ToList() ?? new List<SalesInvoiceItemPriceDto>()
+
+            }).ToList();
+        }
     }
 }

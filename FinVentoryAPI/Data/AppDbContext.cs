@@ -161,9 +161,9 @@ namespace FinVentoryAPI.Data
                 .OnDelete(DeleteBehavior.NoAction);
 
             modelBuilder.Entity<SalesInvoiceMain>()
-                .HasOne(x => x.Account)
+                .HasOne(x => x.SalesAccount)
                 .WithMany()
-                .HasForeignKey(x => x.AccountId)
+                .HasForeignKey(x => x.SalesAccountId)
                 .OnDelete(DeleteBehavior.NoAction);
 
             // ────────────────────────────────────────────────────
@@ -231,7 +231,124 @@ namespace FinVentoryAPI.Data
                 .WithMany()
                 .HasForeignKey(x => x.CessPostingAccountId)
                 .OnDelete(DeleteBehavior.NoAction);
+            // ── Item → Hsn ───────────────────────────────────────
+            modelBuilder.Entity<Item>()
+                .HasOne(x => x.Hsn)
+                .WithMany()
+                .HasForeignKey(x => x.HSNCodeId)
+                .OnDelete(DeleteBehavior.NoAction);
 
+            // ── Item → Accounts ──────────────────────────────────
+            modelBuilder.Entity<Item>()
+                .HasOne(x => x.InventoryAccount)
+                .WithMany()
+                .HasForeignKey(x => x.InventoryAccountId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<Item>()
+                .HasOne(x => x.COGSAccount)
+                .WithMany()
+                .HasForeignKey(x => x.COGSAccountId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<Item>()
+                .HasOne(x => x.SalesAccount)
+                .WithMany()
+                .HasForeignKey(x => x.SalesAccountId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<Item>()
+                .HasOne(x => x.PurchaseAccount)
+                .WithMany()
+                .HasForeignKey(x => x.PurchaseAccountId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // ── SalesInvoiceMain ──────────────────────────────────
+            modelBuilder.Entity<SalesInvoiceMain>()
+                .HasOne(x => x.BusinessPartner)
+                .WithMany()
+                .HasForeignKey(x => x.BusinessPartnerId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<SalesInvoiceMain>()
+                .HasOne(x => x.Location)
+                .WithMany()
+                .HasForeignKey(x => x.LocationId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<SalesInvoiceMain>()
+                .HasOne(x => x.SalesAccount)
+                .WithMany()
+                .HasForeignKey(x => x.SalesAccountId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<SalesInvoiceMain>()
+                .HasOne(x => x.SalesAccount)
+                .WithMany()
+                .HasForeignKey(x => x.SalesAccountId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // ── SalesInvoiceDetail ────────────────────────────────
+            modelBuilder.Entity<SalesInvoiceDetail>()
+                .HasOne(x => x.Invoice)
+                .WithMany(x => x.Details)
+                .HasForeignKey(x => x.InvoiceId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<SalesInvoiceDetail>()
+                .HasOne(x => x.Item)
+                .WithMany()
+                .HasForeignKey(x => x.ItemId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<SalesInvoiceDetail>()
+                .HasOne(x => x.Hsn)
+                .WithMany()
+                .HasForeignKey(x => x.HsnId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // ── SalesInvoiceTaxDetail ─────────────────────────────
+            modelBuilder.Entity<SalesInvoiceTaxDetail>()
+                .HasOne(x => x.Invoice)
+                .WithMany(x => x.TaxDetails)
+                .HasForeignKey(x => x.InvoiceId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<SalesInvoiceTaxDetail>()
+                .HasOne(x => x.Detail)
+                .WithMany(x => x.TaxDetails)
+                .HasForeignKey(x => x.DetailId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<SalesInvoiceTaxDetail>()
+                .HasOne(x => x.Tax)
+                .WithMany()
+                .HasForeignKey(x => x.TaxId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<SalesInvoiceTaxDetail>()
+                .HasOne(x => x.IGSTPostingAccount)
+                .WithMany()
+                .HasForeignKey(x => x.IGSTPostingAccountId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<SalesInvoiceTaxDetail>()
+                .HasOne(x => x.CGSTPostingAccount)
+                .WithMany()
+                .HasForeignKey(x => x.CGSTPostingAccountId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<SalesInvoiceTaxDetail>()
+                .HasOne(x => x.SGSTPostingAccount)
+                .WithMany()
+                .HasForeignKey(x => x.SGSTPostingAccountId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<SalesInvoiceTaxDetail>()
+                .HasOne(x => x.CessPostingAccount)
+                .WithMany()
+                .HasForeignKey(x => x.CessPostingAccountId)
+                .OnDelete(DeleteBehavior.NoAction);
 
 
         }

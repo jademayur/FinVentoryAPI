@@ -3,8 +3,7 @@
 namespace FinVentoryAPI.DTOs.SalesInvoiceDTOs
 {
     public class CreateSalesInvoiceMainDto
-    {       
-
+    {
         [Required(ErrorMessage = "Invoice Date is required.")]
         public DateTime InvoiceDate { get; set; }
 
@@ -18,6 +17,11 @@ namespace FinVentoryAPI.DTOs.SalesInvoiceDTOs
         [Required(ErrorMessage = "Location is required.")]
         [Range(1, int.MaxValue, ErrorMessage = "Please select a valid Location.")]
         public int LocationId { get; set; }
+
+        // ✅ Sales Book Account — selected by user
+        [Required(ErrorMessage = "Sales Account is required.")]
+        [Range(1, int.MaxValue, ErrorMessage = "Please select a valid Sales Account.")]
+        public int SalesAccountId { get; set; }
 
         [Range(-1000, 1000, ErrorMessage = "Round Off must be between -1000 and 1000.")]
         public decimal RoundOff { get; set; } = 0;

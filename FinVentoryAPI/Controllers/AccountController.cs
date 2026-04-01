@@ -106,5 +106,19 @@ namespace FinVentoryAPI.Controllers
                 data = data
             });
         }
+
+        [HttpGet("sales-accounts")]
+        public async Task<IActionResult> GetSalesAccounts()
+        {
+            try
+            {
+                var result = await _service.GetSalesAccountsAsync();
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
     }
 }

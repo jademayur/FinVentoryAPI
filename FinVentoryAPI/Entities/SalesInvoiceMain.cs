@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace FinVentoryAPI.Entities
 {
@@ -15,8 +16,12 @@ namespace FinVentoryAPI.Entities
         public DateTime DueDate { get; set; }
 
         public int BusinessPartnerId { get; set; }
-        public int LocationId { get; set; }       
-        public int AccountId { get; set; }
+        public int LocationId { get; set; }
+
+        // Receivable account — from BusinessPartner.AccountId
+        // Not stored here — fetched from BP when posting journal
+        // ✅ Only Sales Book Account stored
+        public int SalesAccountId { get; set; }
 
         public decimal SubTotal { get; set; }       // Sum of all TaxableAmount
         public decimal TaxAmount { get; set; }       // Sum of IGST+CGST+SGST
@@ -29,8 +34,10 @@ namespace FinVentoryAPI.Entities
 
         // Navigation
         public BusinessPartner? BusinessPartner { get; set; }
-        public Location? Location { get; set; }       
-        public Account? Account { get; set; }
+        public Location? Location { get; set; }
+
+        [ForeignKey(nameof(SalesAccountId))]
+        public Account? SalesAccount { get; set; }
         public ICollection<SalesInvoiceDetail>? Details { get; set; }
         public ICollection<SalesInvoiceTaxDetail>? TaxDetails { get; set; }
 
