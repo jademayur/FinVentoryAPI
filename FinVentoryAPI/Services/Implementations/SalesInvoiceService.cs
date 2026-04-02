@@ -4,8 +4,11 @@ using FinVentoryAPI.DTOs.SalesInvoiceDTOs;
 using FinVentoryAPI.Entities;
 using FinVentoryAPI.Helpers;
 using FinVentoryAPI.Services.Interfaces;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations;
+using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Text.Json;
 
 namespace FinVentoryAPI.Services.Implementations
@@ -84,18 +87,28 @@ namespace FinVentoryAPI.Services.Implementations
             decimal totalCessAmount = 0;
 
             main.Details = new List<SalesInvoiceDetail>();
-            main.TaxDetails = new List<SalesInvoiceTaxDetail>();
+            main.TaxDetails = new List<SalesInvoiceTaxDetail>(); // ✅ Add this back
 
             foreach (var lineDto in dto.Details)
             {
-                var (detail, taxDetail) = await BuildDetailWithTaxAsync(lineDto, userId);
+                var detail = await BuildDetailWithTaxAsync(lineDto, userId);
 
                 totalSubTotal += detail.TaxableAmount;
                 totalCessAmount += detail.CessAmount;
                 totalTaxAmount += detail.LineTaxAmount - detail.CessAmount;
 
+                // ✅ Add this block — links both InvoiceId and DetailId on each taxDetail
+                if (detail.TaxDetails != null)
+                {
+                    foreach (var taxDetail in detail.TaxDetails)
+                    {
+                        taxDetail.Invoice = main;   // ✅ EF resolves InvoiceId
+                        taxDetail.Detail = detail;  // ✅ EF resolves DetailId
+                        main.TaxDetails.Add(taxDetail);
+                    }
+                }
+
                 main.Details.Add(detail);
-                main.TaxDetails.Add(taxDetail);
             }
 
             // 7. Set totals
@@ -105,9 +118,18 @@ namespace FinVentoryAPI.Services.Implementations
             main.NetTotal = totalSubTotal + totalTaxAmount + totalCessAmount + dto.RoundOff;
 
             // 8. Save
-            _context.SalesInvoiceMains.Add(main);
-            await _context.SaveChangesAsync();
+            try
+            {
+                _context.SalesInvoiceMains.Add(main);
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                // ✅ Exposes the real DB error (remove in production)
+                throw new Exception(ex.InnerException?.Message ?? ex.Message);
+            }
 
+            // 9. Return saved invoice
             return await GetByIdAsync(main.InvoiceId)
                 ?? throw new Exception("Failed to retrieve saved invoice.");
         }
@@ -173,16 +195,29 @@ namespace FinVentoryAPI.Services.Implementations
             main.ModifiedBy = userId;
             main.ModifiedDate = DateTime.UtcNow;
 
-            // 6. Full replace — remove old lines
-            _context.SalesInvoiceDetails.RemoveRange(main.Details!);
-            _context.SalesInvoiceTaxDetails.RemoveRange(main.TaxDetails!);
-            main.Details!.Clear();
-            main.TaxDetails!.Clear();
+            // 6. Remove old lines — TaxDetails first (child), then Details (parent)
+            if (main.TaxDetails != null && main.TaxDetails.Any())
+            {
+                _context.SalesInvoiceTaxDetails.RemoveRange(main.TaxDetails);
+                main.TaxDetails.Clear();
+            }
+
+            if (main.Details != null && main.Details.Any())
+            {
+                _context.SalesInvoiceDetails.RemoveRange(main.Details);
+                main.Details.Clear();
+            }
+
+            // ✅ Flush deletions
+            await _context.SaveChangesAsync();
 
             // 7. Rebuild lines
             decimal totalSubTotal = 0;
             decimal totalTaxAmount = 0;
             decimal totalCessAmount = 0;
+
+            var newDetails = new List<SalesInvoiceDetail>();
+            var newTaxDetails = new List<SalesInvoiceTaxDetail>();
 
             foreach (var lineDto in dto.Details)
             {
@@ -197,24 +232,84 @@ namespace FinVentoryAPI.Services.Implementations
                     IsTaxIncluded = lineDto.IsTaxIncluded
                 };
 
-                var (detail, taxDetail) = await BuildDetailWithTaxAsync(createDto, userId);
+                var detail = await BuildDetailWithTaxAsync(createDto, userId);
+
+                // ✅ Set InvoiceId directly
+                detail.InvoiceId = main.InvoiceId;
+
+                // ✅ Create FRESH taxDetail objects — no TaxDetailId set (let DB assign)
+                if (detail.TaxDetails != null)
+                {
+                    foreach (var td in detail.TaxDetails)
+                    {
+                        newTaxDetails.Add(new SalesInvoiceTaxDetail
+                        {
+                            // ✅ NO TaxDetailId — DB assigns it
+                            InvoiceId = main.InvoiceId,
+                            TaxId = td.TaxId,
+                            IGSTRate = td.IGSTRate,
+                            CGSTRate = td.CGSTRate,
+                            SGSTRate = td.SGSTRate,
+                            TaxableAmount = td.TaxableAmount,
+                            IGSTAmount = td.IGSTAmount,
+                            CGSTAmount = td.CGSTAmount,
+                            SGSTAmount = td.SGSTAmount,
+                            CessRate = td.CessRate,
+                            CessAmount = td.CessAmount,
+                            TotalTaxAmount = td.TotalTaxAmount,
+                            IGSTPostingAccountId = td.IGSTPostingAccountId,
+                            CGSTPostingAccountId = td.CGSTPostingAccountId,
+                            SGSTPostingAccountId = td.SGSTPostingAccountId,
+                            CessPostingAccountId = td.CessPostingAccountId
+                            // ✅ DetailId set after newDetails saved below
+                        });
+                    }
+                }
+
+                // ✅ Remove TaxDetails from detail — we manage them separately
+                detail.TaxDetails = null;
 
                 totalSubTotal += detail.TaxableAmount;
                 totalCessAmount += detail.CessAmount;
                 totalTaxAmount += detail.LineTaxAmount - detail.CessAmount;
 
-                main.Details.Add(detail);
-                main.TaxDetails.Add(taxDetail);
+                newDetails.Add(detail);
             }
 
-            // 8. Recalculate totals
+            // 8. Save Details first — DB assigns DetailId
+            await _context.SalesInvoiceDetails.AddRangeAsync(newDetails);
+            await _context.SaveChangesAsync(); // ✅ DetailId now populated
+
+            // 9. Set DetailId on each new TaxDetail
+            int taxIndex = 0;
+            foreach (var detail in newDetails)
+            {
+                newTaxDetails[taxIndex].DetailId = detail.DetailId; // ✅ real DB DetailId
+                taxIndex++;
+            }
+
+            // 10. Save fresh TaxDetails
+            await _context.SalesInvoiceTaxDetails.AddRangeAsync(newTaxDetails);
+
+            // 11. Recalculate totals
             main.SubTotal = totalSubTotal;
             main.TaxAmount = totalTaxAmount;
             main.CessAmount = totalCessAmount;
             main.NetTotal = totalSubTotal + totalTaxAmount + totalCessAmount + dto.RoundOff;
 
-            await _context.SaveChangesAsync();
+            // 12. Final save
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                throw new Exception(ex.InnerException?.Message ?? ex.Message);
+            }
+
+            _context.ChangeTracker.Clear();
             return true;
+
         }
 
         // ────────────────────────────────────────────────────
@@ -257,6 +352,8 @@ namespace FinVentoryAPI.Services.Implementations
             var companyId = _common.GetCompanyId();
 
             var main = await _context.SalesInvoiceMains
+                .AsNoTracking()
+                .AsSplitQuery()
                 .Include(x => x.BusinessPartner)
                 .Include(x => x.Location)
                 .Include(x => x.SalesAccount)
@@ -264,6 +361,21 @@ namespace FinVentoryAPI.Services.Implementations
                     .ThenInclude(d => d.Item)
                 .Include(x => x.Details!)
                     .ThenInclude(d => d.Hsn)
+                .Include(x => x.Details!)
+                    .ThenInclude(d => d.TaxDetails!)
+                        .ThenInclude(td => td.Tax)
+                .Include(x => x.Details!)
+                    .ThenInclude(d => d.TaxDetails!)
+                        .ThenInclude(td => td.IGSTPostingAccount)
+                .Include(x => x.Details!)
+                    .ThenInclude(d => d.TaxDetails!)
+                        .ThenInclude(td => td.CGSTPostingAccount)
+                .Include(x => x.Details!)
+                    .ThenInclude(d => d.TaxDetails!)
+                        .ThenInclude(td => td.SGSTPostingAccount)
+                .Include(x => x.Details!)
+                    .ThenInclude(d => d.TaxDetails!)
+                        .ThenInclude(td => td.CessPostingAccount)
                 .Include(x => x.TaxDetails!)
                     .ThenInclude(td => td.Tax)
                 .Include(x => x.TaxDetails!)
@@ -284,7 +396,6 @@ namespace FinVentoryAPI.Services.Implementations
 
             return MapToResponseDto(main);
         }
-
         // ────────────────────────────────────────────────────
         // DELETE
         // ────────────────────────────────────────────────────
@@ -508,10 +619,10 @@ namespace FinVentoryAPI.Services.Implementations
         // ────────────────────────────────────────────────────
         // PRIVATE — Build Detail + TaxDetail
         // ────────────────────────────────────────────────────
-        private async Task<(SalesInvoiceDetail, SalesInvoiceTaxDetail)> BuildDetailWithTaxAsync(
-            CreateSalesInvoiceDetailDto lineDto, int userId)
+        private async Task<SalesInvoiceDetail> BuildDetailWithTaxAsync(
+     CreateSalesInvoiceDetailDto lineDto, int userId)
         {
-            // ✅ Fetch Item with Hsn and Tax — ForeignKey now correctly mapped
+            // Fetch Item with Hsn and Tax
             var item = await _context.Items
                 .Include(i => i.Hsn)
                     .ThenInclude(h => h!.tax)
@@ -520,7 +631,6 @@ namespace FinVentoryAPI.Services.Implementations
                     !i.IsDeleted)
                 ?? throw new Exception($"Item {lineDto.ItemId} not found.");
 
-            // ✅ Better null checks with clear messages
             if (item.HSNCodeId == 0)
                 throw new Exception($"Item '{item.ItemName}' has no HSN Code assigned.");
 
@@ -568,6 +678,7 @@ namespace FinVentoryAPI.Services.Implementations
 
             decimal lineTaxAmount = igstAmount + cgstAmount + sgstAmount + cessAmount;
 
+            // ✅ Build detail with TaxDetails nested inside
             var detail = new SalesInvoiceDetail
             {
                 ItemId = lineDto.ItemId,
@@ -585,10 +696,12 @@ namespace FinVentoryAPI.Services.Implementations
                 CessRate = cessRate,
                 CessAmount = cessAmount,
                 LineTaxAmount = lineTaxAmount,
-                LineTotal = taxableAmount + lineTaxAmount
-            };
+                LineTotal = taxableAmount + lineTaxAmount,
 
-            var taxDetail = new SalesInvoiceTaxDetail
+                // ✅ TaxDetail nested here — EF resolves DetailId & InvoiceId automatically
+                TaxDetails = new List<SalesInvoiceTaxDetail>
+        {
+            new SalesInvoiceTaxDetail
             {
                 TaxId = tax.TaxId,
                 IGSTRate = tax.IGST,
@@ -605,9 +718,11 @@ namespace FinVentoryAPI.Services.Implementations
                 CGSTPostingAccountId = tax.CGSTPostingAccountId,
                 SGSTPostingAccountId = tax.SGSTPostingAccountId,
                 CessPostingAccountId = hsn.CessPostingAc
+            }
+        }
             };
 
-            return (detail, taxDetail);
+            return detail;
         }
 
         // ────────────────────────────────────────────────────
@@ -645,11 +760,9 @@ namespace FinVentoryAPI.Services.Implementations
                 LocationId = main.LocationId,
                 LocationName = main.Location?.LocationName ?? string.Empty,
 
-                // ✅ Sales Account — stored in invoice
                 SalesAccountId = main.SalesAccountId,
                 SalesAccountName = main.SalesAccount?.AccountName ?? string.Empty,
 
-                // ✅ Receivable Account — from BusinessPartner (not stored)
                 ReceivableAccountId = main.BusinessPartner?.AccountId ?? 0,
 
                 SubTotal = main.SubTotal,
@@ -687,55 +800,58 @@ namespace FinVentoryAPI.Services.Implementations
                     LineTaxAmount = d.LineTaxAmount,
                     LineTotal = d.LineTotal,
 
-                    TaxDetails = main.TaxDetails?
-                        .Where(td => td.DetailId == d.DetailId)
-                        .Select(td => new SalesInvoiceTaxDetailResponseDto
-                        {
-                            TaxDetailId = td.TaxDetailId,
-                            DetailId = td.DetailId,
-                            TaxId = td.TaxId,
-                            TaxName = td.Tax?.TaxName ?? string.Empty,
-                            TaxType = td.Tax?.TaxType,
-                            IGSTRate = td.IGSTRate,
-                            CGSTRate = td.CGSTRate,
-                            SGSTRate = td.SGSTRate,
-                            CessRate = td.CessRate,
-                            TaxableAmount = td.TaxableAmount,
-                            IGSTAmount = td.IGSTAmount,
-                            CGSTAmount = td.CGSTAmount,
-                            SGSTAmount = td.SGSTAmount,
-                            CessAmount = td.CessAmount,
-                            TotalTaxAmount = td.TotalTaxAmount,
-                            IGSTPostingAccount = td.IGSTPostingAccount?.AccountName,
-                            CGSTPostingAccount = td.CGSTPostingAccount?.AccountName,
-                            SGSTPostingAccount = td.SGSTPostingAccount?.AccountName,
-                            CessPostingAccount = td.CessPostingAccount?.AccountName
-                        }).ToList() ?? new List<SalesInvoiceTaxDetailResponseDto>()
+                    // ✅ Use d.TaxDetails directly — already loaded via ThenInclude
+                    TaxDetails = d.TaxDetails?.Select(td => new SalesInvoiceTaxDetailResponseDto
+                    {
+                        TaxDetailId = td.TaxDetailId,
+                        DetailId = td.DetailId,
+                        TaxId = td.TaxId,
+                        TaxName = td.Tax?.TaxName ?? string.Empty,
+                        TaxType = td.Tax?.TaxType,
+                        IGSTRate = td.IGSTRate,
+                        CGSTRate = td.CGSTRate,
+                        SGSTRate = td.SGSTRate,
+                        CessRate = td.CessRate,
+                        TaxableAmount = td.TaxableAmount,
+                        IGSTAmount = td.IGSTAmount,
+                        CGSTAmount = td.CGSTAmount,
+                        SGSTAmount = td.SGSTAmount,
+                        CessAmount = td.CessAmount,
+                        TotalTaxAmount = td.TotalTaxAmount,
+                        IGSTPostingAccount = td.IGSTPostingAccount?.AccountName,
+                        CGSTPostingAccount = td.CGSTPostingAccount?.AccountName,
+                        SGSTPostingAccount = td.SGSTPostingAccount?.AccountName,
+                        CessPostingAccount = td.CessPostingAccount?.AccountName
+                    }).ToList() ?? new List<SalesInvoiceTaxDetailResponseDto>()
 
                 }).ToList() ?? new List<SalesInvoiceDetailResponseDto>(),
 
-                TaxDetails = main.TaxDetails?.Select(td => new SalesInvoiceTaxDetailResponseDto
-                {
-                    TaxDetailId = td.TaxDetailId,
-                    DetailId = td.DetailId,
-                    TaxId = td.TaxId,
-                    TaxName = td.Tax?.TaxName ?? string.Empty,
-                    TaxType = td.Tax?.TaxType,
-                    IGSTRate = td.IGSTRate,
-                    CGSTRate = td.CGSTRate,
-                    SGSTRate = td.SGSTRate,
-                    CessRate = td.CessRate,
-                    TaxableAmount = td.TaxableAmount,
-                    IGSTAmount = td.IGSTAmount,
-                    CGSTAmount = td.CGSTAmount,
-                    SGSTAmount = td.SGSTAmount,
-                    CessAmount = td.CessAmount,
-                    TotalTaxAmount = td.TotalTaxAmount,
-                    IGSTPostingAccount = td.IGSTPostingAccount?.AccountName,
-                    CGSTPostingAccount = td.CGSTPostingAccount?.AccountName,
-                    SGSTPostingAccount = td.SGSTPostingAccount?.AccountName,
-                    CessPostingAccount = td.CessPostingAccount?.AccountName
-                }).ToList() ?? new List<SalesInvoiceTaxDetailResponseDto>()
+                // ✅ Top-level TaxDetails — flattened from all details
+                TaxDetails = main.Details?
+                    .Where(d => d.TaxDetails != null)
+                    .SelectMany(d => d.TaxDetails!.Select(td => new SalesInvoiceTaxDetailResponseDto
+                    {
+                        TaxDetailId = td.TaxDetailId,
+                        DetailId = td.DetailId,
+                        TaxId = td.TaxId,
+                        TaxName = td.Tax?.TaxName ?? string.Empty,
+                        TaxType = td.Tax?.TaxType,
+                        IGSTRate = td.IGSTRate,
+                        CGSTRate = td.CGSTRate,
+                        SGSTRate = td.SGSTRate,
+                        CessRate = td.CessRate,
+                        TaxableAmount = td.TaxableAmount,
+                        IGSTAmount = td.IGSTAmount,
+                        CGSTAmount = td.CGSTAmount,
+                        SGSTAmount = td.SGSTAmount,
+                        CessAmount = td.CessAmount,
+                        TotalTaxAmount = td.TotalTaxAmount,
+                        IGSTPostingAccount = td.IGSTPostingAccount?.AccountName,
+                        CGSTPostingAccount = td.CGSTPostingAccount?.AccountName,
+                        SGSTPostingAccount = td.SGSTPostingAccount?.AccountName,
+                        CessPostingAccount = td.CessPostingAccount?.AccountName
+                    }))
+                    .ToList() ?? new List<SalesInvoiceTaxDetailResponseDto>()
             };
         }
     }
