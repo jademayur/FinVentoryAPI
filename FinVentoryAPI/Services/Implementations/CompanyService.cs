@@ -1,6 +1,7 @@
 ﻿using FinVentoryAPI.Data;
 using FinVentoryAPI.DTOs.CompanyDTOs;
 using FinVentoryAPI.Entities;
+using FinVentoryAPI.Helpers;
 using FinVentoryAPI.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
@@ -41,24 +42,31 @@ namespace FinVentoryAPI.Services.Implementations
 
         public async Task<List<CompanyResponseDto>> GetAllCompaniesAsync()
         {
-            return await appDbContext.Companies
-                .Where(c => !c.IsDeleted)
-                .Select(c => new CompanyResponseDto
-                {
-                    CompanyId = c.CompanyId,      // or c.Id (use your actual PK)
-                    CompanyName = c.CompanyName,
-                    GSTNumber = c.GSTNumber,
-                    PANNumber = c.PANNumber,
-                    Address = c.Address,
-                    City = c.City,
-                    State = c.State,
-                    PinCode = c.PinCode,
-                    Phone = c.Phone,
-                    Mobile = c.Mobile,
-                    Email = c.Email,
-                    IsActive = c.IsActive
-                })
-                .ToListAsync();
+            var companies = await appDbContext.Companies
+       .Where(c => !c.IsDeleted)
+       .ToListAsync();          // 👈 fetch first, then map in memory
+
+            return companies.Select(c => MapToResponse(c)).ToList();
+            //return await appDbContext.Companies
+            //    .Where(c => !c.IsDeleted)
+            //    .Select(c => new CompanyResponseDto
+            //    {
+            //        CompanyId = c.CompanyId,
+            //        CompanyName = c.CompanyName,
+            //        GSTNumber = c.GSTNumber,
+            //        PANNumber = c.PANNumber,
+            //        Address = c.Address,
+            //        City = c.City,
+            //        State = c.State,
+            //        StateName = c.State.HasValue ? EnumHelper.GetStateName((int)c.State.Value) : null,
+            //        StateCode = c.State.HasValue ? ((int)c.State.Value).ToString("D2") : null,
+            //        PinCode = c.PinCode,
+            //        Phone = c.Phone,
+            //        Mobile = c.Mobile,
+            //        Email = c.Email,
+            //        IsActive = c.IsActive
+            //    })
+            //    .ToListAsync();
         }
 
         public async Task<CompanyResponseDto> GetByIdAsync(int id)
@@ -74,7 +82,7 @@ namespace FinVentoryAPI.Services.Implementations
 
         public async Task<bool> UpdateCompanyAsync(int id, CompanyUpdateDto dto, int userId)
         {
-            var company = await appDbContext.Companies
+            var company = await appDbContext.Companies               
                 .FirstOrDefaultAsync(c => c.CompanyId == id && !c.IsDeleted);
 
             if (company == null)
@@ -125,8 +133,14 @@ namespace FinVentoryAPI.Services.Implementations
                 CompanyName = c.CompanyName,
                 GSTNumber = c.GSTNumber,
                 PANNumber = c.PANNumber,
+                Address = c.Address,     
                 City = c.City,
                 State = c.State,
+                StateName = c.State.HasValue ? EnumHelper.GetStateName((int)c.State.Value) : null,
+                StateCode = c.State.HasValue ? ((int)c.State.Value).ToString("D2") : null,
+                PinCode = c.PinCode,      
+                Phone = c.Phone,     
+                Mobile = c.Mobile,       
                 Email = c.Email,
                 IsActive = c.IsActive
             };

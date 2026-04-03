@@ -2,6 +2,7 @@
 using FinVentoryAPI.Helpers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using FinVentoryAPI.Helpers;
 
 namespace FinVentoryAPI.Controllers
 {
@@ -133,6 +134,12 @@ namespace FinVentoryAPI.Controllers
         public IActionResult GetBalanceType()
         {
             return Ok(EnumHelper.GetEnumList<BalanceType>());
+        }
+
+        [HttpGet("gst-states")]
+        public IActionResult GetGstStates()
+        {
+            return Ok(EnumHelper.GetAll());
         }
 
     }

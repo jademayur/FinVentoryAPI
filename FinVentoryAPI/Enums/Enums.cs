@@ -182,4 +182,50 @@ namespace FinVentoryAPI.Enums
         Dr = 1,
         Cr = 2,
     }
+
+
+    public enum GstState
+    {
+       
+        JammuAndKashmir = 1,      
+        HimachalPradesh = 2,
+        Punjab = 3,
+        Chandigarh = 4,
+        Uttarakhand = 5,
+        Haryana = 6,
+        Delhi = 7,
+        Rajasthan = 8,
+        UttarPradesh = 9,
+        Bihar = 10,
+        Sikkim = 11,
+        ArunachalPradesh = 12,
+        Nagaland = 13,
+        Manipur = 14,
+        Mizoram = 15,
+        Tripura = 16,
+        Meghalaya = 17,
+        Assam = 18,
+        WestBengal = 19,
+        Jharkhand = 20,
+        Odisha = 21,
+        Chhattisgarh = 22,
+        MadhyaPradesh = 23,
+        Gujarat = 24,
+        DadraAndNagarHaveliAndDamanAndDiu = 26,
+        Maharashtra = 27,
+        Karnataka = 29,
+        Goa = 30,
+        Lakshadweep = 31,
+        Kerala = 32,
+        TamilNadu = 33,
+        Puducherry = 34,
+        AndamanAndNicobarIslands = 35,
+        Telangana = 36,
+        AndhraPradesh = 37,
+        Ladakh = 38,
+        OtherTerritory = 97,       
+        OtherCountries = 99
+    }
+
+
 }

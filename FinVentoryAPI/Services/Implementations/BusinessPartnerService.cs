@@ -358,10 +358,13 @@ namespace FinVentoryAPI.Services.Implementations
                     AddressLine2 = p.AddressLine2,
                     City = p.City,
                     State = p.State,
+                    StateName = p.State.HasValue ? EnumHelper.GetStateName((int)p.State.Value) : null,  // 👈
+                    StateCode = p.State.HasValue ? ((int)p.State.Value).ToString("D2") : null,          // 👈
                     Country = p.Country,
                     Pincode = p.Pincode,
                     GSTType = p.GSTType,
-                    GSTNo = p.GSTNo
+                    GSTNo = p.GSTNo,
+                    IsDefault = p.IsDefault   // 👈 was missing
                 }).ToList(),
 
                 // ── Contacts ────────────────────────────────────────────

@@ -1,4 +1,6 @@
-﻿namespace FinVentoryAPI.DTOs.CompanyDTOs
+﻿using FinVentoryAPI.Enums;
+
+namespace FinVentoryAPI.DTOs.CompanyDTOs
 {
     public class CompanyUpdateDto
     {
@@ -7,7 +9,7 @@
         public string PANNumber { get; set; }
         public string Address { get; set; }
         public string City { get; set; }
-        public string State { get; set; }
+        public GstState? State { get; set; }
         public string PinCode { get; set; }
         public string Phone { get; set; }
         public string Mobile { get; set; }

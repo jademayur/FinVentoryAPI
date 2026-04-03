@@ -39,6 +39,8 @@ namespace FinVentoryAPI.Data
         public DbSet<SalesInvoiceDetail> SalesInvoiceDetails { get; set; }
         public DbSet<SalesInvoiceTaxDetail> SalesInvoiceTaxDetails { get; set; }
 
+        public DbSet<SalesPerson> SalesPersons { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             // MenuItem → Module
@@ -350,6 +352,13 @@ namespace FinVentoryAPI.Data
                 .HasForeignKey(x => x.CessPostingAccountId)
                 .OnDelete(DeleteBehavior.NoAction);
 
+            modelBuilder.Entity<Company>()
+                 .Property(c => c.State)
+                 .HasConversion<int>();
+
+            modelBuilder.Entity<BusinessPartnerAddress>()
+                .Property(b => b.State)
+                .HasConversion<int>();
 
         }
 

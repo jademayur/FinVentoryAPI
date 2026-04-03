@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using FinVentoryAPI.Enums;
+using System.ComponentModel.DataAnnotations;
 
 namespace FinVentoryAPI.DTOs.CompanyDTOs
 {
@@ -10,7 +11,9 @@ namespace FinVentoryAPI.DTOs.CompanyDTOs
         public string PANNumber { get; set; }
         public string Address { get; set; }
         public string City { get; set; }
-        public string State { get; set; }
+        public GstState? State { get; set; }       
+        public string StateName { get; set; }       
+        public string StateCode { get; set; }
 
         public string PinCode { get; set; }
         public string Phone { get; set; }        

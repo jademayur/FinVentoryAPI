@@ -1,4 +1,7 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using FinVentoryAPI.Enums;
+using FinVentoryAPI.Helpers;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace FinVentoryAPI.Entities
 {
@@ -20,8 +23,13 @@ namespace FinVentoryAPI.Entities
         public string Address { get; set; }
         [MaxLength(50)]
         public string City { get; set; }
-        [MaxLength(50)]
-        public string State { get; set; }
+        public GstState? State { get; set; }
+
+        // 👇 Computed read-only: human-friendly name, not stored in DB
+        [NotMapped]
+        public string StateName => State.HasValue
+            ? EnumHelper.GetStateName((int)State.Value)
+            : null;
         [MaxLength(10)]
         public string PinCode { get; set; }
 
