@@ -34,12 +34,11 @@ namespace FinVentoryAPI.Data
         public DbSet<BusinessPartnerContact> BusinessPartnerContacts { get; set; }
         public DbSet<OpeningBalance> OpeningBalances { get; set; }
         public DbSet<OpeningItemBalance> OpeningItemBalances { get; set; }
-
         public DbSet<SalesInvoiceMain> SalesInvoiceMains { get; set; }
         public DbSet<SalesInvoiceDetail> SalesInvoiceDetails { get; set; }
         public DbSet<SalesInvoiceTaxDetail> SalesInvoiceTaxDetails { get; set; }
-
         public DbSet<SalesPerson> SalesPersons { get; set; }
+        public DbSet<DocumentSeries> DocumentSeries { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
