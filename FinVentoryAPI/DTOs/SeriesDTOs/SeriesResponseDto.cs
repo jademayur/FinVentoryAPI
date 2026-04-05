@@ -1,4 +1,6 @@
-﻿namespace FinVentoryAPI.DTOs.SeriesDTOs
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace FinVentoryAPI.DTOs.SeriesDTOs
 {
     public class SeriesResponseDto
     {
@@ -6,6 +8,8 @@
         public string DocumentType { get; set; } = string.Empty;
         public string SeriesName { get; set; } = string.Empty;
         public string Prefix { get; set; } = string.Empty;
+        
+        public int StartFromNumber { get; set; } = 1;
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
         public int NextNumber { get; set; }

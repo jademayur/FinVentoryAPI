@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace FinVentoryAPI.Entities
 {
-    public class DocumentSeries
+    public class DocumentSeries : BaseEntity
     {
         [Key]
         public int SeriesId { get; set; }
@@ -18,19 +18,16 @@ namespace FinVentoryAPI.Entities
 
         [MaxLength(20)]
         public string Prefix { get; set; } = "INV";
-              
-        
+
+        [Range(1, int.MaxValue, ErrorMessage = "Start number must be at least 1")]
+        public int StartFromNumber { get; set; } = 1;
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
-        public int NextNumber { get; set; } = 1;
-      
+        public int NextNumber { get; set; } = 1;      
         public bool IsDefault { get; set; } = false;
-        public bool IsManual { get; set; } = false;
-        public bool IsActive { get; set; } = true;
-        public bool IsLocked { get; set; } = false;
-              
-
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public bool IsManual { get; set; } = false;       
+        public bool IsLocked { get; set; } = false;           
+       
 
     }
 }

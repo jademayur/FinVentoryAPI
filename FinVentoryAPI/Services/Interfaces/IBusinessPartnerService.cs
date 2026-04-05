@@ -12,5 +12,12 @@ namespace FinVentoryAPI.Services.Interfaces
         Task<BusinessPartnerResponseDto> GetByIdAsync(int id);
         Task<List<BusinessPartnerResponseDto>> GetAllAsync();
         Task<PagedResponseDto<BusinessPartnerResponseDto>> GetPagedAsync(PagedRequestDto request);
+
+        Task<List<BPAddressResponseDto>> GetAddressesByBPAsync(int businessPartnerId);
+        Task<List<BPAddressResponseDto>> GetBillAddressesByBPAsync(int businessPartnerId);
+        Task<List<BPAddressResponseDto>> GetShipAddressesByBPAsync(int businessPartnerId);
+        Task<BPAddressResponseDto?> GetAddressByIdAsync(int businessPartnerId, int addressId);
+        Task<List<BusinessPartnerContactResponseDto>> GetContactsByBPAsync(int businessPartnerId);
+        Task<BPAddressDropdownResponseDto> GetInvoiceDefaultsByBPAsync(int businessPartnerId);
     }
 }

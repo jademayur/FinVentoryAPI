@@ -27,6 +27,26 @@ namespace FinVentoryAPI.DTOs.SalesInvoiceDTOs
         // ✅ Receivable Account — from BusinessPartner (not stored in invoice)
         public int ReceivableAccountId { get; set; }
 
+        // ── New Fields ──────────────────────────────────────
+        public int? SalesStateCode { get; set; }
+        public string? SalesStateName { get; set; }
+
+        public int? BillStateCode { get; set; }
+        public string? BillStateName { get; set; }
+
+        public int? ContactPersonId { get; set; }
+        public string? ContactPersonName { get; set; }
+        public string? ContactPersonMobile { get; set; }
+
+        public int? SalesPersonId { get; set; }
+        public string? SalesPersonName { get; set; }
+
+        public int? BillAddressId { get; set; }
+        public string? BillAddressLine { get; set; }
+
+        public int? ShipAddressId { get; set; }
+        public string? ShipAddressLine { get; set; }
+
         // Totals
         public decimal SubTotal { get; set; }
         public decimal TaxAmount { get; set; }

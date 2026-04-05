@@ -510,5 +510,216 @@ namespace FinVentoryAPI.Services.Implementations
                 Data = data
             };
         }
+
+        // ────────────────────────────────────────────────────
+        // GET ALL ADDRESSES BY BP
+        // ────────────────────────────────────────────────────
+        public async Task<List<BPAddressResponseDto>> GetAddressesByBPAsync(int businessPartnerId)
+        {
+            var companyId = _common.GetCompanyId();
+
+            await ValidateBPAsync(businessPartnerId, companyId);
+
+            var addresses = await _context.BusinessPartnerAddresses
+                .Where(x => x.BusinessPartnerId == businessPartnerId)
+                .ToListAsync();
+
+            return MapAddresses(addresses);
+        }
+
+        // ────────────────────────────────────────────────────
+        // GET BILL ADDRESSES (Billing + Common)
+        // ────────────────────────────────────────────────────
+        public async Task<List<BPAddressResponseDto>> GetBillAddressesByBPAsync(int businessPartnerId)
+        {
+            var companyId = _common.GetCompanyId();
+
+            await ValidateBPAsync(businessPartnerId, companyId);
+
+            var addresses = await _context.BusinessPartnerAddresses
+                .Where(x =>
+                    x.BusinessPartnerId == businessPartnerId &&
+                    (x.Type == AddressType.Billing || x.Type == AddressType.Common))
+                .ToListAsync();
+
+            return MapAddresses(addresses);
+        }
+
+        // ────────────────────────────────────────────────────
+        // GET SHIP ADDRESSES (Shipping + Common)
+        // ────────────────────────────────────────────────────
+        public async Task<List<BPAddressResponseDto>> GetShipAddressesByBPAsync(int businessPartnerId)
+        {
+            var companyId = _common.GetCompanyId();
+
+            await ValidateBPAsync(businessPartnerId, companyId);
+
+            var addresses = await _context.BusinessPartnerAddresses
+                .Where(x =>
+                    x.BusinessPartnerId == businessPartnerId &&
+                    (x.Type == AddressType.Shipping || x.Type == AddressType.Common))
+                .ToListAsync();
+
+            return MapAddresses(addresses);
+        }
+
+        // ────────────────────────────────────────────────────
+        // GET ADDRESS BY ID
+        // ────────────────────────────────────────────────────
+        public async Task<BPAddressResponseDto?> GetAddressByIdAsync(int businessPartnerId, int addressId)
+        {
+            var companyId = _common.GetCompanyId();
+
+            await ValidateBPAsync(businessPartnerId, companyId);
+
+            var a = await _context.BusinessPartnerAddresses
+                .FirstOrDefaultAsync(x =>
+                    x.BPAddressId == addressId &&
+                    x.BusinessPartnerId == businessPartnerId);
+
+            return a == null ? null : MapAddress(a);
+        }
+
+        // ────────────────────────────────────────────────────
+        // GET CONTACTS BY BP
+        // ────────────────────────────────────────────────────
+        public async Task<List<BusinessPartnerContactResponseDto>> GetContactsByBPAsync(int businessPartnerId)
+        {
+            var companyId = _common.GetCompanyId();
+
+            await ValidateBPAsync(businessPartnerId, companyId);
+
+            var contacts = await _context.BusinessPartnerContacts
+                .Where(x => x.BusinessPartnerId == businessPartnerId)
+                .ToListAsync();
+
+            return MapContacts(contacts);
+        }
+
+        // ────────────────────────────────────────────────────
+        // GET INVOICE DEFAULTS (Smart — one call for invoice form)
+        // ────────────────────────────────────────────────────
+        public async Task<BPAddressDropdownResponseDto> GetInvoiceDefaultsByBPAsync(int businessPartnerId)
+        {
+            var companyId = _common.GetCompanyId();
+
+            await ValidateBPAsync(businessPartnerId, companyId);
+
+            // Fetch all in one query
+            var allAddresses = await _context.BusinessPartnerAddresses
+                .Where(x => x.BusinessPartnerId == businessPartnerId)
+                .ToListAsync();
+
+            var allContacts = await _context.BusinessPartnerContacts
+                .Where(x => x.BusinessPartnerId == businessPartnerId)
+                .ToListAsync();
+
+            // Categorize
+            var commonAddresses   = allAddresses.Where(x => x.Type == AddressType.Common).ToList();
+            var billingAddresses  = allAddresses.Where(x => x.Type == AddressType.Billing).ToList();
+            var shippingAddresses = allAddresses.Where(x => x.Type == AddressType.Shipping).ToList();
+
+            // Dropdowns
+            var billList = billingAddresses.Concat(commonAddresses).ToList();
+            var shipList = shippingAddresses.Concat(commonAddresses).ToList();
+
+            // Smart default — Priority: IsDefault flag → Common IsDefault → Any Common → First in list
+            var defaultBill =
+                billingAddresses.FirstOrDefault(x => x.IsDefault)   // 1. Billing IsDefault
+                ?? commonAddresses.FirstOrDefault(x => x.IsDefault)  // 2. Common IsDefault
+                ?? commonAddresses.FirstOrDefault()                   // 3. Any Common (95% case)
+                ?? billingAddresses.FirstOrDefault();                 // 4. First Billing
+
+            var defaultShip =
+                shippingAddresses.FirstOrDefault(x => x.IsDefault)  // 1. Shipping IsDefault
+                ?? commonAddresses.FirstOrDefault(x => x.IsDefault) // 2. Common IsDefault
+                ?? commonAddresses.FirstOrDefault()                  // 3. Any Common (95% case)
+                ?? shippingAddresses.FirstOrDefault();               // 4. First Shipping
+
+            var defaultContact =
+                allContacts.FirstOrDefault(x => x.IsPrimary)        // 1. Primary contact
+                ?? allContacts.FirstOrDefault();                     // 2. First contact
+
+            return new BPAddressDropdownResponseDto
+            {
+                DefaultBillAddress = defaultBill    != null ? MapAddress(defaultBill)       : null,
+                DefaultShipAddress = defaultShip    != null ? MapAddress(defaultShip)       : null,
+                DefaultContact     = defaultContact != null ? MapContact(defaultContact)    : null,
+                BillAddresses      = MapAddresses(billList),
+                ShipAddresses      = MapAddresses(shipList),
+                Contacts           = MapContacts(allContacts)
+            };
+        }
+
+        // ────────────────────────────────────────────────────
+        // PRIVATE — Validate BP belongs to company
+        // ────────────────────────────────────────────────────
+        private async Task ValidateBPAsync(int businessPartnerId, int companyId)
+        {
+            var exists = await _context.BusinessPartners
+                .AnyAsync(x =>
+                    x.BusinessPartnerId == businessPartnerId &&
+                    x.CompanyId == companyId &&
+                    !x.IsDeleted);
+
+            if (!exists)
+                throw new Exception("Business Partner not found.");
+        }
+
+        // ────────────────────────────────────────────────────
+        // PRIVATE — Map single Address
+        // ────────────────────────────────────────────────────
+        private BPAddressResponseDto MapAddress(BusinessPartnerAddress a)
+        {
+            return new BPAddressResponseDto
+            {
+                BPAddressId       = a.BPAddressId,
+                BusinessPartnerId = a.BusinessPartnerId,
+                AddressType       = a.Type.ToString(),
+                AddressLine1      = a.AddressLine1,
+                AddressLine2      = a.AddressLine2,
+                City              = a.City,
+                StateCode         = a.State.HasValue ? (int)a.State.Value : null,
+                StateName         = a.State.HasValue ? ((GstState)a.State.Value).ToString() : null,
+                Country           = a.Country,
+                Pincode           = a.Pincode,
+                GSTType           = a.GSTType.ToString(),
+                GSTNo             = a.GSTNo,
+                IsDefault         = a.IsDefault
+            };
+        }
+
+        // ────────────────────────────────────────────────────
+        // PRIVATE — Map Address list
+        // ────────────────────────────────────────────────────
+        private List<BPAddressResponseDto> MapAddresses(List<BusinessPartnerAddress> addresses)
+        {
+            return addresses.Select(MapAddress).ToList();
+        }
+
+        // ────────────────────────────────────────────────────
+        // PRIVATE — Map single Contact
+        // ────────────────────────────────────────────────────
+        private BusinessPartnerContactResponseDto MapContact(BusinessPartnerContact c)
+        {
+            return new BusinessPartnerContactResponseDto
+            {
+                BPContactId       = c.BPContactId,
+                BusinessPartnerId = c.BusinessPartnerId,
+                Name              = c.Name,
+                Mobile            = c.Mobile,
+                Email             = c.Email,
+                Designation       = c.Designation,
+                IsPrimary         = c.IsPrimary
+            };
+        }
+
+        // ────────────────────────────────────────────────────
+        // PRIVATE — Map Contact list
+        // ────────────────────────────────────────────────────
+        private List<BusinessPartnerContactResponseDto> MapContacts(List<BusinessPartnerContact> contacts)
+        {
+            return contacts.Select(MapContact).ToList();
+        }
     }
 }

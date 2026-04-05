@@ -29,6 +29,17 @@ namespace FinVentoryAPI.DTOs.SalesInvoiceDTOs
         [MaxLength(500, ErrorMessage = "Remarks cannot exceed 500 characters.")]
         public string? Remarks { get; set; }
 
+        public int SalesStateCode { get; set; }     // GstState enum int value
+        public int BillStateCode { get; set; }      // GstState enum int value
+        public int? ContactPersonId { get; set; }    // FK → BusinessPartnerContact.BPContactId
+        public int? SalesPersonId { get; set; }      // FK → SalesPerson.SalesPersonId
+        [Required(ErrorMessage = "Bill Address is required.")]
+        public int BillAddressId { get; set; }      // FK → BusinessPartnerAddress.BPAddressId
+
+        [Required(ErrorMessage = "Ship Address is required.")]
+        public int ShipAddressId { get; set; }      // FK → BusinessPartnerAddress.BPAddressId
+
+
         [Required(ErrorMessage = "At least one item line is required.")]
         [MinLength(1, ErrorMessage = "At least one item line is required.")]
         public List<CreateSalesInvoiceDetailDto> Details { get; set; } = new();

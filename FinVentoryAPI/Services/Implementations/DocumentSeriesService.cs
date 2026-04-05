@@ -2,6 +2,7 @@
 using FinVentoryAPI.DTOs.PagedRequestDto;
 using FinVentoryAPI.DTOs.SeriesDTOs;
 using FinVentoryAPI.Entities;
+using FinVentoryAPI.Helpers;
 using FinVentoryAPI.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
@@ -11,28 +12,18 @@ namespace FinVentoryAPI.Services.Implementations
     public class DocumentSeriesService : IDocumentSeriesService
     {
         private readonly AppDbContext _context;
-        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly Common _common;
 
-        public DocumentSeriesService(AppDbContext context, IHttpContextAccessor httpContextAccessor)
+        public DocumentSeriesService(AppDbContext context, Common common)
         {
             _context = context;
-            _httpContextAccessor = httpContextAccessor;
+            _common = common;
         }
 
-        private int GetCompanyId()
-        {
-            var claim = _httpContextAccessor.HttpContext?.User
-                .FindFirst("CompanyId")?.Value;
-
-            if (claim is null || !int.TryParse(claim, out var companyId))
-                throw new UnauthorizedAccessException("CompanyId claim is missing or invalid.");
-
-            return companyId;
-        }
-
+       
         public async Task<IEnumerable<SeriesResponseDto>> GetAllAsync()
         {
-            var companyId = GetCompanyId();
+            var companyId = _common.GetCompanyId();
 
             return await _context.DocumentSeries
                 .Where(s => s.CompanyId == companyId)
@@ -42,7 +33,7 @@ namespace FinVentoryAPI.Services.Implementations
 
         public async Task<SeriesResponseDto?> GetByIdAsync(int seriesId)
         {
-            var companyId = GetCompanyId();
+            var companyId = _common.GetCompanyId();
 
             var series = await _context.DocumentSeries
                 .FirstOrDefaultAsync(s => s.SeriesId == seriesId && s.CompanyId == companyId);
@@ -52,7 +43,8 @@ namespace FinVentoryAPI.Services.Implementations
 
         public async Task<SeriesResponseDto> CreateAsync(CreateSeriesDto dto)
         {
-            var companyId = GetCompanyId();
+            var companyId = _common.GetCompanyId();
+
 
             if (dto.IsDefault)
                 await ClearDefaultAsync(companyId, dto.DocumentType);
@@ -66,8 +58,9 @@ namespace FinVentoryAPI.Services.Implementations
                 StartDate = dto.StartDate,
                 EndDate = dto.EndDate,
                 IsDefault = dto.IsDefault,
-                IsManual = dto.IsManual,
-                CreatedAt = DateTime.UtcNow
+                IsManual = dto.IsManual,                
+                StartFromNumber = dto.StartFromNumber,
+                CreatedBy = _common.GetUserId()
             };
 
             _context.DocumentSeries.Add(series);
@@ -78,10 +71,10 @@ namespace FinVentoryAPI.Services.Implementations
 
         public async Task<SeriesResponseDto?> UpdateAsync(int seriesId, UpdateSeriesDto dto)
         {
-            var companyId = GetCompanyId();
+            var companyId = _common.GetCompanyId();
 
             var series = await _context.DocumentSeries
-                .FirstOrDefaultAsync(s => s.SeriesId == seriesId && s.CompanyId == companyId);
+                .FirstOrDefaultAsync(s => s.SeriesId == seriesId && s.CompanyId == companyId && !s.IsDeleted);
 
             if (series is null) return null;
 
@@ -99,6 +92,9 @@ namespace FinVentoryAPI.Services.Implementations
             series.IsDefault = dto.IsDefault;
             series.IsManual = dto.IsManual;
             series.IsActive = dto.IsActive;
+            series.StartFromNumber = dto.StartFromNumber;
+            series.ModifiedBy = _common.GetUserId();
+            series.ModifiedDate = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
 
@@ -107,7 +103,7 @@ namespace FinVentoryAPI.Services.Implementations
 
         public async Task<bool> DeleteAsync(int seriesId)
         {
-            var companyId = GetCompanyId();
+            var companyId = _common.GetCompanyId(); 
 
             var series = await _context.DocumentSeries
                 .FirstOrDefaultAsync(s => s.SeriesId == seriesId && s.CompanyId == companyId);
@@ -124,7 +120,7 @@ namespace FinVentoryAPI.Services.Implementations
 
         public async Task<SeriesResponseDto?> GetDefaultSeriesAsync(string documentType)
         {
-            var companyId = GetCompanyId();
+            var companyId = _common.GetCompanyId();
 
             var series = await _context.DocumentSeries
                 .FirstOrDefaultAsync(s =>
@@ -138,7 +134,7 @@ namespace FinVentoryAPI.Services.Implementations
 
         public async Task<bool> SetAsDefaultAsync(int seriesId)
         {
-            var companyId = GetCompanyId();
+            var companyId = _common.GetCompanyId();
 
             var series = await _context.DocumentSeries
                 .FirstOrDefaultAsync(s => s.SeriesId == seriesId && s.CompanyId == companyId);
@@ -154,7 +150,7 @@ namespace FinVentoryAPI.Services.Implementations
 
         public async Task<string> GenerateNextNumberAsync(int seriesId)
         {
-            var companyId = GetCompanyId();
+            var companyId = _common.GetCompanyId();
 
             var series = await _context.DocumentSeries
                 .FirstOrDefaultAsync(s => s.SeriesId == seriesId && s.CompanyId == companyId);
@@ -178,7 +174,7 @@ namespace FinVentoryAPI.Services.Implementations
 
         public async Task<PagedResponseDto<SeriesResponseDto>> GetPagedAsync(PagedRequestDto request)
         {
-            var companyId = GetCompanyId();
+            var companyId = _common.GetCompanyId();
 
             var query = _context.DocumentSeries
                 .Where(x => x.CompanyId == companyId)
@@ -282,7 +278,8 @@ namespace FinVentoryAPI.Services.Implementations
                     NextNumber = x.NextNumber,
                     IsDefault = x.IsDefault,
                     IsLocked = x.IsLocked,
-                    IsActive = x.IsActive
+                    IsActive = x.IsActive,
+                    StartFromNumber = x.StartFromNumber,
                 })
                 .ToListAsync();
 
@@ -318,7 +315,8 @@ namespace FinVentoryAPI.Services.Implementations
             EndDate = s.EndDate,
             NextNumber = s.NextNumber,
             IsDefault = s.IsDefault,
-            IsLocked = s.IsLocked
+            IsLocked = s.IsLocked,
+            StartFromNumber = s.StartFromNumber,
         };
     }
 }

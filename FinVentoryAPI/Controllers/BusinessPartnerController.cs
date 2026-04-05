@@ -112,6 +112,108 @@ namespace FinVentoryAPI.Controllers
             return Ok(result);
         }
 
+        [HttpGet("{businessPartnerId}/invoice-defaults")]
+        public async Task<IActionResult> GetInvoiceDefaults(int businessPartnerId)
+        {
+            try
+            {
+                var result = await _service.GetInvoiceDefaultsByBPAsync(businessPartnerId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        // ────────────────────────────────────────────────────
+        // GET api/BusinessPartner/{businessPartnerId}/addresses
+        // ────────────────────────────────────────────────────
+        [HttpGet("{businessPartnerId}/addresses")]
+        public async Task<IActionResult> GetAddresses(int businessPartnerId)
+        {
+            try
+            {
+                var result = await _service.GetAddressesByBPAsync(businessPartnerId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        // ────────────────────────────────────────────────────
+        // GET api/BusinessPartner/{businessPartnerId}/addresses/bill
+        // ────────────────────────────────────────────────────
+        [HttpGet("{businessPartnerId}/addresses/bill")]
+        public async Task<IActionResult> GetBillAddresses(int businessPartnerId)
+        {
+            try
+            {
+                var result = await _service.GetBillAddressesByBPAsync(businessPartnerId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        // ────────────────────────────────────────────────────
+        // GET api/BusinessPartner/{businessPartnerId}/addresses/ship
+        // ────────────────────────────────────────────────────
+        [HttpGet("{businessPartnerId}/addresses/ship")]
+        public async Task<IActionResult> GetShipAddresses(int businessPartnerId)
+        {
+            try
+            {
+                var result = await _service.GetShipAddressesByBPAsync(businessPartnerId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        // ────────────────────────────────────────────────────
+        // GET api/BusinessPartner/{businessPartnerId}/addresses/{addressId}
+        // ────────────────────────────────────────────────────
+        [HttpGet("{businessPartnerId}/addresses/{addressId:int}")]
+        public async Task<IActionResult> GetAddressById(int businessPartnerId, int addressId)
+        {
+            try
+            {
+                var result = await _service.GetAddressByIdAsync(businessPartnerId, addressId);
+
+                if (result == null)
+                    return NotFound(new { message = "Address not found." });
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        // ────────────────────────────────────────────────────
+        // GET api/BusinessPartner/{businessPartnerId}/contacts
+        // ────────────────────────────────────────────────────
+        [HttpGet("{businessPartnerId}/contacts")]
+        public async Task<IActionResult> GetContacts(int businessPartnerId)
+        {
+            try
+            {
+                var result = await _service.GetContactsByBPAsync(businessPartnerId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
 
     }
 }

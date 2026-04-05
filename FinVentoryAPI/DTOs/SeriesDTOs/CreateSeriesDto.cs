@@ -16,7 +16,8 @@ namespace FinVentoryAPI.DTOs.SeriesDTOs
         [MaxLength(20)]
         [RegularExpression(@"^[A-Za-z0-9/-]+$", ErrorMessage = "Prefix can contain only letters, numbers, '/' and '-'")]
         public string Prefix { get; set; } = "INV";
-               
+        [Range(1, int.MaxValue, ErrorMessage = "Start number must be at least 1")]
+        public int StartFromNumber { get; set; } = 1;
 
         [Required(ErrorMessage = "Start date is required")]
         public DateTime StartDate { get; set; }

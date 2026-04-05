@@ -32,8 +32,16 @@
             public string? Remarks { get; set; }
             public string Status { get; set; } = "Draft";
 
-            // Navigation
-            public BusinessPartner? BusinessPartner { get; set; }
+            public int? SalesStateCode { get; set; }     // GstState enum int value
+            public int? BillStateCode { get; set; }      // GstState enum int value
+            public int? ContactPersonId { get; set; }    // FK → BusinessPartnerContact.BPContactId
+            public int? SalesPersonId { get; set; }      // FK → SalesPerson.SalesPersonId
+            public int? BillAddressId { get; set; }      // FK → BusinessPartnerAddress.BPAddressId
+            public int? ShipAddressId { get; set; }      // FK → BusinessPartnerAddress.BPAddressId
+
+
+        // Navigation
+        public BusinessPartner? BusinessPartner { get; set; }
             public Location? Location { get; set; }
 
             [ForeignKey(nameof(SalesAccountId))]
