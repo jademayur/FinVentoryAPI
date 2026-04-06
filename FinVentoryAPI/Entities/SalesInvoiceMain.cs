@@ -40,13 +40,18 @@
             public int? ShipAddressId { get; set; }      // FK → BusinessPartnerAddress.BPAddressId
 
 
-        // Navigation
-        public BusinessPartner? BusinessPartner { get; set; }
+             // Navigation
+            public BusinessPartner? BusinessPartner { get; set; }
             public Location? Location { get; set; }
 
             [ForeignKey(nameof(SalesAccountId))]
             public Account? SalesAccount { get; set; }
-            public ICollection<SalesInvoiceDetail>? Details { get; set; }
+
+              public BusinessPartnerContact? ContactPerson { get; set; }
+              public SalesPerson? SalesPerson { get; set; }
+              public BusinessPartnerAddress? BillAddress { get; set; }
+              public BusinessPartnerAddress? ShipAddress { get; set; }
+             public ICollection<SalesInvoiceDetail>? Details { get; set; }
             public ICollection<SalesInvoiceTaxDetail>? TaxDetails { get; set; }
 
         }

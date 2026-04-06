@@ -359,6 +359,33 @@ namespace FinVentoryAPI.Data
                 .Property(b => b.State)
                 .HasConversion<int>();
 
+            // ── SalesInvoiceMain — two FKs to BusinessPartnerAddress ────
+            modelBuilder.Entity<SalesInvoiceMain>()
+                .HasOne(x => x.BillAddress)
+                .WithMany()
+                .HasForeignKey(x => x.BillAddressId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<SalesInvoiceMain>()
+                .HasOne(x => x.ShipAddress)
+                .WithMany()
+                .HasForeignKey(x => x.ShipAddressId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // ── SalesInvoiceMain — FK to BusinessPartnerContact ─────────
+            modelBuilder.Entity<SalesInvoiceMain>()
+                .HasOne(x => x.ContactPerson)
+                .WithMany()
+                .HasForeignKey(x => x.ContactPersonId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // ── SalesInvoiceMain — FK to SalesPerson ────────────────────
+            modelBuilder.Entity<SalesInvoiceMain>()
+                .HasOne(x => x.SalesPerson)
+                .WithMany()
+                .HasForeignKey(x => x.SalesPersonId)
+                .OnDelete(DeleteBehavior.Restrict);
+
         }
 
  
