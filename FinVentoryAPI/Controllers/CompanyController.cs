@@ -82,5 +82,19 @@ namespace FinVentoryAPI.Controllers
 
             return Ok(new { message = "Company deleted successfully" });
         }
+
+        [HttpGet("state")]
+        public async Task<IActionResult> GetCompanyState()
+        {
+            try
+            {
+                var result = await _companyService.GetCompanyStateAsync();
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
     }
 }

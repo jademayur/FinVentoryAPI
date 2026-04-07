@@ -4,17 +4,21 @@ using FinVentoryAPI.Entities;
 using FinVentoryAPI.Helpers;
 using FinVentoryAPI.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using static Azure.Core.HttpHeader;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
+using Common = FinVentoryAPI.Helpers.Common;
 
 namespace FinVentoryAPI.Services.Implementations
 {
     public class CompanyService: ICompanyService
     {
         private readonly AppDbContext appDbContext;
+        private readonly Common _common;
 
-        public CompanyService(AppDbContext appDbContext)
+        public CompanyService(AppDbContext appDbContext, Common common)
         {
             this.appDbContext = appDbContext;
+            _common = common;
         }
 
         public async Task<CompanyResponseDto> CreateCompanyAsync(CompanyCreateDto dto, int userId)
@@ -123,6 +127,22 @@ namespace FinVentoryAPI.Services.Implementations
             await appDbContext.SaveChangesAsync();
 
             return true;
+        }
+        public async Task<CompanyStateDto> GetCompanyStateAsync()
+        {
+            var companyId = _common.GetCompanyId();
+
+            var company = await appDbContext.Companies
+                .FirstOrDefaultAsync(c => c.CompanyId == companyId && !c.IsDeleted);
+
+            if (company == null)
+                throw new Exception("Company not found.");
+
+            return new CompanyStateDto
+            {
+                StateCode = company.State.HasValue ? (int?)((int)company.State.Value) : null,
+                StateName = company.StateName
+            };
         }
 
         private CompanyResponseDto MapToResponse(Company c)

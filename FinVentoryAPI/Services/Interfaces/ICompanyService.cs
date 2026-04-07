@@ -13,5 +13,7 @@ namespace FinVentoryAPI.Services.Interfaces
         Task<bool> UpdateCompanyAsync(int id, CompanyUpdateDto dto, int userId);
 
         Task<bool> DeleteCompanyAsync(int id, int userId);
+
+        Task<CompanyStateDto> GetCompanyStateAsync();
     }
 }
