@@ -98,7 +98,7 @@ namespace FinVentoryAPI.Services.Implementations
 
             foreach (var lineDto in dto.Details)
             {
-                var detail = await BuildDetailWithTaxAsync(lineDto, userId);
+                var detail = await BuildDetailWithTaxAsync(lineDto, userId, dto.SalesStateCode, dto.BillStateCode);
 
                 totalSubTotal += detail.TaxableAmount;
                 totalCessAmount += detail.CessAmount;
@@ -246,7 +246,7 @@ namespace FinVentoryAPI.Services.Implementations
                     IsTaxIncluded = lineDto.IsTaxIncluded
                 };
 
-                var detail = await BuildDetailWithTaxAsync(createDto, userId);
+                var detail = await BuildDetailWithTaxAsync(createDto, userId, dto.SalesStateCode, dto.BillStateCode);
                 detail.InvoiceId = main.InvoiceId;
 
                 if (detail.TaxDetails != null)
@@ -680,7 +680,7 @@ namespace FinVentoryAPI.Services.Implementations
         // PRIVATE — Build Detail + TaxDetail
         // ────────────────────────────────────────────────────
         private async Task<SalesInvoiceDetail> BuildDetailWithTaxAsync(
-            CreateSalesInvoiceDetailDto lineDto, int userId)
+            CreateSalesInvoiceDetailDto lineDto, int userId, int? salesStateCode, int? billStateCode)
         {
             var item = await _context.Items
                 .Include(i => i.Hsn).ThenInclude(h => h!.tax)
@@ -705,15 +705,23 @@ namespace FinVentoryAPI.Services.Implementations
             decimal addisDiscountAmount = Math.Round(afterFirstDiscount * lineDto.AddisDiscountRate / 100, 2);
             decimal taxableAmount = afterFirstDiscount - addisDiscountAmount;
 
+            bool isIntraState = (salesStateCode.HasValue && billStateCode.HasValue)
+                                ? salesStateCode.Value == billStateCode.Value
+                                : true;
             if (lineDto.IsTaxIncluded)
             {
-                decimal totalTaxRate = tax.IGST > 0 ? tax.IGST : tax.CGST + tax.SGST;
-                taxableAmount = Math.Round(taxableAmount / (1 + totalTaxRate / 100), 2);
-            }
+                decimal totalTaxRate = isIntraState
+                    ? (tax.CGST + tax.SGST)   // intra → CGST + SGST
+                    : tax.IGST;                // inter → IGST only
 
-            decimal igstAmount = Math.Round(taxableAmount * tax.IGST / 100, 2);
-            decimal cgstAmount = Math.Round(taxableAmount * tax.CGST / 100, 2);
-            decimal sgstAmount = Math.Round(taxableAmount * tax.SGST / 100, 2);
+                if (totalTaxRate > 0)
+                    taxableAmount = Math.Round(taxableAmount / (1 + totalTaxRate / 100), 2);
+            }
+       
+
+            decimal igstAmount = (!isIntraState) ? Math.Round(taxableAmount * tax.IGST / 100, 2) : 0;
+            decimal cgstAmount = (isIntraState) ? Math.Round(taxableAmount * tax.CGST / 100, 2) : 0;
+            decimal sgstAmount = (isIntraState) ? Math.Round(taxableAmount * tax.SGST / 100, 2) : 0;
             decimal cessRate = hsn.Cess ?? 0;
             decimal cessAmount = Math.Round(taxableAmount * cessRate / 100, 2);
             decimal lineTaxAmount = igstAmount + cgstAmount + sgstAmount + cessAmount;
@@ -742,19 +750,27 @@ namespace FinVentoryAPI.Services.Implementations
                     new SalesInvoiceTaxDetail
                     {
                         TaxId                = tax.TaxId,
-                        IGSTRate             = tax.IGST,
-                        CGSTRate             = tax.CGST,
-                        SGSTRate             = tax.SGST,
+
+                        // ✅ Zero out unused side rates
+                        IGSTRate             = isIntraState ? 0 : tax.IGST,
+                        CGSTRate             = isIntraState ? tax.CGST : 0,
+                        SGSTRate             = isIntraState ? tax.SGST : 0,
+
                         TaxableAmount        = taxableAmount,
+
+                        // ✅ Zero out unused side amounts
                         IGSTAmount           = igstAmount,
                         CGSTAmount           = cgstAmount,
                         SGSTAmount           = sgstAmount,
+
                         CessRate             = cessRate,
                         CessAmount           = cessAmount,
                         TotalTaxAmount       = lineTaxAmount,
-                        IGSTPostingAccountId = tax.IGSTPostingAccountId,
-                        CGSTPostingAccountId = tax.CGSTPostingAccountId,
-                        SGSTPostingAccountId = tax.SGSTPostingAccountId,
+
+                        // ✅ Zero out unused side posting accounts
+                        IGSTPostingAccountId = isIntraState ? null : tax.IGSTPostingAccountId,
+                        CGSTPostingAccountId = isIntraState ? tax.CGSTPostingAccountId : null,
+                        SGSTPostingAccountId = isIntraState ? tax.SGSTPostingAccountId : null,
                         CessPostingAccountId = hsn.CessPostingAc
                     }
                 }
