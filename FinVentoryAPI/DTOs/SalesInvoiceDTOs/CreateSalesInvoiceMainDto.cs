@@ -39,6 +39,11 @@ namespace FinVentoryAPI.DTOs.SalesInvoiceDTOs
         [Required(ErrorMessage = "Ship Address is required.")]
         public int ShipAddressId { get; set; }      // FK → BusinessPartnerAddress.BPAddressId
 
+        public string? TransportName { get; set; }
+        public string? VehicleNo { get; set; }
+        public string? LrNo { get; set; }
+        public DateTime? LrDate { get; set; }
+
 
         [Required(ErrorMessage = "At least one item line is required.")]
         [MinLength(1, ErrorMessage = "At least one item line is required.")]

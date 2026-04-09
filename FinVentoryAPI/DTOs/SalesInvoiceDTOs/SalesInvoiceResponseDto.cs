@@ -65,6 +65,10 @@ namespace FinVentoryAPI.DTOs.SalesInvoiceDTOs
         public DateTime CreatedDate { get; set; }
         public int? ModifiedBy { get; set; }
         public DateTime? ModifiedDate { get; set; }
+        public string? TransportName { get; set; }
+        public string? VehicleNo { get; set; }
+        public string? LrNo { get; set; }
+        public DateTime? LrDate { get; set; }
     }
 }
 

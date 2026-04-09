@@ -686,6 +686,7 @@ namespace FinVentoryAPI.Services.Implementations
                 GSTType           = a.GSTType.ToString(),
                 GSTNo             = a.GSTNo,
                 IsDefault         = a.IsDefault
+               
             };
         }
 

@@ -34,6 +34,7 @@ namespace FinVentoryAPI.Entities
         public SalesInvoiceMain? Invoice { get; set; }
         public Item? Item { get; set; }
         public Hsn? Hsn { get; set; }
-        public ICollection<SalesInvoiceTaxDetail>? TaxDetails { get; set; }
+        //public ICollection<SalesInvoiceTaxDetail>? TaxDetails { get; set; }
+        public List<SalesInvoiceTaxDetail> TaxDetails { get; set; }
     }
 }

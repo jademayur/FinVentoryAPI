@@ -15,7 +15,7 @@ namespace FinVentoryAPI.Entities
         public decimal CreditLimit { get; set; } = 0;
         public int CreditDays { get; set; } = 0;
         public int AccountGroupId { get; set; }
-        public int AccountId { get; set; }
+        public int AccountId { get; set; }       
         public string? DefaultPriceType { get; set; } = "MRP";
         public ICollection<BusinessPartnerAddress>? BPAddresses { get; set; }
         public ICollection<BusinessPartnerContact>? BPContacts   { get; set; }

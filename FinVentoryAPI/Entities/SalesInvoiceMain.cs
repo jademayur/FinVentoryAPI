@@ -38,10 +38,14 @@
             public int? SalesPersonId { get; set; }      // FK → SalesPerson.SalesPersonId
             public int? BillAddressId { get; set; }      // FK → BusinessPartnerAddress.BPAddressId
             public int? ShipAddressId { get; set; }      // FK → BusinessPartnerAddress.BPAddressId
+            public string? TransportName { get; set; }
+            public string? VehicleNo { get; set; }
+            public string? LrNo { get; set; }
+            public DateTime? LrDate { get; set; }
 
 
-             // Navigation
-            public BusinessPartner? BusinessPartner { get; set; }
+        // Navigation
+        public BusinessPartner? BusinessPartner { get; set; }
             public Location? Location { get; set; }
 
             [ForeignKey(nameof(SalesAccountId))]
