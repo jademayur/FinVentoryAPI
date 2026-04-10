@@ -39,6 +39,7 @@ namespace FinVentoryAPI.Data
         public DbSet<SalesInvoiceTaxDetail> SalesInvoiceTaxDetails { get; set; }
         public DbSet<SalesPerson> SalesPersons { get; set; }
         public DbSet<DocumentSeries> DocumentSeries { get; set; }
+        public DbSet<DocumentSeriesMapping> DocumentSeriesMappings { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -386,6 +387,9 @@ namespace FinVentoryAPI.Data
                 .HasForeignKey(x => x.SalesPersonId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            modelBuilder.Entity<DocumentSeriesMapping>()
+                  .HasIndex(x => new { x.CompanyId, x.AccountId })
+                 .IsUnique();  // one series per account per company
         }
 
  

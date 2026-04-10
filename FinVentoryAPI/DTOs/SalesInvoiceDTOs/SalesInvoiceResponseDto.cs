@@ -69,6 +69,10 @@ namespace FinVentoryAPI.DTOs.SalesInvoiceDTOs
         public string? VehicleNo { get; set; }
         public string? LrNo { get; set; }
         public DateTime? LrDate { get; set; }
+
+        public decimal Amount { get; set; }   // = SubTotal (taxable base)
+        public decimal Discount { get; set; }   // = sum of all line discounts
+        public decimal NetAmount { get; set; }   // = NetTotal
     }
 }
 

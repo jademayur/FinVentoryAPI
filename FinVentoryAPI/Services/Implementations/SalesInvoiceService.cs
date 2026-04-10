@@ -501,6 +501,7 @@ namespace FinVentoryAPI.Services.Implementations
                 .Include(x => x.SalesPerson)
                 .Include(x => x.BillAddress)
                 .Include(x => x.ShipAddress)
+                .Include(x => x.Details!)
                 .AsQueryable();
 
             // SEARCH
@@ -567,21 +568,39 @@ namespace FinVentoryAPI.Services.Implementations
                     "invoiceno" => sort.Direction == "desc"
                         ? query.OrderByDescending(x => x.InvoiceNo)
                         : query.OrderBy(x => x.InvoiceNo),
+
                     "invoicedate" => sort.Direction == "desc"
                         ? query.OrderByDescending(x => x.InvoiceDate)
                         : query.OrderBy(x => x.InvoiceDate),
+
                     "businesspartnername" => sort.Direction == "desc"
                         ? query.OrderByDescending(x => x.BusinessPartner!.BusinessPartnerName)
                         : query.OrderBy(x => x.BusinessPartner!.BusinessPartnerName),
-                    "nettotal" => sort.Direction == "desc"
-                        ? query.OrderByDescending(x => x.NetTotal)
-                        : query.OrderBy(x => x.NetTotal),
-                    "status" => sort.Direction == "desc"
-                        ? query.OrderByDescending(x => x.Status)
-                        : query.OrderBy(x => x.Status),
+
                     "salesperson" => sort.Direction == "desc"
                         ? query.OrderByDescending(x => x.SalesPerson!.SalesPersonName)
                         : query.OrderBy(x => x.SalesPerson!.SalesPersonName),
+
+                    "status" => sort.Direction == "desc"
+                        ? query.OrderByDescending(x => x.Status)
+                        : query.OrderBy(x => x.Status),
+
+                    "amount" => sort.Direction == "desc"
+                        ? query.OrderByDescending(x => x.SubTotal)
+                        : query.OrderBy(x => x.SubTotal),
+
+                    "taxamount" => sort.Direction == "desc"
+                        ? query.OrderByDescending(x => x.TaxAmount)
+                        : query.OrderBy(x => x.TaxAmount),
+
+                    "discount" => sort.Direction == "desc"
+                        ? query.OrderByDescending(x => x.Details!.Sum(d => d.DiscountAmount + d.AddisDiscountAmount))
+                        : query.OrderBy(x => x.Details!.Sum(d => d.DiscountAmount + d.AddisDiscountAmount)),
+
+                    "nettotal" or "netamount" => sort.Direction == "desc"
+                        ? query.OrderByDescending(x => x.NetTotal)
+                        : query.OrderBy(x => x.NetTotal),
+
                     _ => query.OrderByDescending(x => x.InvoiceDate)
                 };
             }
@@ -612,7 +631,6 @@ namespace FinVentoryAPI.Services.Implementations
                 Data = data.Select(MapToResponseDto).ToList()
             };
         }
-
         // ════════════════════════════════════════════════════
         // PRIVATE HELPERS
         // ════════════════════════════════════════════════════
@@ -856,11 +874,17 @@ namespace FinVentoryAPI.Services.Implementations
                 ShipAddressId = main.ShipAddressId,
                 ShipAddressLine = FormatAddress(main.ShipAddress),
 
+                // AFTER — add the 4 aliased fields below the existing ones:
                 SubTotal = main.SubTotal,
                 TaxAmount = main.TaxAmount,
                 CessAmount = main.CessAmount,
                 RoundOff = main.RoundOff,
                 NetTotal = main.NetTotal,
+
+                // Fields consumed by the list page
+                Amount = main.SubTotal,                                          // gross taxable
+                Discount = main.Details?.Sum(d => d.DiscountAmount + d.AddisDiscountAmount) ?? 0,
+                NetAmount = main.NetTotal,
                 Remarks = main.Remarks,
 
                 CreatedBy = (int)(main.CreatedBy ?? 0),
