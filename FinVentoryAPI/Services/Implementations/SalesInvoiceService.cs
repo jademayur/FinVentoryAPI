@@ -821,13 +821,25 @@ namespace FinVentoryAPI.Services.Implementations
         // ── Generate invoice number ───────────────────────────
         private async Task<string> GenerateInvoiceNoAsync(int companyId, int finYearId)
         {
+            var financialYear = await _context.FinancialYears
+                .FirstOrDefaultAsync(x => x.FinancialYearId == finYearId);
+
+
+            var yearLabel = financialYear?.YearName ?? finYearId.ToString();
+            // yearLabel = "2025-2026"
+
+            // Optionally format it as "2526" (short form)
+            // var yearLabel = financialYear != null
+            //     ? $"{financialYear.StartDate.Year % 100}{financialYear.EndDate.Year % 100}"
+            //     : finYearId.ToString();
+            // yearLabel = "2526"
             var count = await _context.SalesInvoiceMains
                 .CountAsync(x =>
                     x.CompanyId == companyId &&
                     x.FinYearId == finYearId &&
                     !x.IsDeleted);
 
-            return $"INV-FY{finYearId:D3}-{(count + 1):D4}";
+            return $"INV-{yearLabel}-{(count + 1):D4}";
         }
 
         // ── Map entity → response DTO ─────────────────────────
