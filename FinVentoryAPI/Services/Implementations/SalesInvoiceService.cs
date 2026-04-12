@@ -825,14 +825,14 @@ namespace FinVentoryAPI.Services.Implementations
                 .FirstOrDefaultAsync(x => x.FinancialYearId == finYearId);
 
 
-            var yearLabel = financialYear?.YearName ?? finYearId.ToString();
+            //var yearLabel = financialYear?.YearName ?? finYearId.ToString();
             // yearLabel = "2025-2026"
 
             // Optionally format it as "2526" (short form)
-            // var yearLabel = financialYear != null
-            //     ? $"{financialYear.StartDate.Year % 100}{financialYear.EndDate.Year % 100}"
-            //     : finYearId.ToString();
-            // yearLabel = "2526"
+            var yearLabel = financialYear != null
+                ? $"{financialYear.StartDate.Year % 100}{financialYear.EndDate.Year % 100}"
+                : finYearId.ToString();
+           // yearLabel = "2526"
             var count = await _context.SalesInvoiceMains
                 .CountAsync(x =>
                     x.CompanyId == companyId &&
