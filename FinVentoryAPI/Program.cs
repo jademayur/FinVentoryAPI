@@ -43,6 +43,7 @@ builder.Services.AddScoped<ISalesPersonService, SalesPersonService>();
 builder.Services.AddScoped<IDocumentSeriesService, DocumentSeriesService>();
 
 
+
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddCors(options =>
 {

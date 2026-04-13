@@ -40,6 +40,7 @@ namespace FinVentoryAPI.Data
         public DbSet<SalesPerson> SalesPersons { get; set; }
         public DbSet<DocumentSeries> DocumentSeries { get; set; }
         public DbSet<DocumentSeriesMapping> DocumentSeriesMappings { get; set; }
+        public DbSet<StockLedger> StockLedgers { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
