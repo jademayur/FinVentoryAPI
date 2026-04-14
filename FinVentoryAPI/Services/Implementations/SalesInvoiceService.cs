@@ -1,6 +1,7 @@
 ﻿using FinVentoryAPI.Data;
 using FinVentoryAPI.DTOs.PagedRequestDto;
 using FinVentoryAPI.DTOs.SalesInvoiceDTOs;
+using FinVentoryAPI.DTOs.StockLedgerDTOs;
 using FinVentoryAPI.Entities;
 using FinVentoryAPI.Enums;
 using FinVentoryAPI.Helpers;
@@ -14,11 +15,13 @@ namespace FinVentoryAPI.Services.Implementations
     {
         private readonly AppDbContext _context;
         private readonly Common _common;
+        private readonly IStockLedgerService _stockLedger;
 
-        public SalesInvoiceService(AppDbContext context, Common common)
+        public SalesInvoiceService(AppDbContext context, Common common, IStockLedgerService stockLedger)
         {
             _context = context;
             _common = common;
+            _stockLedger = stockLedger;
         }
 
         // ────────────────────────────────────────────────────
@@ -107,11 +110,14 @@ namespace FinVentoryAPI.Services.Implementations
             {
                 _context.SalesInvoiceMains.Add(main);
                 await _context.SaveChangesAsync();
+               
             }
             catch (DbUpdateException ex)
             {
                 throw new Exception(ex.InnerException?.Message ?? ex.Message);
             }
+
+            await PostStockLedgerAsync(main, isReversal: false);
 
             // 7. Return saved invoice
             return await GetByIdAsync(main.InvoiceId)
@@ -333,6 +339,12 @@ namespace FinVentoryAPI.Services.Implementations
                 throw new Exception(ex.InnerException?.Message ?? ex.Message);
             }
 
+            await _stockLedger.ReverseEntriesAsync(
+                 companyId, main.InvoiceNo,
+                 main.InvoiceNo + "-UPD-" + DateTime.UtcNow.Ticks.ToString(),
+                 DateTime.UtcNow, userId);
+            await PostStockLedgerAsync(main, isReversal: false);
+
             _context.ChangeTracker.Clear();
             return true;
         }
@@ -424,6 +436,14 @@ namespace FinVentoryAPI.Services.Implementations
                 throw new Exception("Only Draft invoices can be deleted.");
 
             main.IsDeleted = true;
+
+            // 4. In DeleteAsync — after setting main.IsDeleted = true, before SaveChangesAsync
+            await _stockLedger.ReverseEntriesAsync(
+                companyId, main.InvoiceNo,
+                main.InvoiceNo + "-DEL",
+                DateTime.UtcNow, _common.GetUserId());
+
+
             main.IsActive = false;
             main.ModifiedBy = _common.GetUserId();
             main.ModifiedDate = DateTime.UtcNow;
@@ -432,58 +452,7 @@ namespace FinVentoryAPI.Services.Implementations
             return true;
         }
 
-        // ────────────────────────────────────────────────────
-        // POST
-        // ────────────────────────────────────────────────────
-        public async Task<bool> PostAsync(int id)
-        {
-            var companyId = _common.GetCompanyId();
-
-            var main = await _context.SalesInvoiceMains
-                .Include(x => x.BusinessPartner)
-                .FirstOrDefaultAsync(x =>
-                    x.InvoiceId == id &&
-                    x.CompanyId == companyId &&
-                    !x.IsDeleted);
-
-            if (main == null) return false;
-
-            if (main.Status != "Draft")
-                throw new Exception("Only Draft invoices can be posted.");
-
-            main.Status = "Posted";
-            main.ModifiedBy = _common.GetUserId();
-            main.ModifiedDate = DateTime.UtcNow;
-
-            await _context.SaveChangesAsync();
-            return true;
-        }
-
-        // ────────────────────────────────────────────────────
-        // CANCEL
-        // ────────────────────────────────────────────────────
-        public async Task<bool> CancelAsync(int id)
-        {
-            var companyId = _common.GetCompanyId();
-
-            var main = await _context.SalesInvoiceMains
-                .FirstOrDefaultAsync(x =>
-                    x.InvoiceId == id &&
-                    x.CompanyId == companyId &&
-                    !x.IsDeleted);
-
-            if (main == null) return false;
-
-            if (main.Status == "Cancelled")
-                throw new Exception("Invoice is already cancelled.");
-
-            main.Status = "Cancelled";
-            main.ModifiedBy = _common.GetUserId();
-            main.ModifiedDate = DateTime.UtcNow;
-
-            await _context.SaveChangesAsync();
-            return true;
-        }
+      
 
         // ────────────────────────────────────────────────────
         // GET PAGED
@@ -981,5 +950,30 @@ namespace FinVentoryAPI.Services.Implementations
                 SGSTPostingAccount = td.SGSTPostingAccount?.AccountName,
                 CessPostingAccount = td.CessPostingAccount?.AccountName
             };
+
+        // 5. Add this private helper method inside SalesInvoiceService
+        private async Task PostStockLedgerAsync(SalesInvoiceMain main, bool isReversal)
+        {
+            if (main.Details == null || !main.Details.Any()) return;
+
+            var lines = main.Details.Select(d => new StockLedgerLineDto
+            {
+                ItemId = d.ItemId,
+                Qty = isReversal ? d.Qty : -d.Qty,   // negative = stock going OUT on sale
+                Rate = d.Rate,
+                Remarks = $"Sales Invoice: {main.InvoiceNo}"
+            }).ToList();
+
+            await _stockLedger.AddEntriesAsync(
+                companyId: main.CompanyId,
+                warehouseId: null,              // set from main.LocationId if you map Location → Warehouse
+                date: main.InvoiceDate,
+                voucherType: "Sales Invoice",
+                voucherNo: main.InvoiceNo,
+                businessPartnerId: main.BusinessPartnerId,
+                lines: lines,
+                createdBy: (int?)main.CreatedBy
+            );
+        }
     }
 }

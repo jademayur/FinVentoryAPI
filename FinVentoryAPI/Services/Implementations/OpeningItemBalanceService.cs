@@ -1,6 +1,7 @@
 ﻿using FinVentoryAPI.Data;
 
 using FinVentoryAPI.DTOs.OpeningItemBalanceDTOs;
+using FinVentoryAPI.DTOs.StockLedgerDTOs;
 using FinVentoryAPI.Entities;
 using FinVentoryAPI.Enums;
 using FinVentoryAPI.Helpers;
@@ -13,17 +14,23 @@ namespace FinVentoryAPI.Services.Implementations
     {
         private readonly AppDbContext _context;
         private readonly Common _common;
+        private readonly IStockLedgerService _stockLedgerService; // ✅ Inject
 
-        public OpeningItemBalanceService(AppDbContext context, Common common)
+        public OpeningItemBalanceService(
+            AppDbContext context,
+            Common common,
+            IStockLedgerService stockLedgerService) // ✅ Add to constructor
         {
             _context = context;
             _common = common;
+            _stockLedgerService = stockLedgerService;
         }
 
         public async Task<OpeningItemBalanceResponseDto> SaveAsync(OpeningBalanceItemDto dto)
         {
             var companyId = _common.GetCompanyId();
             var yearId = _common.GetFinancialYearId();
+            var userId = _common.GetUserId();
 
             // 🔴 Validation
             if (dto.Items == null || !dto.Items.Any())
@@ -41,7 +48,23 @@ namespace FinVentoryAPI.Services.Implementations
 
             _context.OpeningItemBalances.RemoveRange(existing);
 
-            // ➕ Insert new records
+            // ✅ Also reverse/delete old stock ledger entries for opening balance
+            var oldLedgerEntries = await _context.StockLedgers
+                .Where(sl =>
+                    sl.CompanyId == companyId &&
+                    sl.VoucherType == "Opening-Balance" &&
+                    !sl.IsDeleted)
+                .ToListAsync();
+
+            foreach (var entry in oldLedgerEntries)
+            {
+                entry.IsDeleted = true;
+                entry.IsActive = false;
+                entry.ModifiedBy = userId;
+                entry.ModifiedDate = DateTime.UtcNow;
+            }
+
+            // ➕ Insert new opening balance records
             var entities = dto.Items.Select(x => new OpeningItemBalance
             {
                 CompanyId = companyId,
@@ -49,24 +72,38 @@ namespace FinVentoryAPI.Services.Implementations
                 ItemId = x.ItemId,
                 Quantity = x.Quantity,
                 Rate = x.Rate,
-                Amount = x.Amount,                
+                Amount = x.Amount,
             }).ToList();
 
             await _context.OpeningItemBalances.AddRangeAsync(entities);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(); // Save both removals and new records
+
+            // ✅ Push entries into Stock Ledger
+            var stockLines = dto.Items.Select(x => new StockLedgerLineDto
+            {
+                ItemId = x.ItemId,
+                Qty = x.Quantity,
+                Rate = x.Rate,
+                Remarks = "Opening Balance"
+            }).ToList();
+
+            await _stockLedgerService.AddEntriesAsync(
+                companyId: companyId,
+                warehouseId: null,               // or pass if you have a default warehouse
+                date: DateTime.Today,            // or use financial year start date
+                voucherType: "Opening-Balance",
+                voucherNo: $"OPB-{yearId}",      // unique voucher number per year
+                businessPartnerId: null,
+                lines: stockLines,
+                createdBy: userId
+            );
 
             // 📊 Summary
-            var totalAmount = dto.Items
-               .Sum(x => x.Amount);
-
-            var totalQuantity = dto.Items
-               .Sum(x => x.Quantity);
-
             return new OpeningItemBalanceResponseDto
             {
                 TotalItem = dto.Items.Count,
-                TotalAmount = totalAmount,
-                TotalQty = totalQuantity
+                TotalAmount = dto.Items.Sum(x => x.Amount),
+                TotalQty = dto.Items.Sum(x => x.Quantity)
             };
         }
 

@@ -127,38 +127,6 @@ namespace FinVentoryAPI.Controllers
             }
         }
 
-        // ── POST ─────────────────────────────────────────────
-        [HttpPatch("{id}/post")]
-        public async Task<IActionResult> Post(int id)
-        {
-            try
-            {
-                var result = await _service.PostAsync(id);
-                if (!result)
-                    return NotFound(new { message = "Invoice not found." });
-                return Ok(new { message = "Invoice posted successfully." });
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-        }
-
-        // ── CANCEL ───────────────────────────────────────────
-        [HttpPatch("{id}/cancel")]
-        public async Task<IActionResult> Cancel(int id)
-        {
-            try
-            {
-                var result = await _service.CancelAsync(id);
-                if (!result)
-                    return NotFound(new { message = "Invoice not found." });
-                return Ok(new { message = "Invoice cancelled successfully." });
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-        }
+       
     }
 }

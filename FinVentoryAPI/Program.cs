@@ -41,7 +41,8 @@ builder.Services.AddScoped<IOpeningItemBalanceService, OpeningItemBalanceService
 builder.Services.AddScoped<ISalesInvoiceService, SalesInvoiceService>();
 builder.Services.AddScoped<ISalesPersonService, SalesPersonService>();
 builder.Services.AddScoped<IDocumentSeriesService, DocumentSeriesService>();
-
+builder.Services.AddScoped<IStockLedgerService, StockLedgerService>();
+builder.Services.AddScoped<IStockService, StockService>();
 
 
 builder.Services.AddHttpContextAccessor();

@@ -15,9 +15,8 @@ namespace FinVentoryAPI.Services.Interfaces
 
         Task<bool> DeleteAsync(int id);
 
-        Task<bool> PostAsync(int id);
+       
 
-        Task<bool> CancelAsync(int id);
 
         Task<PagedResponseDto<SalesInvoiceResponseDto>> GetPagedAsync(PagedRequestDto request);
     }
