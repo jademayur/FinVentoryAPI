@@ -217,11 +217,13 @@ namespace FinVentoryAPI.Services.Implementations
         // ════════════════════════════════════════════════
         // GET ALL ITEMS LEDGER SUMMARY
         // ════════════════════════════════════════════════
+  
         public async Task<List<StockLedgerResponseDto>> GetAllLedgersAsync(
             DateTime? from, DateTime? to, int? itemGroupId)
         {
             var companyId = _common.GetCompanyId();
 
+            // 1. Load items once
             var itemsQuery = _context.Items
                 .Where(i => i.CompanyId == companyId && !i.IsDeleted)
                 .Include(i => i.ItemGroup)
@@ -231,18 +233,84 @@ namespace FinVentoryAPI.Services.Implementations
                 itemsQuery = itemsQuery.Where(i => i.ItemGroupId == itemGroupId.Value);
 
             var items = await itemsQuery.ToListAsync();
+            var itemIds = items.Select(i => i.ItemId).ToHashSet();
 
+            // 2. Load ALL ledger rows for these items in ONE query
+            var allLedgers = await _context.StockLedgers
+                .Where(sl =>
+                    sl.CompanyId == companyId &&
+                    itemIds.Contains(sl.ItemId) &&
+                    !sl.IsDeleted)
+                .Include(sl => sl.Warehouse)
+                .Include(sl => sl.BusinessPartner)
+                .OrderBy(sl => sl.ItemId)
+                .ThenBy(sl => sl.Date)
+                .ThenBy(sl => sl.LedgerId)
+                .ToListAsync();
+
+            // 3. Group in memory and build DTOs
+            var ledgerByItem = allLedgers.ToLookup(sl => sl.ItemId);
             var result = new List<StockLedgerResponseDto>();
 
             foreach (var item in items)
             {
-                var ledger = await GetLedgerByItemAsync(item.ItemId, from, to);
-                if (ledger != null)
-                    result.Add(ledger);
+                var rows = ledgerByItem[item.ItemId].ToList();
+
+                var openingStock = from.HasValue
+                    ? rows.Where(sl => sl.Date < from.Value).Sum(sl => sl.Qty)
+                    : 0;
+
+                var periodRows = rows
+                    .Where(sl =>
+                        (!from.HasValue || sl.Date >= from.Value) &&
+                        (!to.HasValue || sl.Date <= to.Value))
+                    .ToList();
+
+                decimal running = openingStock;
+                var entryDtos = periodRows.Select(e =>
+                {
+                    running += e.Qty;
+                    return new StockLedgerEntryDto
+                    {
+                        LedgerId = e.LedgerId,
+                        Date = e.Date,
+                        VoucherType = e.VoucherType ?? string.Empty,
+                        VoucherNo = e.VoucherNo ?? string.Empty,
+                        PartyName = e.BusinessPartner?.BusinessPartnerName,
+                        WarehouseName = e.Warehouse?.WarehouseName,
+                        InQty = e.Qty > 0 ? e.Qty : 0,
+                        OutQty = e.Qty < 0 ? -e.Qty : 0,
+                        Balance = running,
+                        Rate = e.Rate,
+                        Remarks = e.Remarks
+                    };
+                }).ToList();
+
+                result.Add(new StockLedgerResponseDto
+                {
+                    ItemId = item.ItemId,
+                    ItemName = item.ItemName,
+                    ItemCode = item.ItemCode ?? string.Empty,
+                    Unit = GetUnitName(item.BaseUnitId),   // safe enum helper
+                    ItemGroupName = item.ItemGroup?.ItemGroupName,
+                    OpeningStock = openingStock,
+                    TotalIn = entryDtos.Sum(e => e.InQty),
+                    TotalOut = entryDtos.Sum(e => e.OutQty),
+                    ClosingStock = running,
+                    Entries = entryDtos
+                });
             }
 
             return result;
         }
+
+        // ════════════════════════════════════════════════
+        // SAFE ENUM → STRING
+        // ════════════════════════════════════════════════
+        private static string GetUnitName(int baseUnitId) =>
+            Enum.IsDefined(typeof(BaseUnit), baseUnitId)
+                ? ((BaseUnit)baseUnitId).ToString()
+                : $"Unit#{baseUnitId}";
 
         // ════════════════════════════════════════════════
         // DELETE SINGLE ENTRY  (soft delete)
@@ -267,6 +335,99 @@ namespace FinVentoryAPI.Services.Implementations
 
             await _context.SaveChangesAsync();
             return true;
+        }
+
+        // ════════════════════════════════════════════════
+        // UPDATE ENTRIES IN-PLACE  (on voucher edit)
+        // ════════════════════════════════════════════════
+        public async Task UpdateEntriesAsync(
+            int companyId, int? warehouseId,
+            DateTime date, string voucherType, string voucherNo,
+            int? businessPartnerId,
+            List<StockLedgerLineDto> lines,
+            int? modifiedBy = null)
+        {
+            var existing = await _context.StockLedgers
+                .Where(sl =>
+                    sl.CompanyId == companyId &&
+                    sl.VoucherNo == voucherNo &&
+                    !sl.IsDeleted)
+                .OrderBy(sl => sl.LedgerId)
+                .ToListAsync();
+
+            for (int i = 0; i < lines.Count; i++)
+            {
+                var line = lines[i];
+
+                if (i < existing.Count)
+                {
+                    // ── UPDATE in-place ──────────────────────────
+                    var entry = existing[i];
+                    entry.ItemId = line.ItemId;
+                    entry.WarehouseId = warehouseId;
+                    entry.Date = date;
+                    entry.BusinessPartnerId = businessPartnerId;
+                    entry.Qty = line.Qty;
+                    entry.Rate = line.Rate;
+                    entry.Remarks = line.Remarks;
+                    entry.ModifiedBy = modifiedBy;
+                    entry.ModifiedDate = DateTime.UtcNow;
+                }
+                else
+                {
+                    // ── INSERT new line (invoice gained a row) ───
+                    _context.StockLedgers.Add(new StockLedger
+                    {
+                        CompanyId = companyId,
+                        ItemId = line.ItemId,
+                        WarehouseId = warehouseId,
+                        Date = date,
+                        VoucherType = voucherType,
+                        VoucherNo = voucherNo,
+                        BusinessPartnerId = businessPartnerId,
+                        Qty = line.Qty,
+                        Rate = line.Rate,
+                        Remarks = line.Remarks,
+                        IsActive = true,
+                        IsDeleted = false,
+                        CreatedBy = modifiedBy,
+                        CreatedDate = DateTime.UtcNow
+                    });
+                }
+            }
+
+            // ── REMOVE surplus rows (invoice lost a line) ────
+            if (existing.Count > lines.Count)
+            {
+                var surplus = existing.Skip(lines.Count).ToList();
+                _context.StockLedgers.RemoveRange(surplus); // hard delete surplus ledger rows
+            }
+
+            await _context.SaveChangesAsync();
+        }
+
+        // ════════════════════════════════════════════════
+        // SOFT DELETE ALL ENTRIES FOR A VOUCHER
+        // ════════════════════════════════════════════════
+        public async Task SoftDeleteByVoucherAsync(
+            int companyId, string voucherNo, int? modifiedBy = null)
+        {
+            var entries = await _context.StockLedgers
+                .Where(sl =>
+                    sl.CompanyId == companyId &&
+                    sl.VoucherNo == voucherNo &&
+                    !sl.IsDeleted)
+                .ToListAsync();
+
+            foreach (var e in entries)
+            {
+                e.IsDeleted = true;
+                e.IsActive = false;
+                e.ModifiedBy = modifiedBy;
+                e.ModifiedDate = DateTime.UtcNow;
+            }
+
+            await _context.SaveChangesAsync();
         }
     }
 }

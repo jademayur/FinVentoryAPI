@@ -6,7 +6,7 @@ namespace FinVentoryAPI.Services.Interfaces
     {
         Task AddEntryAsync(
         int companyId, int financialYearId,
-        int accountId, int businessPartnerId,
+        int accountId, int? businessPartnerId,
         DateTime date, string voucherType, string voucherNo,
         decimal debit, decimal credit,
         string? remarks = null, int? createdBy = null);
@@ -30,5 +30,15 @@ namespace FinVentoryAPI.Services.Interfaces
             DateTime? from, DateTime? to, int? accountGroupId);
 
         Task<bool> DeleteEntryAsync(int postingId);
+
+        Task UpdateEntriesAsync(
+    int companyId, int financialYearId,
+    DateTime date, string voucherType, string voucherNo,
+    List<AccountLedgerLineDto> lines,
+    int? modifiedBy = null);
+
+        Task SoftDeleteByVoucherAsync(
+            int companyId, int financialYearId,
+            string voucherNo, int? modifiedBy = null);
     }
 }

@@ -651,6 +651,62 @@ namespace FinVentoryAPI.Services.Implementations
             };
         }
 
+        public async Task<List<BusinessPartnerResponseDto>> GetCustomersAsync()
+        {
+            var companyId = _common.GetCompanyId();
+
+            var businessPartners = await _context.BusinessPartners
+                .Where(x =>
+                    x.CompanyId == companyId &&
+                    !x.IsDeleted &&
+                    (x.Type == BusinessPartnerType.Customer || x.Type == BusinessPartnerType.Both))
+                .ToListAsync();
+
+            return businessPartners.Select(x => new BusinessPartnerResponseDto
+            {
+                BusinessPartnerId = x.BusinessPartnerId,
+                Type = x.Type,
+                BusinessPartnerCode = x.BusinessPartnerCode,
+                BusinessPartnerName = x.BusinessPartnerName,
+                PrintName = x.PrintName,
+                Mobile = x.Mobile,
+                Email = x.Email,
+                CreditLimit = x.CreditLimit,
+                CreditDays = x.CreditDays,
+                AccountGroupId = x.AccountGroupId,
+                AccountId = x.AccountId,
+                DefaultPriceType = x.DefaultPriceType
+            }).ToList();
+        }
+
+        public async Task<List<BusinessPartnerResponseDto>> GetSuppliersAsync()
+        {
+            var companyId = _common.GetCompanyId();
+
+            var businessPartners = await _context.BusinessPartners
+                .Where(x =>
+                    x.CompanyId == companyId &&
+                    !x.IsDeleted &&
+                    (x.Type == BusinessPartnerType.Supplier || x.Type == BusinessPartnerType.Both))
+                .ToListAsync();
+
+            return businessPartners.Select(x => new BusinessPartnerResponseDto
+            {
+                BusinessPartnerId = x.BusinessPartnerId,
+                Type = x.Type,
+                BusinessPartnerCode = x.BusinessPartnerCode,
+                BusinessPartnerName = x.BusinessPartnerName,
+                PrintName = x.PrintName,
+                Mobile = x.Mobile,
+                Email = x.Email,
+                CreditLimit = x.CreditLimit,
+                CreditDays = x.CreditDays,
+                AccountGroupId = x.AccountGroupId,
+                AccountId = x.AccountId,
+                DefaultPriceType = x.DefaultPriceType
+            }).ToList();
+        }
+
         // ────────────────────────────────────────────────────
         // PRIVATE — Validate BP belongs to company
         // ────────────────────────────────────────────────────

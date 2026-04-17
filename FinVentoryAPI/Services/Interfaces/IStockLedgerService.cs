@@ -33,5 +33,15 @@ namespace FinVentoryAPI.Services.Interfaces
             DateTime? from, DateTime? to, int? itemGroupId);
 
         Task<bool> DeleteEntryAsync(int ledgerId);
+
+        Task UpdateEntriesAsync(
+    int companyId, int? warehouseId,
+    DateTime date, string voucherType, string voucherNo,
+    int? businessPartnerId,
+    List<StockLedgerLineDto> lines,
+    int? modifiedBy = null);
+
+        Task SoftDeleteByVoucherAsync(
+            int companyId, string voucherNo, int? modifiedBy = null);
     }
 }

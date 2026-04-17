@@ -1,4 +1,5 @@
 ﻿using FinVentoryAPI.Data;
+using FinVentoryAPI.DTOs.AccountLedgerPostingDTOs;
 using FinVentoryAPI.DTOs.OpeningBalanceDTOs;
 using FinVentoryAPI.Entities;
 using FinVentoryAPI.Enums;
@@ -12,17 +13,20 @@ namespace FinVentoryAPI.Services.Implementations
     {
         private readonly AppDbContext _context;
         private readonly Common _common;
+        private readonly IAccountLedgerPostingService _accountLedgerService;
 
-        public OpeningBalanceService(AppDbContext context, Common common)
+        public OpeningBalanceService(AppDbContext context, Common common, IAccountLedgerPostingService accountLedgerService)
         {
             _context = context;
             _common = common;
+            _accountLedgerService = accountLedgerService;
         }
 
         public async Task<OpeningBalanceResponseDto> SaveAsync(OpeningBalanceDto dto)
         {
             var companyId = _common.GetCompanyId();
             var yearId = _common.GetFinancialYearId();
+            var userId = _common.GetUserId();
 
             // 🔴 Validation
             if (dto.Items == null || !dto.Items.Any())
@@ -34,24 +38,61 @@ namespace FinVentoryAPI.Services.Implementations
             if (dto.Items.GroupBy(x => x.AccountId).Any(g => g.Count() > 1))
                 throw new Exception("Duplicate accounts not allowed.");
 
-            // 🔁 Remove old opening (overwrite scenario)
+            // 🔁 Remove old opening balance records (overwrite scenario)
             var existing = _context.OpeningBalances
                 .Where(x => x.CompanyId == companyId && x.FinancialYearId == yearId);
 
             _context.OpeningBalances.RemoveRange(existing);
 
-            // ➕ Insert new records
+            // ✅ Soft-delete old Account Ledger entries for opening balance
+            var oldLedgerEntries = await _context.AccountLedgerPostings
+                .Where(p =>
+                    p.CompanyId == companyId &&
+                    p.FinancialYearId == yearId &&
+                    p.VoucherType == "Opening-Balance" &&
+                    !p.IsDeleted)
+                .ToListAsync();
+
+            foreach (var entry in oldLedgerEntries)
+            {
+                entry.IsDeleted = true;
+                entry.IsActive = false;
+                entry.ModifiedBy = userId;
+                entry.ModifiedDate = DateTime.UtcNow;
+            }
+
+            // ➕ Insert new opening balance records
             var entities = dto.Items.Select(x => new OpeningBalance
             {
                 CompanyId = companyId,
                 FinancialYearId = yearId,
-                AccountId = x.AccountId,               
+                AccountId = x.AccountId,
                 Amount = x.Amount,
                 BalanceType = x.BalanceType
             }).ToList();
 
             await _context.OpeningBalances.AddRangeAsync(entities);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(); // ✅ Saves both soft-deletes + new records together
+
+            // ✅ Push new entries into Account Ledger
+            var ledgerLines = dto.Items.Select(x => new AccountLedgerLineDto
+            {
+                AccountId = x.AccountId,
+                BusinessPartnerId = null,
+                Debit = x.BalanceType == BalanceType.Dr ? x.Amount : 0,
+                Credit = x.BalanceType == BalanceType.Cr ? x.Amount : 0,
+                Remarks = "Opening Balance"
+            }).ToList();
+
+            await _accountLedgerService.AddEntriesAsync(
+                companyId: companyId,
+                financialYearId: yearId,
+                date: DateTime.Today,
+                voucherType: "Opening-Balance",
+                voucherNo: $"OPB-{yearId}",
+                lines: ledgerLines,
+                createdBy: userId
+            );
 
             // 📊 Summary
             var totalDebit = dto.Items
@@ -76,12 +117,12 @@ namespace FinVentoryAPI.Services.Implementations
             var yearId = _common.GetFinancialYearId();
 
             return await _context.OpeningBalances
-                .Include(x => x.Account) 
+                .Include(x => x.Account)
                 .Where(x => x.CompanyId == companyId && x.FinancialYearId == yearId)
                 .Select(x => new OpeningBalanceItemDto
                 {
                     AccountId = x.AccountId,
-                    AccountName = x.Account.AccountName, 
+                    AccountName = x.Account.AccountName,
                     Amount = x.Amount,
                     BalanceType = x.BalanceType
                 })

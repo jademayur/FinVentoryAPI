@@ -1,10 +1,12 @@
 ﻿using FinVentoryAPI.Data;
+using FinVentoryAPI.DTOs.AccountLedgerPostingDTOs;
 using FinVentoryAPI.DTOs.PagedRequestDto;
 using FinVentoryAPI.DTOs.SalesInvoiceDTOs;
 using FinVentoryAPI.DTOs.StockLedgerDTOs;
 using FinVentoryAPI.Entities;
 using FinVentoryAPI.Enums;
 using FinVentoryAPI.Helpers;
+using FinVentoryAPI.Migrations;
 using FinVentoryAPI.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
@@ -16,12 +18,14 @@ namespace FinVentoryAPI.Services.Implementations
         private readonly AppDbContext _context;
         private readonly Common _common;
         private readonly IStockLedgerService _stockLedger;
+        private readonly IAccountLedgerPostingService _accountLedger;
 
-        public SalesInvoiceService(AppDbContext context, Common common, IStockLedgerService stockLedger)
+        public SalesInvoiceService(AppDbContext context, Common common, IStockLedgerService stockLedger, IAccountLedgerPostingService accountLedger)
         {
             _context = context;
             _common = common;
             _stockLedger = stockLedger;
+            _accountLedger = accountLedger;
         }
 
         // ────────────────────────────────────────────────────
@@ -118,6 +122,7 @@ namespace FinVentoryAPI.Services.Implementations
             }
 
             await PostStockLedgerAsync(main, isReversal: false);
+            await PostAccountLedgerAsync(main, isReversal: false);
 
             // 7. Return saved invoice
             return await GetByIdAsync(main.InvoiceId)
@@ -135,7 +140,9 @@ namespace FinVentoryAPI.Services.Implementations
             // 1. Load with existing lines
             var main = await _context.SalesInvoiceMains
                 .Include(m => m.Details!)
-                    .ThenInclude(d => d.TaxDetails)
+                .ThenInclude(d => d.TaxDetails)
+                .Include(m => m.TaxDetails)       
+                .Include(m => m.BusinessPartner)  
                 .FirstOrDefaultAsync(x =>
                     x.InvoiceId == id &&
                     x.CompanyId == companyId &&
@@ -339,11 +346,8 @@ namespace FinVentoryAPI.Services.Implementations
                 throw new Exception(ex.InnerException?.Message ?? ex.Message);
             }
 
-            await _stockLedger.ReverseEntriesAsync(
-                 companyId, main.InvoiceNo,
-                 main.InvoiceNo + "-UPD-" + DateTime.UtcNow.Ticks.ToString(),
-                 DateTime.UtcNow, userId);
-            await PostStockLedgerAsync(main, isReversal: false);
+            await UpdateStockLedgerAsync(main);
+            await UpdateAccountLedgerAsync(main);
 
             _context.ChangeTracker.Clear();
             return true;
@@ -423,8 +427,11 @@ namespace FinVentoryAPI.Services.Implementations
         public async Task<bool> DeleteAsync(int id)
         {
             var companyId = _common.GetCompanyId();
+            var userId = _common.GetUserId();
 
             var main = await _context.SalesInvoiceMains
+                .Include(m => m.TaxDetails)
+                .Include(m => m.BusinessPartner)
                 .FirstOrDefaultAsync(x =>
                     x.InvoiceId == id &&
                     x.CompanyId == companyId &&
@@ -438,11 +445,10 @@ namespace FinVentoryAPI.Services.Implementations
             main.IsDeleted = true;
 
             // 4. In DeleteAsync — after setting main.IsDeleted = true, before SaveChangesAsync
-            await _stockLedger.ReverseEntriesAsync(
-                companyId, main.InvoiceNo,
-                main.InvoiceNo + "-DEL",
-                DateTime.UtcNow, _common.GetUserId());
-
+            await _stockLedger.SoftDeleteByVoucherAsync(
+     companyId, main.InvoiceNo, _common.GetUserId());
+            await _accountLedger.SoftDeleteByVoucherAsync(
+         companyId, main.FinYearId, main.InvoiceNo, userId);
 
             main.IsActive = false;
             main.ModifiedBy = _common.GetUserId();
@@ -974,6 +980,237 @@ namespace FinVentoryAPI.Services.Implementations
                 lines: lines,
                 createdBy: (int?)main.CreatedBy
             );
+        }
+
+        // ── Post to Account Ledger ────────────────────────────
+        private async Task PostAccountLedgerAsync(SalesInvoiceMain main, bool isReversal)
+        {
+            // Load BusinessPartner with AccountId if not already loaded
+            var bp = main.BusinessPartner
+                ?? await _context.BusinessPartners
+                    .FirstOrDefaultAsync(x => x.BusinessPartnerId == main.BusinessPartnerId);
+
+            if (bp == null) return;
+
+            // ── Double entry for Sales Invoice ────────────────
+            //
+            //  Normal:   DR Receivable (customer)   → NetTotal
+            //            CR Sales Account           → SubTotal
+            //            CR Tax Accounts            → TaxAmount + CessAmount
+            //
+            //  Reversal: flip Debit ↔ Credit
+
+            var lines = new List<AccountLedgerLineDto>
+    {
+        // 1. Receivable account (Business Partner)
+        new()
+        {
+            AccountId         = bp.AccountId,
+            BusinessPartnerId = main.BusinessPartnerId,
+            Debit             = isReversal ? 0 : main.NetTotal,
+            Credit            = isReversal ? main.NetTotal : 0,
+            Remarks           = $"Sales Invoice: {main.InvoiceNo}"
+        },
+
+        // 2. Sales account
+        new()
+        {
+            AccountId         = main.SalesAccountId,
+            BusinessPartnerId = main.BusinessPartnerId,
+            Debit             = isReversal ? main.SubTotal : 0,
+            Credit            = isReversal ? 0 : main.SubTotal,
+            Remarks           = $"Sales Invoice: {main.InvoiceNo}"
+        }
+    };
+
+            // 3. Tax accounts — one line per unique tax posting account
+            if (main.TaxDetails != null && main.TaxDetails.Any())
+            {
+                // ── IGST (inter-state) ────────────────────────────
+                var igstGroups = main.TaxDetails
+                    .Where(t => t.IGSTPostingAccountId.HasValue
+                             && t.IGSTPostingAccountId.Value > 0    // ✅ guard against 0
+                             && t.IGSTAmount > 0)
+                    .GroupBy(t => t.IGSTPostingAccountId!.Value);
+
+                foreach (var g in igstGroups)
+                {
+                    lines.Add(new AccountLedgerLineDto
+                    {
+                        AccountId = g.Key,
+                        BusinessPartnerId = main.BusinessPartnerId,
+                        Debit = isReversal ? g.Sum(t => t.IGSTAmount) : 0,
+                        Credit = isReversal ? 0 : g.Sum(t => t.IGSTAmount),
+                        Remarks = $"IGST - Sales Invoice: {main.InvoiceNo}"
+                    });
+                }
+
+                // ── CGST (intra-state) ────────────────────────────
+                var cgstGroups = main.TaxDetails
+                    .Where(t => t.CGSTPostingAccountId.HasValue
+                             && t.CGSTPostingAccountId.Value > 0    // ✅ guard against 0
+                             && t.CGSTAmount > 0)
+                    .GroupBy(t => t.CGSTPostingAccountId!.Value);
+
+                foreach (var g in cgstGroups)
+                {
+                    lines.Add(new AccountLedgerLineDto
+                    {
+                        AccountId = g.Key,
+                        BusinessPartnerId = main.BusinessPartnerId,
+                        Debit = isReversal ? g.Sum(t => t.CGSTAmount) : 0,
+                        Credit = isReversal ? 0 : g.Sum(t => t.CGSTAmount),
+                        Remarks = $"CGST - Sales Invoice: {main.InvoiceNo}"
+                    });
+                }
+
+                // ── SGST (intra-state) ────────────────────────────
+                var sgstGroups = main.TaxDetails
+                    .Where(t => t.SGSTPostingAccountId.HasValue
+                             && t.SGSTPostingAccountId.Value > 0    // ✅ guard against 0
+                             && t.SGSTAmount > 0)
+                    .GroupBy(t => t.SGSTPostingAccountId!.Value);
+
+                foreach (var g in sgstGroups)
+                {
+                    lines.Add(new AccountLedgerLineDto
+                    {
+                        AccountId = g.Key,
+                        BusinessPartnerId = main.BusinessPartnerId,
+                        Debit = isReversal ? g.Sum(t => t.SGSTAmount) : 0,
+                        Credit = isReversal ? 0 : g.Sum(t => t.SGSTAmount),
+                        Remarks = $"SGST - Sales Invoice: {main.InvoiceNo}"
+                    });
+                }
+
+                // ── Cess ──────────────────────────────────────────
+                var cessGroups = main.TaxDetails
+                    .Where(t => t.CessPostingAccountId.HasValue
+                             && t.CessPostingAccountId.Value > 0    // ✅ guard against 0
+                             && t.CessAmount > 0)
+                    .GroupBy(t => t.CessPostingAccountId!.Value);
+
+                foreach (var g in cessGroups)
+                {
+                    lines.Add(new AccountLedgerLineDto
+                    {
+                        AccountId = g.Key,
+                        BusinessPartnerId = main.BusinessPartnerId,
+                        Debit = isReversal ? g.Sum(t => t.CessAmount) : 0,
+                        Credit = isReversal ? 0 : g.Sum(t => t.CessAmount),
+                        Remarks = $"Cess - Sales Invoice: {main.InvoiceNo}"
+                    });
+                }
+            }
+
+            await _accountLedger.AddEntriesAsync(
+                companyId: main.CompanyId,
+                financialYearId: main.FinYearId,
+                date: main.InvoiceDate,
+                voucherType: "Sales Invoice",
+                voucherNo: main.InvoiceNo,
+                lines: lines,
+                createdBy: (int?)main.CreatedBy
+            );
+        }
+
+        private async Task UpdateStockLedgerAsync(SalesInvoiceMain main)
+        {
+            if (main.Details == null || !main.Details.Any()) return;
+
+            var lines = main.Details.Select(d => new StockLedgerLineDto
+            {
+                ItemId = d.ItemId,
+                Qty = -d.Qty,   // negative = stock OUT on sale
+                Rate = d.Rate,
+                Remarks = $"Sales Invoice: {main.InvoiceNo}"
+            }).ToList();
+
+            await _stockLedger.UpdateEntriesAsync(
+                companyId: main.CompanyId,
+                warehouseId: null,
+                date: main.InvoiceDate,
+                voucherType: "Sales Invoice",
+                voucherNo: main.InvoiceNo,
+                businessPartnerId: main.BusinessPartnerId,
+                lines: lines,
+                modifiedBy: (int?)main.ModifiedBy
+            );
+        }
+
+        private async Task UpdateAccountLedgerAsync(SalesInvoiceMain main)
+        {
+            var bp = main.BusinessPartner
+                ?? await _context.BusinessPartners
+                    .FirstOrDefaultAsync(x => x.BusinessPartnerId == main.BusinessPartnerId);
+
+            if (bp == null) return;
+
+            var lines = BuildAccountLedgerLines(main, bp, isReversal: false);
+
+            await _accountLedger.UpdateEntriesAsync(
+                companyId: main.CompanyId,
+                financialYearId: main.FinYearId,
+                date: main.InvoiceDate,
+                voucherType: "Sales Invoice",
+                voucherNo: main.InvoiceNo,
+                lines: lines,
+                modifiedBy: (int?)main.ModifiedBy
+            );
+        }
+
+        private List<AccountLedgerLineDto> BuildAccountLedgerLines(
+    SalesInvoiceMain main, BusinessPartner bp, bool isReversal)
+        {
+            var lines = new List<AccountLedgerLineDto>
+    {
+        new() {
+            AccountId         = bp.AccountId,
+            BusinessPartnerId = main.BusinessPartnerId,
+            Debit             = isReversal ? 0 : main.NetTotal,
+            Credit            = isReversal ? main.NetTotal : 0,
+            Remarks           = $"Sales Invoice: {main.InvoiceNo}"
+        },
+        new() {
+            AccountId         = main.SalesAccountId,
+            BusinessPartnerId = main.BusinessPartnerId,
+            Debit             = isReversal ? main.SubTotal : 0,
+            Credit            = isReversal ? 0 : main.SubTotal,
+            Remarks           = $"Sales Invoice: {main.InvoiceNo}"
+        }
+    };
+
+            if (main.TaxDetails != null && main.TaxDetails.Any())
+            {
+                void AddTaxLines(
+                    Func<SalesInvoiceTaxDetail, int?> getAccountId,
+                    Func<SalesInvoiceTaxDetail, decimal> getAmount,
+                    string label)
+                {
+                    var groups = main.TaxDetails
+                        .Where(t => getAccountId(t).HasValue
+                                 && getAccountId(t)!.Value > 0
+                                 && getAmount(t) > 0)
+                        .GroupBy(t => getAccountId(t)!.Value);
+
+                    foreach (var g in groups)
+                        lines.Add(new AccountLedgerLineDto
+                        {
+                            AccountId = g.Key,
+                            BusinessPartnerId = main.BusinessPartnerId,
+                            Debit = isReversal ? g.Sum(getAmount) : 0,
+                            Credit = isReversal ? 0 : g.Sum(getAmount),
+                            Remarks = $"{label} - Sales Invoice: {main.InvoiceNo}"
+                        });
+                }
+
+                AddTaxLines(t => t.IGSTPostingAccountId, t => t.IGSTAmount, "IGST");
+                AddTaxLines(t => t.CGSTPostingAccountId, t => t.CGSTAmount, "CGST");
+                AddTaxLines(t => t.SGSTPostingAccountId, t => t.SGSTAmount, "SGST");
+                AddTaxLines(t => t.CessPostingAccountId, t => t.CessAmount, "Cess");
+            }
+
+            return lines;
         }
     }
 }

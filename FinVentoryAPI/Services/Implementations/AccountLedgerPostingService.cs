@@ -23,7 +23,7 @@ namespace FinVentoryAPI.Services.Implementations
         // ════════════════════════════════════════════════
         public async Task AddEntryAsync(
             int companyId, int financialYearId,
-            int accountId, int businessPartnerId,
+            int accountId, int? businessPartnerId,
             DateTime date, string voucherType, string voucherNo,
             decimal debit, decimal credit,
             string? remarks = null, int? createdBy = null)
@@ -33,7 +33,7 @@ namespace FinVentoryAPI.Services.Implementations
                 CompanyId = companyId,
                 FinancialYearId = financialYearId,   // ✅
                 AccountId = accountId,
-                BusinessPartnerId = businessPartnerId,
+                BusinessPartnerId = businessPartnerId ,
                 Date = date,
                 VoucherType = voucherType,
                 VoucherNo = voucherNo,
@@ -271,6 +271,100 @@ namespace FinVentoryAPI.Services.Implementations
 
             await _context.SaveChangesAsync();
             return true;
+        }
+
+        // ════════════════════════════════════════════════
+        // UPDATE ENTRIES IN-PLACE  (on voucher edit)
+        // ════════════════════════════════════════════════
+        public async Task UpdateEntriesAsync(
+            int companyId, int financialYearId,
+            DateTime date, string voucherType, string voucherNo,
+            List<AccountLedgerLineDto> lines,
+            int? modifiedBy = null)
+        {
+            var existing = await _context.AccountLedgerPostings
+                .Where(p =>
+                    p.CompanyId == companyId &&
+                    p.FinancialYearId == financialYearId &&
+                    p.VoucherNo == voucherNo &&
+                    !p.IsDeleted)
+                .OrderBy(p => p.PostingId)
+                .ToListAsync();
+
+            for (int i = 0; i < lines.Count; i++)
+            {
+                var line = lines[i];
+
+                if (i < existing.Count)
+                {
+                    // ── UPDATE in-place ──────────────────────────
+                    var entry = existing[i];
+                    entry.AccountId = line.AccountId;
+                    entry.BusinessPartnerId = line.BusinessPartnerId;
+                    entry.Date = date;
+                    entry.Debit = line.Debit;
+                    entry.Credit = line.Credit;
+                    entry.Remarks = line.Remarks;
+                    entry.ModifiedBy = modifiedBy;
+                    entry.ModifiedDate = DateTime.UtcNow;
+                }
+                else
+                {
+                    // ── INSERT new line (voucher gained an entry) ─
+                    _context.AccountLedgerPostings.Add(new AccountLedgerPosting
+                    {
+                        CompanyId = companyId,
+                        FinancialYearId = financialYearId,
+                        AccountId = line.AccountId,
+                        BusinessPartnerId = line.BusinessPartnerId,
+                        Date = date,
+                        VoucherType = voucherType,
+                        VoucherNo = voucherNo,
+                        Debit = line.Debit,
+                        Credit = line.Credit,
+                        Remarks = line.Remarks,
+                        IsActive = true,
+                        IsDeleted = false,
+                        CreatedBy = modifiedBy,
+                        CreatedDate = DateTime.UtcNow
+                    });
+                }
+            }
+
+            // ── REMOVE surplus rows (voucher lost an entry) ──
+            if (existing.Count > lines.Count)
+            {
+                var surplus = existing.Skip(lines.Count).ToList();
+                _context.AccountLedgerPostings.RemoveRange(surplus);
+            }
+
+            await _context.SaveChangesAsync();
+        }
+
+        // ════════════════════════════════════════════════
+        // SOFT DELETE ALL ENTRIES FOR A VOUCHER
+        // ════════════════════════════════════════════════
+        public async Task SoftDeleteByVoucherAsync(
+            int companyId, int financialYearId,
+            string voucherNo, int? modifiedBy = null)
+        {
+            var entries = await _context.AccountLedgerPostings
+                .Where(p =>
+                    p.CompanyId == companyId &&
+                    p.FinancialYearId == financialYearId &&
+                    p.VoucherNo == voucherNo &&
+                    !p.IsDeleted)
+                .ToListAsync();
+
+            foreach (var e in entries)
+            {
+                e.IsDeleted = true;
+                e.IsActive = false;
+                e.ModifiedBy = modifiedBy;
+                e.ModifiedDate = DateTime.UtcNow;
+            }
+
+            await _context.SaveChangesAsync();
         }
     }
 }
