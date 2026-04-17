@@ -9,7 +9,7 @@ namespace FinVentoryAPI.Entities
         public int CompanyId { get; set; }
         public int FinancialYearId { get; set; }
         public int AccountId { get; set; }
-        public int BusinessPartnerId { get; set; }
+        public int? BusinessPartnerId { get; set; }
         public DateTime Date { get; set; }
         public string VoucherType { get; set; } = string.Empty;
         public string VoucherNo { get; set; } = string.Empty;

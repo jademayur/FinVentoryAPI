@@ -215,5 +215,18 @@ namespace FinVentoryAPI.Controllers
             }
         }
 
+        [HttpGet("customers")]
+        public async Task<IActionResult> GetCustomers()
+        {
+            var result = await _service.GetCustomersAsync();
+            return Ok(result);
+        }
+
+        [HttpGet("suppliers")]
+        public async Task<IActionResult> GetSuppliers()
+        {
+            var result = await _service.GetSuppliersAsync();
+            return Ok(result);
+        }
     }
 }

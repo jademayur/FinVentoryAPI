@@ -162,7 +162,7 @@ namespace FinVentoryAPI.Enums
         Customer = 1,
         Supplier = 2,
         Both = 3,
-        Agent = 4,
+      
     }
     public enum AddressType
     {
