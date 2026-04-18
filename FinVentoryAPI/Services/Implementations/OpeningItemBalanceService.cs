@@ -32,6 +32,14 @@ namespace FinVentoryAPI.Services.Implementations
             var yearId = _common.GetFinancialYearId();
             var userId = _common.GetUserId();
 
+            var financialYear = await _context.FinancialYears
+                 .Where(x => x.FinancialYearId == yearId)
+                 .Select(x => new { x.StartDate })
+                 .FirstOrDefaultAsync();
+
+            if (financialYear == null)
+                throw new Exception("Financial year not found.");
+
             // 🔴 Validation
             if (dto.Items == null || !dto.Items.Any())
                 throw new Exception("No data found.");
@@ -90,7 +98,7 @@ namespace FinVentoryAPI.Services.Implementations
             await _stockLedgerService.AddEntriesAsync(
                 companyId: companyId,
                 warehouseId: null,               // or pass if you have a default warehouse
-                date: DateTime.Today,            // or use financial year start date
+                date: financialYear.StartDate,            // or use financial year start date
                 voucherType: "Opening-Balance",
                 voucherNo: $"OPB-{yearId}",      // unique voucher number per year
                 businessPartnerId: null,
@@ -100,7 +108,7 @@ namespace FinVentoryAPI.Services.Implementations
 
             // 📊 Summary
             return new OpeningItemBalanceResponseDto
-            {
+            {   
                 TotalItem = dto.Items.Count,
                 TotalAmount = dto.Items.Sum(x => x.Amount),
                 TotalQty = dto.Items.Sum(x => x.Quantity)

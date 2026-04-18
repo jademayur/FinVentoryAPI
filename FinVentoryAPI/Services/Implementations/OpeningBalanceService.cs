@@ -28,6 +28,14 @@ namespace FinVentoryAPI.Services.Implementations
             var yearId = _common.GetFinancialYearId();
             var userId = _common.GetUserId();
 
+            var financialYear = await _context.FinancialYears
+                 .Where(x => x.FinancialYearId == yearId)
+                 .Select(x => new { x.StartDate })
+                 .FirstOrDefaultAsync();
+
+            if (financialYear == null)
+                throw new Exception("Financial year not found.");
+
             // 🔴 Validation
             if (dto.Items == null || !dto.Items.Any())
                 throw new Exception("No data found.");
@@ -87,7 +95,7 @@ namespace FinVentoryAPI.Services.Implementations
             await _accountLedgerService.AddEntriesAsync(
                 companyId: companyId,
                 financialYearId: yearId,
-                date: DateTime.Today,
+                date: financialYear.StartDate,
                 voucherType: "Opening-Balance",
                 voucherNo: $"OPB-{yearId}",
                 lines: ledgerLines,
