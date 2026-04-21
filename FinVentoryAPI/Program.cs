@@ -45,6 +45,7 @@ builder.Services.AddScoped<IStockLedgerService, StockLedgerService>();
 builder.Services.AddScoped<IStockService, StockService>();
 builder.Services.AddScoped<IAccountLedgerPostingService, AccountLedgerPostingService>();
 builder.Services.AddScoped<IAccountLedgerService, AccountLedgerService>();
+builder.Services.AddScoped<ISalesReportService, SalesReportService>();
 
 
 builder.Services.AddHttpContextAccessor();
