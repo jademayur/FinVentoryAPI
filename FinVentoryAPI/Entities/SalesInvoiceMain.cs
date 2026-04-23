@@ -44,9 +44,9 @@
             public DateTime? LrDate { get; set; }
 
 
-        // Navigation
-        public BusinessPartner? BusinessPartner { get; set; }
-            public Location? Location { get; set; }
+             // Navigation
+            public BusinessPartner? BusinessPartner { get; set; }
+           public Location? Location { get; set; }
 
             [ForeignKey(nameof(SalesAccountId))]
             public Account? SalesAccount { get; set; }
