@@ -41,8 +41,8 @@ namespace FinVentoryAPI.Entities
         public SalesPerson? SalesPerson { get; set; }
         public BusinessPartnerAddress? BillAddress { get; set; }
         public BusinessPartnerAddress? ShipAddress { get; set; }
-     //   public ICollection<PurchaseInvoiceDetail>? Details { get; set; }
-      //  public ICollection<PurchaseInvoiceTaxDetail>? TaxDetails { get; set; }
+        public ICollection<PurchaseInvoiceDetail>? Details { get; set; }
+        public ICollection<PurchaseInvoiceTaxDetail>? TaxDetails { get; set; }
 
     }
 }
