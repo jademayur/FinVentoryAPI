@@ -9,5 +9,13 @@ namespace FinVentoryAPI.DTOs.OpeningItemBalanceDTOs
         public decimal Rate { get; set; }  
         public decimal Amount { get; set; }
 
+        // Required when Item.ItemManageBy == Batch
+        // Sum of all Batch.Qty must equal Quantity
+        public List<OpeningBatchDto>? Batches { get; set; }
+
+        // Required when Item.ItemManageBy == Serial
+        // Count must equal Quantity
+        public List<OpeningSerialDto>? Serials { get; set; }
+
     }
 }

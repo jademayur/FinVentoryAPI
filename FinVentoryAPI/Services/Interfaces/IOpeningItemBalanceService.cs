@@ -5,7 +5,7 @@ namespace FinVentoryAPI.Services.Interfaces
     public interface IOpeningItemBalanceService
     {
         Task<OpeningItemBalanceResponseDto> SaveAsync(OpeningBalanceItemDto dto);
-        Task<List<OpeningBalanceMatItemDto>> GetAsync();
+        Task<List<OpeningBalanceMatItemResponseDto>> GetAsync();
         Task<bool> DeleteAsync();
     }
 }
