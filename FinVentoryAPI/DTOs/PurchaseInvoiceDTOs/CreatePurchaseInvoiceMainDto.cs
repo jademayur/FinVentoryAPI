@@ -46,9 +46,9 @@ namespace FinVentoryAPI.DTOs.PurchaseInvoiceDTOs
         public DateTime? LrDate { get; set; }
 
 
-        [Required(ErrorMessage = "At least one item line is required.")]
-        [MinLength(1, ErrorMessage = "At least one item line is required.")]
-        public List<CreatePurchaseInvoiceDetailDto> Details { get; set; } = new();
+       // [Required(ErrorMessage = "At least one item line is required.")]
+        //[MinLength(1, ErrorMessage = "At least one item line is required.")]
+        //public List<CreatePurchaseInvoiceDetailDto> Details { get; set; } = new();
 
     }
 }

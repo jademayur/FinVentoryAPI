@@ -30,6 +30,11 @@
         public decimal CessAmount { get; set; }
         public decimal LineTaxAmount { get; set; }
         public decimal LineTotal { get; set; }
+        public string? ItemManageBy { get; set; }
+
+        // ── Batch / Serial allocations ────────────────────
+        public List<SalesInvoiceDetailBatchResponseDto>? Batches { get; set; }
+        public List<SalesInvoiceDetailSerialResponseDto>? Serials { get; set; }
 
         // Tax lines for this detail
         public List<SalesInvoiceTaxDetailResponseDto> TaxDetails { get; set; } = new();

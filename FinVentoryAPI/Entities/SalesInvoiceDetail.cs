@@ -36,5 +36,8 @@ namespace FinVentoryAPI.Entities
         public Hsn? Hsn { get; set; }
         //public ICollection<SalesInvoiceTaxDetail>? TaxDetails { get; set; }
         public List<SalesInvoiceTaxDetail> TaxDetails { get; set; }
+
+        public ICollection<SalesInvoiceDetailBatch>? Batches { get; set; }
+        public ICollection<SalesInvoiceDetailSerial>? Serials { get; set; }
     }
 }

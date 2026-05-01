@@ -1,4 +1,6 @@
-﻿namespace FinVentoryAPI.DTOs.ItemDTOs
+﻿using FinVentoryAPI.Enums;
+
+namespace FinVentoryAPI.DTOs.ItemDTOs
 {
     public class SalesInvoiceItemDto
     {
@@ -23,6 +25,8 @@
         public int? CGSTPostingAccountId { get; set; }
         public int? SGSTPostingAccountId { get; set; }
         public int? CessPostingAccountId { get; set; }
+
+        public ItemManageBy ItemManageBy { get; set; }
 
         // Prices
         public List<SalesInvoiceItemPriceDto> Prices { get; set; } = new();

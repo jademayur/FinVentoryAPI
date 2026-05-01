@@ -29,5 +29,14 @@ namespace FinVentoryAPI.DTOs.SalesInvoiceDTOs
         public decimal AddisDiscountRate { get; set; } = 0;
 
         public bool IsTaxIncluded { get; set; }
+
+        // ── Batch / Serial ────────────────────────────────
+        // Required only when Item.ItemManageBy == Batch.
+        // Sum of Qty across all entries must equal Qty above.
+        public List<SalesInvoiceDetailBatchDto>? Batches { get; set; }
+
+        // Required only when Item.ItemManageBy == Serial.
+        // Count must equal Qty above (each serial = 1 unit).
+        public List<SalesInvoiceDetailSerialDto>? Serials { get; set; }
     }
 }
