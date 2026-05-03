@@ -1,9 +1,11 @@
 ﻿using FinVentoryAPI.DTOs.AccountDTOs;
 using FinVentoryAPI.DTOs.ItemDTOs;
 using FinVentoryAPI.DTOs.PagedRequestDto;
+using FinVentoryAPI.Enums;
 using FinVentoryAPI.Services.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace FinVentoryAPI.Controllers
 {
@@ -115,6 +117,35 @@ namespace FinVentoryAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+
+        [HttpGet("{itemId}/available-batches")]
+        public async Task<IActionResult> GetAvailableBatches(int itemId)
+        {
+            try
+            {
+                var result = await _service.GetAvailableBatchesAsync(itemId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+               
+        [HttpGet("{itemId}/available-serials")]
+        public async Task<IActionResult> GetAvailableSerials(int itemId)
+        {
+            try
+            {
+                var result = await _service.GetAvailableSerialsAsync(itemId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
 
     }
 }

@@ -42,6 +42,10 @@ namespace FinVentoryAPI.Data
         public DbSet<DocumentSeriesMapping> DocumentSeriesMappings { get; set; }
         public DbSet<StockLedger> StockLedgers { get; set; }
         public DbSet<AccountLedgerPosting> AccountLedgerPostings { get; set; }
+        public DbSet<ItemBatch> ItemBatches { get; set; }
+        public DbSet<ItemSerial> ItemSerials { get; set; }
+        public DbSet<SalesInvoiceDetailBatch> SalesInvoiceDetailBatches { get; set; }
+        public DbSet<SalesInvoiceDetailSerial> SalesInvoiceDetailSerials { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -393,6 +397,78 @@ namespace FinVentoryAPI.Data
             modelBuilder.Entity<DocumentSeriesMapping>()
                   .HasIndex(x => new { x.CompanyId, x.AccountId })
                  .IsUnique();  // one series per account per company
+
+
+            // ── ItemBatch ────────────────────────────────────────────────────
+            modelBuilder.Entity<ItemBatch>(e =>
+            {
+                e.HasKey(x => x.BatchId);
+
+                e.HasIndex(x => new { x.CompanyId, x.ItemId, x.BatchNo })
+                 .IsUnique();                          // BatchNo unique per company+item
+
+                e.Property(x => x.BatchNo).HasMaxLength(100).IsRequired();
+                e.Property(x => x.ReceivedQty).HasPrecision(18, 4);
+                e.Property(x => x.UsedQty).HasPrecision(18, 4);
+                e.Property(x => x.AvailableQty).HasPrecision(18, 4);
+
+                e.HasOne(x => x.Item)
+                 .WithMany()
+                 .HasForeignKey(x => x.ItemId)
+                 .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // ── ItemSerial ───────────────────────────────────────────────────
+            modelBuilder.Entity<ItemSerial>(e =>
+            {
+                e.HasKey(x => x.SerialId);
+
+                e.HasIndex(x => new { x.CompanyId, x.ItemId, x.SerialNo })
+                 .IsUnique();                          // SerialNo unique per company+item
+
+                e.Property(x => x.SerialNo).HasMaxLength(100).IsRequired();
+                e.Property(x => x.Status).HasConversion<byte>();
+
+                e.HasOne(x => x.Item)
+                 .WithMany()
+                 .HasForeignKey(x => x.ItemId)
+                 .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // ── SalesInvoiceDetailBatch ──────────────────────────────────────
+            modelBuilder.Entity<SalesInvoiceDetailBatch>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Qty).HasPrecision(18, 4);
+
+                e.HasOne(x => x.Detail)
+                 .WithMany(d => d.Batches)
+                 .HasForeignKey(x => x.DetailId)
+                 .OnDelete(DeleteBehavior.Cascade);   // delete allocations when line deleted
+
+                e.HasOne(x => x.Batch)
+                 .WithMany(b => b.SalesInvoiceDetailBatches)
+                 .HasForeignKey(x => x.BatchId)
+                 .OnDelete(DeleteBehavior.Restrict);  // don't delete batch when line deleted
+            });
+
+            // ── SalesInvoiceDetailSerial ─────────────────────────────────────
+            modelBuilder.Entity<SalesInvoiceDetailSerial>(e =>
+            {
+                e.HasKey(x => x.Id);
+
+                e.HasIndex(x => x.SerialId).IsUnique(); // a serial can only be sold once
+
+                e.HasOne(x => x.Detail)
+                 .WithMany(d => d.Serials)
+                 .HasForeignKey(x => x.DetailId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasOne(x => x.Serial)
+                 .WithMany(s => s.SalesInvoiceDetailSerials)
+                 .HasForeignKey(x => x.SerialId)
+                 .OnDelete(DeleteBehavior.Restrict);
+            });
         }
 
  

@@ -1,7 +1,9 @@
-﻿using FinVentoryAPI.DTOs.SalesInvoiceDTOs;
-using FinVentoryAPI.DTOs.PagedRequestDto;
+﻿using FinVentoryAPI.DTOs.PagedRequestDto;
+using FinVentoryAPI.DTOs.SalesInvoiceDTOs;
+using FinVentoryAPI.Enums;
 using FinVentoryAPI.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 
 namespace FinVentoryAPI.Controllers
@@ -126,7 +128,7 @@ namespace FinVentoryAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+      
 
-       
     }
 }
