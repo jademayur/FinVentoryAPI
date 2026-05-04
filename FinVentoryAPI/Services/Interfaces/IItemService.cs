@@ -16,6 +16,8 @@ namespace FinVentoryAPI.Services.Interfaces
         Task<List<ItemResponseDto>> GetItemListAsync();
         Task<List<SalesInvoiceItemDto>> GetItemsForSalesInvoiceAsync();
 
+        Task<List<ItemBatchAvailabilityDto>> GetAvailableBatchesAsync(int itemId);
+        Task<List<ItemSerialAvailabilityDto>> GetAvailableSerialsAsync(int itemId);
 
     }
 }

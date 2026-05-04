@@ -456,6 +456,8 @@ namespace FinVentoryAPI.Services.Implementations
                     BrandId = x.BrandId,
                     HSNCodeId = x.HSNCodeId,
 
+                    ItemManageBy = x.ItemManageBy,  // ✅ ADD THIS LINE
+
                     IsActive = x.IsActive
                 })
                 .OrderBy(x => x.ItemName)
@@ -503,6 +505,8 @@ namespace FinVentoryAPI.Services.Implementations
                 SGSTPostingAccountId = x.Hsn?.tax?.SGSTPostingAccountId,
                 CessPostingAccountId = x.Hsn?.CessPostingAc,
 
+                ItemManageBy = x.ItemManageBy,
+
                 // Prices
                 Prices = x.Prices?.Select(p => new SalesInvoiceItemPriceDto
                 {
@@ -512,6 +516,50 @@ namespace FinVentoryAPI.Services.Implementations
                 }).ToList() ?? new List<SalesInvoiceItemPriceDto>()
 
             }).ToList();
+        }
+
+        public async Task<List<ItemBatchAvailabilityDto>> GetAvailableBatchesAsync(int itemId)
+        {
+            var companyId = _common.GetCompanyId();
+
+            var batches = await _context.ItemBatches
+                .Where(b =>
+                    b.ItemId == itemId &&
+                    b.CompanyId == companyId &&
+                    !b.IsDeleted &&
+                    b.AvailableQty > 0)
+                .OrderBy(b => b.ExpiryDate)     // FEFO — earliest expiry first
+                .Select(b => new ItemBatchAvailabilityDto
+                {
+                    BatchId = b.BatchId,
+                    BatchNo = b.BatchNo,
+                    ExpiryDate = b.ExpiryDate,
+                    AvailableQty = b.AvailableQty
+                })
+                .ToListAsync();
+
+            return batches;
+        }
+
+        public async Task<List<ItemSerialAvailabilityDto>> GetAvailableSerialsAsync(int itemId)
+        {
+            var companyId = _common.GetCompanyId();
+
+            var serials = await _context.ItemSerials
+                .Where(s =>
+                    s.ItemId == itemId &&
+                    s.CompanyId == companyId &&
+                    !s.IsDeleted &&
+                    s.Status == SerialStatus.InStock)
+                .OrderBy(s => s.SerialNo)
+                .Select(s => new ItemSerialAvailabilityDto
+                {
+                    SerialId = s.SerialId,
+                    SerialNo = s.SerialNo
+                })
+                .ToListAsync();
+
+            return serials;
         }
     }
 }

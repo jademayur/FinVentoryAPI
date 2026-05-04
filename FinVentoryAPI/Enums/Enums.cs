@@ -63,7 +63,7 @@ namespace FinVentoryAPI.Enums
         Trading = 4
     }
 
-    public enum ItemManageBy
+    public enum ItemManageBy 
     {
         Regular = 1,
         Batch = 2,
@@ -225,6 +225,14 @@ namespace FinVentoryAPI.Enums
         Ladakh = 38,
         OtherTerritory = 97,       
         OtherCountries = 99
+    }
+
+    public enum SerialStatus : byte
+    {
+        InStock = 0,
+        Sold = 1,
+        Returned = 2,
+        Scrapped = 3
     }
 
 

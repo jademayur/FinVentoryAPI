@@ -6,7 +6,6 @@ using FinVentoryAPI.DTOs.StockLedgerDTOs;
 using FinVentoryAPI.Entities;
 using FinVentoryAPI.Enums;
 using FinVentoryAPI.Helpers;
-using FinVentoryAPI.Migrations;
 using FinVentoryAPI.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
@@ -20,24 +19,26 @@ namespace FinVentoryAPI.Services.Implementations
         private readonly IStockLedgerService _stockLedger;
         private readonly IAccountLedgerPostingService _accountLedger;
 
-        public SalesInvoiceService(AppDbContext context, Common common, IStockLedgerService stockLedger, IAccountLedgerPostingService accountLedger)
+        public SalesInvoiceService(
+            AppDbContext context, Common common,
+            IStockLedgerService stockLedger,
+            IAccountLedgerPostingService accountLedger)
         {
             _context = context;
             _common = common;
             _stockLedger = stockLedger;
             _accountLedger = accountLedger;
         }
-
-        // ────────────────────────────────────────────────────
-        // CREATE
-        // ────────────────────────────────────────────────────
+        // ════════════════════════════════════════════════════
+        // CREATE  — replace your existing CreateAsync with this
+        // ════════════════════════════════════════════════════
         public async Task<SalesInvoiceResponseDto> CreateAsync(CreateSalesInvoiceMainDto dto)
         {
             var companyId = _common.GetCompanyId();
             var userId = _common.GetUserId();
             var finYearId = _common.GetFinancialYearId();
 
-            // 1. Validate header
+            // ✅ Validate BEFORE transaction (read-only)
             await ValidateHeaderAsync(
                 dto.BusinessPartnerId, dto.LocationId, dto.SalesAccountId,
                 companyId,
@@ -45,10 +46,8 @@ namespace FinVentoryAPI.Services.Implementations
                 dto.ContactPersonId, dto.SalesPersonId,
                 dto.BillAddressId, dto.ShipAddressId);
 
-            // 2. Generate invoice number
             var invoiceNo = await GenerateInvoiceNoAsync(companyId, finYearId);
 
-            // 3. Build main entity
             var main = new SalesInvoiceMain
             {
                 CompanyId = companyId,
@@ -76,10 +75,8 @@ namespace FinVentoryAPI.Services.Implementations
                 LrDate = dto.LrDate,
                 Details = new List<SalesInvoiceDetail>(),
                 TaxDetails = new List<SalesInvoiceTaxDetail>()
-
             };
 
-            // 4. Process detail lines
             decimal totalSubTotal = 0;
             decimal totalTaxAmount = 0;
             decimal totalCessAmount = 0;
@@ -103,57 +100,177 @@ namespace FinVentoryAPI.Services.Implementations
                 main.Details!.Add(detail);
             }
 
-            // 5. Set totals
             main.SubTotal = totalSubTotal;
             main.TaxAmount = totalTaxAmount;
             main.CessAmount = totalCessAmount;
             main.NetTotal = totalSubTotal + totalTaxAmount + totalCessAmount + dto.RoundOff;
 
-            // 6. Save
+            // ── Begin Transaction ─────────────────────────────────────────────────
+            await using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
                 _context.SalesInvoiceMains.Add(main);
-                await _context.SaveChangesAsync();
-               
+                await SaveChangesAsync(); // ← DetailIds populated after this
+
+                // ── Post batch / serial allocations ──────────────────────────────
+                // ✅ FIX: Clear the change tracker BEFORE processing serials
+                //    so EF re-fetches ItemSerial fresh from DB instead of
+                //    returning the already-tracked (Status=Sold) entity.
+                _context.ChangeTracker.Clear();
+
+                // Re-attach main so we can still navigate to details
+                _context.Attach(main);
+
+                for (int i = 0; i < dto.Details.Count; i++)
+                {
+                    var lineDto = dto.Details[i];
+
+                    // Re-fetch the saved detail by position so DetailId/InvoiceId are correct
+                    var detail = await _context.SalesInvoiceDetails
+                        .FirstOrDefaultAsync(d =>
+                            d.InvoiceId == main.InvoiceId &&
+                            d.ItemId == lineDto.ItemId)
+                        ?? throw new Exception($"Detail for item {lineDto.ItemId} not found after save.");
+
+                    var updateDto = new UpdateSalesInvoiceDetailDto
+                    {
+                        ItemId = lineDto.ItemId,
+                        PriceType = lineDto.PriceType,
+                        Qty = lineDto.Qty,
+                        Rate = lineDto.Rate,
+                        DiscountRate = lineDto.DiscountRate,
+                        AddisDiscountRate = lineDto.AddisDiscountRate,
+                        IsTaxIncluded = lineDto.IsTaxIncluded,
+                        Batches = lineDto.Batches,
+                        Serials = lineDto.Serials
+                    };
+
+                    await SaveBatchAllocationsAsync(detail, updateDto, companyId, isNew: true);
+                }
+
+                await SaveChangesAsync(); // batch/serial rows
+
+                // Re-fetch main with all includes for stock/account posting
+                var mainForPosting = await _context.SalesInvoiceMains
+                    .Include(m => m.Details!)
+                        .ThenInclude(d => d.TaxDetails)
+                    .Include(m => m.TaxDetails)
+                    .Include(m => m.BusinessPartner)
+                    .FirstOrDefaultAsync(m => m.InvoiceId == main.InvoiceId)
+                    ?? throw new Exception("Invoice not found after save.");
+
+                await PostStockLedgerAsync(mainForPosting, isReversal: false);
+                await PostAccountLedgerAsync(mainForPosting, isReversal: false);
+
+                await transaction.CommitAsync();
             }
-            catch (DbUpdateException ex)
+            catch
             {
-                throw new Exception(ex.InnerException?.Message ?? ex.Message);
+                await transaction.RollbackAsync();
+                throw;
             }
 
-            await PostStockLedgerAsync(main, isReversal: false);
-            await PostAccountLedgerAsync(main, isReversal: false);
-
-            // 7. Return saved invoice
             return await GetByIdAsync(main.InvoiceId)
                 ?? throw new Exception("Failed to retrieve saved invoice.");
         }
 
-        // ────────────────────────────────────────────────────
-        // UPDATE  (smart diff — no delete / reinsert)
-        // ────────────────────────────────────────────────────
+
+        // ════════════════════════════════════════════════════
+        // FIXED SaveSerialLinesAsync
+        // ════════════════════════════════════════════════════
+        //private async Task SaveSerialLinesAsync(
+        //    SalesInvoiceDetail detail,
+        //    UpdateSalesInvoiceDetailDto lineDto,
+        //    int companyId)
+        //{
+        //    if (lineDto.Serials == null || !lineDto.Serials.Any())
+        //        throw new Exception(
+        //            $"Item {detail.ItemId} is Serial-managed. " +
+        //            "Please select at least one serial number.");
+
+        //    if (lineDto.Serials.Count != (int)detail.Qty)
+        //        throw new Exception(
+        //            $"Serial count ({lineDto.Serials.Count}) must equal line qty ({detail.Qty}).");
+
+        //    // ── Check for duplicate serial IDs in the request ────────────────────
+        //    var duplicateSerials = lineDto.Serials
+        //        .GroupBy(s => s.SerialId)
+        //        .Where(g => g.Count() > 1)
+        //        .Select(g => g.Key)
+        //        .ToList();
+
+        //    if (duplicateSerials.Any())
+        //        throw new Exception(
+        //            $"Duplicate serial numbers in request: {string.Join(", ", duplicateSerials)}.");
+
+        //    foreach (var serialDto in lineDto.Serials)
+        //    {
+        //        // ✅ FIX: Use AsNoTracking so EF always fetches fresh from DB
+        //        //    instead of returning the change-tracker cached entity
+        //        var serial = await _context.ItemSerials
+        //            .AsNoTracking()
+        //            .FirstOrDefaultAsync(s =>
+        //                s.SerialId == serialDto.SerialId &&
+        //                s.CompanyId == companyId &&
+        //                !s.IsDeleted)
+        //            ?? throw new Exception(
+        //                $"Serial {serialDto.SerialId} not found in company {companyId}.");
+
+        //        // Verify it belongs to the correct item
+        //        if (serial.ItemId != detail.ItemId)
+        //            throw new Exception(
+        //                $"Serial '{serial.SerialNo}' (ItemId={serial.ItemId}) " +
+        //                $"does not belong to item {detail.ItemId}.");
+
+        //        // ✅ FIX: Check DB status directly — not the tracked entity status
+        //        if (serial.Status != SerialStatus.InStock)
+        //            throw new Exception(
+        //                $"Serial '{serial.SerialNo}' is not available (status: {serial.Status}).");
+
+        //        // ✅ FIX: Update status via a direct tracked entity fetch
+        //        var trackedSerial = await _context.ItemSerials
+        //            .FirstOrDefaultAsync(s => s.SerialId == serialDto.SerialId);
+
+        //        if (trackedSerial != null)
+        //            trackedSerial.Status = SerialStatus.Sold;
+
+        //        _context.SalesInvoiceDetailSerials.Add(new SalesInvoiceDetailSerial
+        //        {
+        //            DetailId = detail.DetailId,
+        //            InvoiceId = detail.InvoiceId,
+        //            SerialId = serialDto.SerialId
+        //        });
+        //    }
+        //}
+        // ════════════════════════════════════════════════════
+        // UPDATE
+        // ════════════════════════════════════════════════════
         public async Task<bool> UpdateAsync(int id, UpdateSalesInvoiceMainDto dto)
         {
             var companyId = _common.GetCompanyId();
             var userId = _common.GetUserId();
 
-            // 1. Load with existing lines
             var main = await _context.SalesInvoiceMains
                 .Include(m => m.Details!)
-                .ThenInclude(d => d.TaxDetails)
-                .Include(m => m.TaxDetails)       
-                .Include(m => m.BusinessPartner)  
+                    .ThenInclude(d => d.TaxDetails)
+                .Include(m => m.Details!)
+                    .ThenInclude(d => d.Batches!)
+                        .ThenInclude(b => b.Batch)
+                .Include(m => m.Details!)
+                    .ThenInclude(d => d.Serials!)
+                        .ThenInclude(s => s.Serial)
+                .Include(m => m.TaxDetails)
+                .Include(m => m.BusinessPartner)
                 .FirstOrDefaultAsync(x =>
                     x.InvoiceId == id &&
                     x.CompanyId == companyId &&
                     !x.IsDeleted);
 
             if (main == null) return false;
-
             if (main.Status != "Draft")
                 throw new Exception("Only Draft invoices can be updated.");
 
-            // 2. Validate header
+            // ✅ Validate BEFORE transaction (read-only)
             await ValidateHeaderAsync(
                 dto.BusinessPartnerId, dto.LocationId, dto.SalesAccountId,
                 companyId,
@@ -161,28 +278,7 @@ namespace FinVentoryAPI.Services.Implementations
                 dto.ContactPersonId, dto.SalesPersonId,
                 dto.BillAddressId, dto.ShipAddressId);
 
-            // 3. Update header fields
-            main.InvoiceDate = dto.InvoiceDate;
-            main.DueDate = dto.DueDate;
-            main.BusinessPartnerId = dto.BusinessPartnerId;
-            main.LocationId = dto.LocationId;
-            main.SalesAccountId = dto.SalesAccountId;
-            main.RoundOff = dto.RoundOff;
-            main.Remarks = dto.Remarks;
-            main.ModifiedBy = userId;
-            main.ModifiedDate = DateTime.UtcNow;
-            main.SalesStateCode = dto.SalesStateCode;
-            main.BillStateCode = dto.BillStateCode;
-            main.ContactPersonId = dto.ContactPersonId;
-            main.SalesPersonId = dto.SalesPersonId;
-            main.BillAddressId = dto.BillAddressId;
-            main.ShipAddressId = dto.ShipAddressId;
-            main.TransportName = dto.TransportName;
-            main.VehicleNo = dto.VehicleNo;
-            main.LrNo = dto.LrNo;
-            main.LrDate = dto.LrDate;
-
-            // 4. Build freshly-calculated details in memory
+            // ── Build fresh detail calculations (read-only, before transaction) ──
             var incomingDetails = new List<SalesInvoiceDetail>();
             foreach (var lineDto in dto.Details)
             {
@@ -196,166 +292,231 @@ namespace FinVentoryAPI.Services.Implementations
                     AddisDiscountRate = lineDto.AddisDiscountRate,
                     IsTaxIncluded = lineDto.IsTaxIncluded
                 };
-
                 incomingDetails.Add(await BuildDetailWithTaxAsync(
                     createDto, userId, dto.SalesStateCode, dto.BillStateCode));
             }
 
-            // 5. Smart diff on Details — matched by index
-            //    i < existing  → update in-place   (DetailId preserved)
-            //    i >= existing → insert new row
-            //    surplus existing rows → remove
-            var existingDetails = main.Details!.ToList();
-
-            decimal totalSubTotal = 0;
-            decimal totalTaxAmount = 0;
-            decimal totalCessAmount = 0;
-
-            for (int i = 0; i < incomingDetails.Count; i++)
-            {
-                var incoming = incomingDetails[i];
-
-                if (i < existingDetails.Count)
-                {
-                    // ── UPDATE existing detail in-place ──────────────────
-                    var existing = existingDetails[i];
-
-                    existing.ItemId = incoming.ItemId;
-                    existing.HsnId = incoming.HsnId;
-                    existing.HsnCode = incoming.HsnCode;
-                    existing.PriceType = incoming.PriceType;
-                    existing.Qty = incoming.Qty;
-                    existing.Rate = incoming.Rate;
-                    existing.DiscountRate = incoming.DiscountRate;
-                    existing.AddisDiscountRate = incoming.AddisDiscountRate;
-                    existing.DiscountAmount = incoming.DiscountAmount;
-                    existing.AddisDiscountAmount = incoming.AddisDiscountAmount;
-                    existing.IsTaxIncluded = incoming.IsTaxIncluded;
-                    existing.TaxableAmount = incoming.TaxableAmount;
-                    existing.CessRate = incoming.CessRate;
-                    existing.CessAmount = incoming.CessAmount;
-                    existing.LineTaxAmount = incoming.LineTaxAmount;
-                    existing.LineTotal = incoming.LineTotal;
-
-                    // ── Smart diff TaxDetails for this detail ─────────
-                    var existingTaxList = existing.TaxDetails?.ToList()
-                        ?? new List<SalesInvoiceTaxDetail>();
-                    var incomingTaxList = incoming.TaxDetails
-                        ?? new List<SalesInvoiceTaxDetail>();
-
-                    for (int t = 0; t < incomingTaxList.Count; t++)
-                    {
-                        var inTax = incomingTaxList[t];
-
-                        if (t < existingTaxList.Count)
-                        {
-                            // update tax row in-place
-                            var exTax = existingTaxList[t];
-                            exTax.TaxId = inTax.TaxId;
-                            exTax.IGSTRate = inTax.IGSTRate;
-                            exTax.CGSTRate = inTax.CGSTRate;
-                            exTax.SGSTRate = inTax.SGSTRate;
-                            exTax.TaxableAmount = inTax.TaxableAmount;
-                            exTax.IGSTAmount = inTax.IGSTAmount;
-                            exTax.CGSTAmount = inTax.CGSTAmount;
-                            exTax.SGSTAmount = inTax.SGSTAmount;
-                            exTax.CessRate = inTax.CessRate;
-                            exTax.CessAmount = inTax.CessAmount;
-                            exTax.TotalTaxAmount = inTax.TotalTaxAmount;
-                            exTax.IGSTPostingAccountId = inTax.IGSTPostingAccountId;
-                            exTax.CGSTPostingAccountId = inTax.CGSTPostingAccountId;
-                            exTax.SGSTPostingAccountId = inTax.SGSTPostingAccountId;
-                            exTax.CessPostingAccountId = inTax.CessPostingAccountId;
-                        }
-                        else
-                        {
-                            // insert new tax row for this detail
-                            inTax.InvoiceId = main.InvoiceId;
-                            inTax.DetailId = existing.DetailId;
-                            _context.SalesInvoiceTaxDetails.Add(inTax);
-                        }
-                    }
-
-                    // remove surplus tax rows
-                    if (existingTaxList.Count > incomingTaxList.Count)
-                    {
-                        var surplusTax = existingTaxList
-                            .Skip(incomingTaxList.Count).ToList();
-                        _context.SalesInvoiceTaxDetails.RemoveRange(surplusTax);
-                    }
-
-                    totalSubTotal += existing.TaxableAmount;
-                    totalCessAmount += existing.CessAmount;
-                    totalTaxAmount += existing.LineTaxAmount - existing.CessAmount;
-                }
-                else
-                {
-                    // ── INSERT new detail row ─────────────────────────
-                    incoming.InvoiceId = main.InvoiceId;
-
-                    var newTaxList = incoming.TaxDetails
-                        ?? new List<SalesInvoiceTaxDetail>();
-
-                    // detach tax nav so EF doesn't try to save them before DetailId exists
-                    incoming.TaxDetails = null;
-
-                    _context.SalesInvoiceDetails.Add(incoming);
-                    await _context.SaveChangesAsync(); // flush → DetailId is now populated
-
-                    foreach (var inTax in newTaxList)
-                    {
-                        inTax.InvoiceId = main.InvoiceId;
-                        inTax.DetailId = incoming.DetailId;
-                        _context.SalesInvoiceTaxDetails.Add(inTax);
-                    }
-
-                    totalSubTotal += incoming.TaxableAmount;
-                    totalCessAmount += incoming.CessAmount;
-                    totalTaxAmount += incoming.LineTaxAmount - incoming.CessAmount;
-                }
-            }
-
-            // 6. Remove surplus detail rows (and their child tax rows)
-            if (existingDetails.Count > incomingDetails.Count)
-            {
-                var surplusDetails = existingDetails
-                    .Skip(incomingDetails.Count).ToList();
-
-                foreach (var sd in surplusDetails)
-                {
-                    if (sd.TaxDetails != null && sd.TaxDetails.Any())
-                        _context.SalesInvoiceTaxDetails.RemoveRange(sd.TaxDetails);
-                }
-
-                _context.SalesInvoiceDetails.RemoveRange(surplusDetails);
-            }
-
-            // 7. Recalculate header totals
-            main.SubTotal = totalSubTotal;
-            main.TaxAmount = totalTaxAmount;
-            main.CessAmount = totalCessAmount;
-            main.NetTotal = totalSubTotal + totalTaxAmount + totalCessAmount + dto.RoundOff;
-
-            // 8. Final save
+            // ── Begin Transaction ─────────────────────────────────────────────────
+            await using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateException ex)
-            {
-                throw new Exception(ex.InnerException?.Message ?? ex.Message);
-            }
+                // ── Update header ─────────────────────────────────
+                main.InvoiceDate = dto.InvoiceDate;
+                main.DueDate = dto.DueDate;
+                main.BusinessPartnerId = dto.BusinessPartnerId;
+                main.LocationId = dto.LocationId;
+                main.SalesAccountId = dto.SalesAccountId;
+                main.RoundOff = dto.RoundOff;
+                main.Remarks = dto.Remarks;
+                main.ModifiedBy = userId;
+                main.ModifiedDate = DateTime.UtcNow;
+                main.SalesStateCode = dto.SalesStateCode;
+                main.BillStateCode = dto.BillStateCode;
+                main.ContactPersonId = dto.ContactPersonId;
+                main.SalesPersonId = dto.SalesPersonId;
+                main.BillAddressId = dto.BillAddressId;
+                main.ShipAddressId = dto.ShipAddressId;
+                main.TransportName = dto.TransportName;
+                main.VehicleNo = dto.VehicleNo;
+                main.LrNo = dto.LrNo;
+                main.LrDate = dto.LrDate;
 
-            await UpdateStockLedgerAsync(main);
-            await UpdateAccountLedgerAsync(main);
+                var existingDetails = main.Details!.ToList();
+                decimal totalSubTotal = 0;
+                decimal totalTaxAmount = 0;
+                decimal totalCessAmount = 0;
+
+                for (int i = 0; i < incomingDetails.Count; i++)
+                {
+                    var incoming = incomingDetails[i];
+                    var incomingDto = dto.Details[i];
+
+                    if (i < existingDetails.Count)
+                    {
+                        var existing = existingDetails[i];
+
+                        await ReverseBatchAllocationsAsync(existing);
+
+                        existing.ItemId = incoming.ItemId;
+                        existing.HsnId = incoming.HsnId;
+                        existing.HsnCode = incoming.HsnCode;
+                        existing.PriceType = incoming.PriceType;
+                        existing.Qty = incoming.Qty;
+                        existing.Rate = incoming.Rate;
+                        existing.DiscountRate = incoming.DiscountRate;
+                        existing.AddisDiscountRate = incoming.AddisDiscountRate;
+                        existing.DiscountAmount = incoming.DiscountAmount;
+                        existing.AddisDiscountAmount = incoming.AddisDiscountAmount;
+                        existing.IsTaxIncluded = incoming.IsTaxIncluded;
+                        existing.TaxableAmount = incoming.TaxableAmount;
+                        existing.CessRate = incoming.CessRate;
+                        existing.CessAmount = incoming.CessAmount;
+                        existing.LineTaxAmount = incoming.LineTaxAmount;
+                        existing.LineTotal = incoming.LineTotal;
+
+                        var existingTaxList = existing.TaxDetails?.ToList() ?? new();
+                        var incomingTaxList = incoming.TaxDetails ?? new();
+
+                        for (int t = 0; t < incomingTaxList.Count; t++)
+                        {
+                            var inTax = incomingTaxList[t];
+                            if (t < existingTaxList.Count)
+                            {
+                                var exTax = existingTaxList[t];
+                                exTax.TaxId = inTax.TaxId;
+                                exTax.IGSTRate = inTax.IGSTRate;
+                                exTax.CGSTRate = inTax.CGSTRate;
+                                exTax.SGSTRate = inTax.SGSTRate;
+                                exTax.TaxableAmount = inTax.TaxableAmount;
+                                exTax.IGSTAmount = inTax.IGSTAmount;
+                                exTax.CGSTAmount = inTax.CGSTAmount;
+                                exTax.SGSTAmount = inTax.SGSTAmount;
+                                exTax.CessRate = inTax.CessRate;
+                                exTax.CessAmount = inTax.CessAmount;
+                                exTax.TotalTaxAmount = inTax.TotalTaxAmount;
+                                exTax.IGSTPostingAccountId = inTax.IGSTPostingAccountId;
+                                exTax.CGSTPostingAccountId = inTax.CGSTPostingAccountId;
+                                exTax.SGSTPostingAccountId = inTax.SGSTPostingAccountId;
+                                exTax.CessPostingAccountId = inTax.CessPostingAccountId;
+                            }
+                            else
+                            {
+                                inTax.InvoiceId = main.InvoiceId;
+                                inTax.DetailId = existing.DetailId;
+                                _context.SalesInvoiceTaxDetails.Add(inTax);
+                            }
+                        }
+
+                        if (existingTaxList.Count > incomingTaxList.Count)
+                            _context.SalesInvoiceTaxDetails.RemoveRange(
+                                existingTaxList.Skip(incomingTaxList.Count));
+
+                        await SaveBatchAllocationsAsync(existing, incomingDto, main.CompanyId, isNew: false);
+
+                        totalSubTotal += existing.TaxableAmount;
+                        totalCessAmount += existing.CessAmount;
+                        totalTaxAmount += existing.LineTaxAmount - existing.CessAmount;
+                    }
+                    else
+                    {
+                        // ── Insert new detail row ────────────────────────
+                        incoming.InvoiceId = main.InvoiceId;
+                        var newTaxList = incoming.TaxDetails ?? new();
+                        incoming.TaxDetails = null;
+                        incoming.Batches = null;
+                        incoming.Serials = null;
+
+                        _context.SalesInvoiceDetails.Add(incoming);
+                        await SaveChangesAsync(); // ← flush to get DetailId
+
+                        foreach (var inTax in newTaxList)
+                        {
+                            inTax.InvoiceId = main.InvoiceId;
+                            inTax.DetailId = incoming.DetailId;
+                            _context.SalesInvoiceTaxDetails.Add(inTax);
+                        }
+
+                        await SaveBatchAllocationsAsync(incoming, incomingDto, main.CompanyId, isNew: true);
+
+                        totalSubTotal += incoming.TaxableAmount;
+                        totalCessAmount += incoming.CessAmount;
+                        totalTaxAmount += incoming.LineTaxAmount - incoming.CessAmount;
+                    }
+                }
+
+                // ── Remove surplus detail rows ─────────────────────
+                if (existingDetails.Count > incomingDetails.Count)
+                {
+                    var surplus = existingDetails.Skip(incomingDetails.Count).ToList();
+                    foreach (var sd in surplus)
+                    {
+                        await ReverseBatchAllocationsAsync(sd);
+                        if (sd.TaxDetails != null && sd.TaxDetails.Any())
+                            _context.SalesInvoiceTaxDetails.RemoveRange(sd.TaxDetails);
+                    }
+                    _context.SalesInvoiceDetails.RemoveRange(surplus);
+                }
+
+                main.SubTotal = totalSubTotal;
+                main.TaxAmount = totalTaxAmount;
+                main.CessAmount = totalCessAmount;
+                main.NetTotal = totalSubTotal + totalTaxAmount + totalCessAmount + dto.RoundOff;
+
+                await SaveChangesAsync(); // final flush — header + all detail changes
+
+                await UpdateStockLedgerAsync(main);
+                await UpdateAccountLedgerAsync(main);
+
+                await transaction.CommitAsync();
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
 
             _context.ChangeTracker.Clear();
             return true;
         }
 
-        // ────────────────────────────────────────────────────
+        // ════════════════════════════════════════════════════
+        // DELETE
+        // ════════════════════════════════════════════════════
+        public async Task<bool> DeleteAsync(int id)
+        {
+            var companyId = _common.GetCompanyId();
+            var userId = _common.GetUserId();
+
+            var main = await _context.SalesInvoiceMains
+                .Include(m => m.TaxDetails)
+                .Include(m => m.BusinessPartner)
+                .Include(m => m.Details!)
+                    .ThenInclude(d => d.Batches!)
+                        .ThenInclude(b => b.Batch)
+                .Include(m => m.Details!)
+                    .ThenInclude(d => d.Serials!)
+                        .ThenInclude(s => s.Serial)
+                .FirstOrDefaultAsync(x =>
+                    x.InvoiceId == id &&
+                    x.CompanyId == companyId &&
+                    !x.IsDeleted);
+
+            if (main == null) return false;
+            if (main.Status != "Draft")
+                throw new Exception("Only Draft invoices can be deleted.");
+
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                if (main.Details != null)
+                    foreach (var detail in main.Details)
+                        await ReverseBatchAllocationsAsync(detail);
+
+                main.IsDeleted = true;
+                main.IsActive = false;
+                main.ModifiedBy = userId;
+                main.ModifiedDate = DateTime.UtcNow;
+
+                await _stockLedger.SoftDeleteByVoucherAsync(
+                    companyId, main.InvoiceNo, userId);
+                await _accountLedger.SoftDeleteByVoucherAsync(
+                    companyId, main.FinYearId, main.InvoiceNo, userId);
+
+                await SaveChangesAsync();
+
+                await transaction.CommitAsync();
+                return true;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        // ════════════════════════════════════════════════════
         // GET ALL
-        // ────────────────────────────────────────────────────
+        // ════════════════════════════════════════════════════
         public async Task<List<SalesInvoiceResponseDto>> GetAllAsync()
         {
             var companyId = _common.GetCompanyId();
@@ -371,6 +532,8 @@ namespace FinVentoryAPI.Services.Implementations
                 .Include(x => x.ShipAddress)
                 .Include(x => x.Details!).ThenInclude(d => d.Item)
                 .Include(x => x.Details!).ThenInclude(d => d.Hsn)
+                .Include(x => x.Details!).ThenInclude(d => d.Batches!).ThenInclude(b => b.Batch)
+                .Include(x => x.Details!).ThenInclude(d => d.Serials!).ThenInclude(s => s.Serial)
                 .Include(x => x.TaxDetails!).ThenInclude(td => td.Tax)
                 .Include(x => x.TaxDetails!).ThenInclude(td => td.IGSTPostingAccount)
                 .Include(x => x.TaxDetails!).ThenInclude(td => td.CGSTPostingAccount)
@@ -382,9 +545,9 @@ namespace FinVentoryAPI.Services.Implementations
             return invoices.Select(MapToResponseDto).ToList();
         }
 
-        // ────────────────────────────────────────────────────
+        // ════════════════════════════════════════════════════
         // GET BY ID
-        // ────────────────────────────────────────────────────
+        // ════════════════════════════════════════════════════
         public async Task<SalesInvoiceResponseDto?> GetByIdAsync(int id)
         {
             var companyId = _common.GetCompanyId();
@@ -401,6 +564,8 @@ namespace FinVentoryAPI.Services.Implementations
                 .Include(x => x.ShipAddress)
                 .Include(x => x.Details!).ThenInclude(d => d.Item)
                 .Include(x => x.Details!).ThenInclude(d => d.Hsn)
+                .Include(x => x.Details!).ThenInclude(d => d.Batches!).ThenInclude(b => b.Batch)
+                .Include(x => x.Details!).ThenInclude(d => d.Serials!).ThenInclude(s => s.Serial)
                 .Include(x => x.Details!).ThenInclude(d => d.TaxDetails!).ThenInclude(td => td.Tax)
                 .Include(x => x.Details!).ThenInclude(d => d.TaxDetails!).ThenInclude(td => td.IGSTPostingAccount)
                 .Include(x => x.Details!).ThenInclude(d => d.TaxDetails!).ThenInclude(td => td.CGSTPostingAccount)
@@ -417,52 +582,12 @@ namespace FinVentoryAPI.Services.Implementations
                     !x.IsDeleted);
 
             if (main == null) return null;
-
             return MapToResponseDto(main);
         }
 
-        // ────────────────────────────────────────────────────
-        // DELETE
-        // ────────────────────────────────────────────────────
-        public async Task<bool> DeleteAsync(int id)
-        {
-            var companyId = _common.GetCompanyId();
-            var userId = _common.GetUserId();
-
-            var main = await _context.SalesInvoiceMains
-                .Include(m => m.TaxDetails)
-                .Include(m => m.BusinessPartner)
-                .FirstOrDefaultAsync(x =>
-                    x.InvoiceId == id &&
-                    x.CompanyId == companyId &&
-                    !x.IsDeleted);
-
-            if (main == null) return false;
-
-            if (main.Status != "Draft")
-                throw new Exception("Only Draft invoices can be deleted.");
-
-            main.IsDeleted = true;
-
-            // 4. In DeleteAsync — after setting main.IsDeleted = true, before SaveChangesAsync
-            await _stockLedger.SoftDeleteByVoucherAsync(
-     companyId, main.InvoiceNo, _common.GetUserId());
-            await _accountLedger.SoftDeleteByVoucherAsync(
-         companyId, main.FinYearId, main.InvoiceNo, userId);
-
-            main.IsActive = false;
-            main.ModifiedBy = _common.GetUserId();
-            main.ModifiedDate = DateTime.UtcNow;
-
-            await _context.SaveChangesAsync();
-            return true;
-        }
-
-      
-
-        // ────────────────────────────────────────────────────
+        // ════════════════════════════════════════════════════
         // GET PAGED
-        // ────────────────────────────────────────────────────
+        // ════════════════════════════════════════════════════
         public async Task<PagedResponseDto<SalesInvoiceResponseDto>> GetPagedAsync(PagedRequestDto request)
         {
             var companyId = _common.GetCompanyId();
@@ -479,7 +604,6 @@ namespace FinVentoryAPI.Services.Implementations
                 .Include(x => x.Details!)
                 .AsQueryable();
 
-            // SEARCH
             if (!string.IsNullOrWhiteSpace(request.Search))
             {
                 var search = request.Search.ToLower();
@@ -488,7 +612,6 @@ namespace FinVentoryAPI.Services.Implementations
                     x.BusinessPartner!.BusinessPartnerName.ToLower().Contains(search));
             }
 
-            // FILTERS
             if (request.Filters != null)
             {
                 if (request.Filters.ContainsKey("status"))
@@ -496,37 +619,31 @@ namespace FinVentoryAPI.Services.Implementations
                     var status = ((JsonElement)request.Filters["status"]).GetString();
                     query = query.Where(x => x.Status == status);
                 }
-
                 if (request.Filters.ContainsKey("businessPartnerId"))
                 {
                     var bpId = ((JsonElement)request.Filters["businessPartnerId"]).GetInt32();
                     query = query.Where(x => x.BusinessPartnerId == bpId);
                 }
-
                 if (request.Filters.ContainsKey("locationId"))
                 {
                     var locationId = ((JsonElement)request.Filters["locationId"]).GetInt32();
                     query = query.Where(x => x.LocationId == locationId);
                 }
-
                 if (request.Filters.ContainsKey("finYearId"))
                 {
                     var finYearId = ((JsonElement)request.Filters["finYearId"]).GetInt32();
                     query = query.Where(x => x.FinYearId == finYearId);
                 }
-
                 if (request.Filters.ContainsKey("fromDate"))
                 {
                     var fromDate = ((JsonElement)request.Filters["fromDate"]).GetDateTime();
                     query = query.Where(x => x.InvoiceDate >= fromDate);
                 }
-
                 if (request.Filters.ContainsKey("toDate"))
                 {
                     var toDate = ((JsonElement)request.Filters["toDate"]).GetDateTime();
                     query = query.Where(x => x.InvoiceDate <= toDate);
                 }
-
                 if (request.Filters.ContainsKey("salesPersonId"))
                 {
                     var spId = ((JsonElement)request.Filters["salesPersonId"]).GetInt32();
@@ -534,48 +651,20 @@ namespace FinVentoryAPI.Services.Implementations
                 }
             }
 
-            // SORTING
             if (request.Sorts != null && request.Sorts.Any())
             {
                 var sort = request.Sorts.First();
                 query = sort.Column.ToLower() switch
                 {
-                    "invoiceno" => sort.Direction == "desc"
-                        ? query.OrderByDescending(x => x.InvoiceNo)
-                        : query.OrderBy(x => x.InvoiceNo),
-
-                    "invoicedate" => sort.Direction == "desc"
-                        ? query.OrderByDescending(x => x.InvoiceDate)
-                        : query.OrderBy(x => x.InvoiceDate),
-
-                    "businesspartnername" => sort.Direction == "desc"
-                        ? query.OrderByDescending(x => x.BusinessPartner!.BusinessPartnerName)
-                        : query.OrderBy(x => x.BusinessPartner!.BusinessPartnerName),
-
-                    "salesperson" => sort.Direction == "desc"
-                        ? query.OrderByDescending(x => x.SalesPerson!.SalesPersonName)
-                        : query.OrderBy(x => x.SalesPerson!.SalesPersonName),
-
-                    "status" => sort.Direction == "desc"
-                        ? query.OrderByDescending(x => x.Status)
-                        : query.OrderBy(x => x.Status),
-
-                    "amount" => sort.Direction == "desc"
-                        ? query.OrderByDescending(x => x.SubTotal)
-                        : query.OrderBy(x => x.SubTotal),
-
-                    "taxamount" => sort.Direction == "desc"
-                        ? query.OrderByDescending(x => x.TaxAmount)
-                        : query.OrderBy(x => x.TaxAmount),
-
-                    "discount" => sort.Direction == "desc"
-                        ? query.OrderByDescending(x => x.Details!.Sum(d => d.DiscountAmount + d.AddisDiscountAmount))
-                        : query.OrderBy(x => x.Details!.Sum(d => d.DiscountAmount + d.AddisDiscountAmount)),
-
-                    "nettotal" or "netamount" => sort.Direction == "desc"
-                        ? query.OrderByDescending(x => x.NetTotal)
-                        : query.OrderBy(x => x.NetTotal),
-
+                    "invoiceno" => sort.Direction == "desc" ? query.OrderByDescending(x => x.InvoiceNo) : query.OrderBy(x => x.InvoiceNo),
+                    "invoicedate" => sort.Direction == "desc" ? query.OrderByDescending(x => x.InvoiceDate) : query.OrderBy(x => x.InvoiceDate),
+                    "businesspartnername" => sort.Direction == "desc" ? query.OrderByDescending(x => x.BusinessPartner!.BusinessPartnerName) : query.OrderBy(x => x.BusinessPartner!.BusinessPartnerName),
+                    "salesperson" => sort.Direction == "desc" ? query.OrderByDescending(x => x.SalesPerson!.SalesPersonName) : query.OrderBy(x => x.SalesPerson!.SalesPersonName),
+                    "status" => sort.Direction == "desc" ? query.OrderByDescending(x => x.Status) : query.OrderBy(x => x.Status),
+                    "amount" => sort.Direction == "desc" ? query.OrderByDescending(x => x.SubTotal) : query.OrderBy(x => x.SubTotal),
+                    "taxamount" => sort.Direction == "desc" ? query.OrderByDescending(x => x.TaxAmount) : query.OrderBy(x => x.TaxAmount),
+                    "discount" => sort.Direction == "desc" ? query.OrderByDescending(x => x.Details!.Sum(d => d.DiscountAmount + d.AddisDiscountAmount)) : query.OrderBy(x => x.Details!.Sum(d => d.DiscountAmount + d.AddisDiscountAmount)),
+                    "nettotal" or "netamount" => sort.Direction == "desc" ? query.OrderByDescending(x => x.NetTotal) : query.OrderBy(x => x.NetTotal),
                     _ => query.OrderByDescending(x => x.InvoiceDate)
                 };
             }
@@ -591,6 +680,8 @@ namespace FinVentoryAPI.Services.Implementations
                 .Take(request.PageSize)
                 .Include(x => x.Details!).ThenInclude(d => d.Item)
                 .Include(x => x.Details!).ThenInclude(d => d.Hsn)
+                .Include(x => x.Details!).ThenInclude(d => d.Batches!).ThenInclude(b => b.Batch)
+                .Include(x => x.Details!).ThenInclude(d => d.Serials!).ThenInclude(s => s.Serial)
                 .Include(x => x.TaxDetails!).ThenInclude(td => td.Tax)
                 .Include(x => x.TaxDetails!).ThenInclude(td => td.IGSTPostingAccount)
                 .Include(x => x.TaxDetails!).ThenInclude(td => td.CGSTPostingAccount)
@@ -606,11 +697,209 @@ namespace FinVentoryAPI.Services.Implementations
                 Data = data.Select(MapToResponseDto).ToList()
             };
         }
+
         // ════════════════════════════════════════════════════
-        // PRIVATE HELPERS
+        // PRIVATE HELPERS — Batch / Serial
         // ════════════════════════════════════════════════════
 
-        // ── Validate header (shared by Create + Update) ──────
+        /// <summary>
+        /// Validates and persists batch or serial allocations for one detail line.
+        /// Also updates ItemBatch.AvailableQty / ItemBatch.UsedQty
+        ///  and ItemSerial.Status to Sold.
+        /// </summary>
+        private async Task SaveBatchAllocationsAsync(
+     SalesInvoiceDetail detail,
+     UpdateSalesInvoiceDetailDto lineDto,       // ← fixed
+     int companyId,
+     bool isNew)
+        {
+            var item = await _context.Items
+                .FirstOrDefaultAsync(i => i.ItemId == detail.ItemId)
+                ?? throw new Exception($"Item {detail.ItemId} not found.");
+
+            switch (item.ItemManageBy)
+            {
+                case ItemManageBy.Batch:
+                    await SaveBatchLinesAsync(detail, lineDto, companyId);
+                    break;
+                case ItemManageBy.Serial:
+                    await SaveSerialLinesAsync(detail, lineDto, companyId);
+                    break;
+                    // ItemManageBy.Regular → nothing to do
+            }
+        }
+
+        private async Task SaveBatchLinesAsync(
+    SalesInvoiceDetail detail,
+    UpdateSalesInvoiceDetailDto lineDto,       // ← fixed
+    int companyId)
+        {
+            if (lineDto.Batches == null || !lineDto.Batches.Any())
+                throw new Exception(
+                    $"Item {detail.ItemId} is Batch-managed. " +
+                    "Please select at least one batch.");
+
+            decimal totalAllocated = lineDto.Batches.Sum(b => b.Qty);
+            if (totalAllocated != detail.Qty)
+                throw new Exception(
+                    $"Batch qty total ({totalAllocated}) must equal line qty ({detail.Qty}).");
+
+            foreach (var batchDto in lineDto.Batches)
+            {
+                var batch = await _context.ItemBatches
+                    .FirstOrDefaultAsync(b =>
+                        b.BatchId == batchDto.BatchId &&
+                        b.CompanyId == companyId &&
+                        b.ItemId == detail.ItemId &&
+                        !b.IsDeleted)
+                    ?? throw new Exception($"Batch {batchDto.BatchId} not found.");
+
+                if (batch.AvailableQty < batchDto.Qty)
+                    throw new Exception(
+                        $"Batch '{batch.BatchNo}' has only {batch.AvailableQty} units available " +
+                        $"but {batchDto.Qty} requested.");
+
+                batch.UsedQty += batchDto.Qty;
+                batch.AvailableQty -= batchDto.Qty;
+
+                _context.SalesInvoiceDetailBatches.Add(new SalesInvoiceDetailBatch
+                {
+                    DetailId = detail.DetailId,
+                    InvoiceId = detail.InvoiceId,
+                    BatchId = batchDto.BatchId,
+                    Qty = batchDto.Qty
+                });
+            }
+        }
+
+        private async Task SaveSerialLinesAsync(
+    SalesInvoiceDetail detail,
+    UpdateSalesInvoiceDetailDto lineDto,
+    int companyId)
+        {
+            if (lineDto.Serials == null || !lineDto.Serials.Any())
+                throw new Exception(
+                    $"Item {detail.ItemId} is Serial-managed. " +
+                    "Please select at least one serial number.");
+
+            if (lineDto.Serials.Count != (int)detail.Qty)
+                throw new Exception(
+                    $"Serial count ({lineDto.Serials.Count}) must equal line qty ({detail.Qty}).");
+
+            foreach (var serialDto in lineDto.Serials)
+            {
+                // Always read fresh from DB — never use tracked cache
+                var serial = await _context.ItemSerials
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(s =>
+                        s.SerialId == serialDto.SerialId &&
+                        s.CompanyId == companyId &&
+                        s.ItemId == detail.ItemId &&
+                        !s.IsDeleted)
+                    ?? throw new Exception($"Serial {serialDto.SerialId} not found.");
+
+                if (serial.Status != SerialStatus.InStock)
+                    throw new Exception(
+                        $"Serial '{serial.SerialNo}' is not available (status: {serial.Status}).");
+
+                // Fetch tracked entity separately just for status update
+                var trackedSerial = await _context.ItemSerials
+                    .FirstOrDefaultAsync(s => s.SerialId == serialDto.SerialId);
+
+                if (trackedSerial != null)
+                    trackedSerial.Status = SerialStatus.Sold;
+
+                _context.SalesInvoiceDetailSerials.Add(new SalesInvoiceDetailSerial
+                {
+                    DetailId = detail.DetailId,
+                    InvoiceId = detail.InvoiceId,
+                    SerialId = serialDto.SerialId
+                });
+            }
+        }
+        //    private async Task SaveSerialLinesAsync(
+        //SalesInvoiceDetail detail,
+        //UpdateSalesInvoiceDetailDto lineDto,       // ← fixed
+        //int companyId)
+        //    {          
+
+
+        //        if (lineDto.Serials == null || !lineDto.Serials.Any())
+        //            throw new Exception(
+        //                $"Item {detail.ItemId} is Serial-managed. " +
+        //                "Please select at least one serial number.");
+
+        //        if (lineDto.Serials.Count != (int)detail.Qty)
+        //            throw new Exception(
+        //                $"Serial count ({lineDto.Serials.Count}) must equal line qty ({detail.Qty}).");
+
+        //        foreach (var serialDto in lineDto.Serials)
+        //        {
+        //            var serial = await _context.ItemSerials
+        //                .FirstOrDefaultAsync(s =>
+        //                    s.SerialId == serialDto.SerialId &&
+        //                    s.CompanyId == companyId &&
+        //                    s.ItemId == detail.ItemId &&
+        //                    !s.IsDeleted)
+        //                ?? throw new Exception($"Serial {serialDto.SerialId} not found.");
+
+        //            if (serial.Status != SerialStatus.InStock)
+        //                throw new Exception(
+        //                    $"Serial '{serial.SerialNo}' is not available (status: {serial.Status}).");
+
+        //            serial.Status = SerialStatus.Sold;
+
+        //            _context.SalesInvoiceDetailSerials.Add(new SalesInvoiceDetailSerial
+        //            {
+        //                DetailId = detail.DetailId,
+        //                InvoiceId = detail.InvoiceId,
+        //                SerialId = serialDto.SerialId
+        //            });
+        //        }
+        //    }
+
+        /// <summary>
+        /// When a detail line is updated or deleted, restore the previously
+        /// allocated batch quantities and reset serial statuses.
+        /// </summary>
+        private async Task ReverseBatchAllocationsAsync(SalesInvoiceDetail detail)
+        {
+            // ── Reverse Batches ───────────────────────────────
+            if (detail.Batches != null && detail.Batches.Any())
+            {
+                foreach (var alloc in detail.Batches)
+                {
+                    var batch = alloc.Batch
+                        ?? await _context.ItemBatches.FindAsync(alloc.BatchId);
+
+                    if (batch != null)
+                    {
+                        batch.UsedQty -= alloc.Qty;
+                        batch.AvailableQty += alloc.Qty;
+                    }
+                }
+                _context.SalesInvoiceDetailBatches.RemoveRange(detail.Batches);
+            }
+
+            // ── Reverse Serials ───────────────────────────────
+            if (detail.Serials != null && detail.Serials.Any())
+            {
+                foreach (var alloc in detail.Serials)
+                {
+                    var serial = alloc.Serial
+                        ?? await _context.ItemSerials.FindAsync(alloc.SerialId);
+
+                    if (serial != null)
+                        serial.Status = SerialStatus.InStock;
+                }
+                _context.SalesInvoiceDetailSerials.RemoveRange(detail.Serials);
+            }
+        }
+
+        // ════════════════════════════════════════════════════
+        // PRIVATE HELPERS — existing (unchanged)
+        // ════════════════════════════════════════════════════
+
         private async Task ValidateHeaderAsync(
             int businessPartnerId, int locationId, int salesAccountId,
             int companyId,
@@ -623,21 +912,18 @@ namespace FinVentoryAPI.Services.Implementations
                     x.BusinessPartnerId == businessPartnerId &&
                     x.CompanyId == companyId &&
                     !x.IsDeleted);
-            if (!bpExists)
-                throw new Exception("Business Partner not found.");
+            if (!bpExists) throw new Exception("Business Partner not found.");
 
             var locationExists = await _context.Locations
                 .AnyAsync(x => x.LocationId == locationId && x.CompanyId == companyId);
-            if (!locationExists)
-                throw new Exception("Location not found.");
+            if (!locationExists) throw new Exception("Location not found.");
 
             var salesAccountExists = await _context.Accounts
                 .AnyAsync(x =>
                     x.AccountId == salesAccountId &&
                     x.CompanyId == companyId &&
                     !x.IsDeleted);
-            if (!salesAccountExists)
-                throw new Exception("Sales Account not found.");
+            if (!salesAccountExists) throw new Exception("Sales Account not found.");
 
             await ValidateNewFieldsAsync(
                 businessPartnerId, companyId,
@@ -646,7 +932,6 @@ namespace FinVentoryAPI.Services.Implementations
                 billAddressId, shipAddressId);
         }
 
-        // ── Validate optional new fields ─────────────────────
         private async Task ValidateNewFieldsAsync(
             int businessPartnerId, int companyId,
             int? salesStateCode, int? billStateCode,
@@ -676,8 +961,7 @@ namespace FinVentoryAPI.Services.Implementations
                         x.SalesPersonId == salesPersonId &&
                         x.CompanyId == companyId &&
                         !x.IsDeleted);
-                if (!spExists)
-                    throw new Exception("Sales Person not found.");
+                if (!spExists) throw new Exception("Sales Person not found.");
             }
 
             if (billAddressId.HasValue)
@@ -701,7 +985,6 @@ namespace FinVentoryAPI.Services.Implementations
             }
         }
 
-        // ── Build detail + tax lines ──────────────────────────
         private async Task<SalesInvoiceDetail> BuildDetailWithTaxAsync(
             CreateSalesInvoiceDetailDto lineDto, int userId,
             int? salesStateCode, int? billStateCode)
@@ -713,10 +996,8 @@ namespace FinVentoryAPI.Services.Implementations
 
             if (item.HSNCodeId == 0)
                 throw new Exception($"Item '{item.ItemName}' has no HSN Code assigned.");
-
             if (item.Hsn == null)
                 throw new Exception($"Item '{item.ItemName}' — HSN (Id: {item.HSNCodeId}) not found.");
-
             if (item.Hsn.tax == null)
                 throw new Exception($"HSN '{item.Hsn.HsnName}' has no Tax assigned.");
 
@@ -725,20 +1006,17 @@ namespace FinVentoryAPI.Services.Implementations
 
             decimal grossAmount = lineDto.Rate * lineDto.Qty;
             decimal discountAmount = Math.Round(grossAmount * lineDto.DiscountRate / 100, 2);
-            decimal afterFirstDiscount = grossAmount - discountAmount;
-            decimal addisDiscountAmt = Math.Round(afterFirstDiscount * lineDto.AddisDiscountRate / 100, 2);
-            decimal taxableAmount = afterFirstDiscount - addisDiscountAmt;
+            decimal afterFirst = grossAmount - discountAmount;
+            decimal addisDiscAmt = Math.Round(afterFirst * lineDto.AddisDiscountRate / 100, 2);
+            decimal taxableAmount = afterFirst - addisDiscAmt;
 
             bool isIntraState = (salesStateCode.HasValue && billStateCode.HasValue)
-                ? salesStateCode.Value == billStateCode.Value
-                : true;
+                ? salesStateCode.Value == billStateCode.Value : true;
 
             if (lineDto.IsTaxIncluded)
             {
                 decimal totalTaxRate = isIntraState
-                    ? (tax.CGST + tax.SGST)
-                    : tax.IGST;
-
+                    ? (tax.CGST + tax.SGST) : tax.IGST;
                 if (totalTaxRate > 0)
                     taxableAmount = Math.Round(taxableAmount / (1 + totalTaxRate / 100), 2);
             }
@@ -761,14 +1039,13 @@ namespace FinVentoryAPI.Services.Implementations
                 DiscountRate = lineDto.DiscountRate,
                 AddisDiscountRate = lineDto.AddisDiscountRate,
                 DiscountAmount = discountAmount,
-                AddisDiscountAmount = addisDiscountAmt,
+                AddisDiscountAmount = addisDiscAmt,
                 IsTaxIncluded = lineDto.IsTaxIncluded,
                 TaxableAmount = taxableAmount,
                 CessRate = cessRate,
                 CessAmount = cessAmount,
                 LineTaxAmount = lineTaxAmt,
                 LineTotal = taxableAmount + lineTaxAmt,
-
                 TaxDetails = new List<SalesInvoiceTaxDetail>
                 {
                     new()
@@ -793,21 +1070,15 @@ namespace FinVentoryAPI.Services.Implementations
             };
         }
 
-        // ── Generate invoice number ───────────────────────────
         private async Task<string> GenerateInvoiceNoAsync(int companyId, int finYearId)
         {
             var financialYear = await _context.FinancialYears
                 .FirstOrDefaultAsync(x => x.FinancialYearId == finYearId);
 
-
-            //var yearLabel = financialYear?.YearName ?? finYearId.ToString();
-            // yearLabel = "2025-2026"
-
-            // Optionally format it as "2526" (short form)
             var yearLabel = financialYear != null
                 ? $"{financialYear.StartDate.Year % 100}{financialYear.EndDate.Year % 100}"
                 : finYearId.ToString();
-           // yearLabel = "2526"
+
             var count = await _context.SalesInvoiceMains
                 .CountAsync(x =>
                     x.CompanyId == companyId &&
@@ -817,7 +1088,6 @@ namespace FinVentoryAPI.Services.Implementations
             return $"INV-{yearLabel}-{(count + 1):D4}";
         }
 
-        // ── Map entity → response DTO ─────────────────────────
         private SalesInvoiceResponseDto MapToResponseDto(SalesInvoiceMain main)
         {
             return new SalesInvoiceResponseDto
@@ -861,15 +1131,13 @@ namespace FinVentoryAPI.Services.Implementations
                 ShipAddressId = main.ShipAddressId,
                 ShipAddressLine = FormatAddress(main.ShipAddress),
 
-                // AFTER — add the 4 aliased fields below the existing ones:
                 SubTotal = main.SubTotal,
                 TaxAmount = main.TaxAmount,
                 CessAmount = main.CessAmount,
                 RoundOff = main.RoundOff,
                 NetTotal = main.NetTotal,
 
-                // Fields consumed by the list page
-                Amount = main.SubTotal,                                          // gross taxable
+                Amount = main.SubTotal,
                 Discount = main.Details?.Sum(d => d.DiscountAmount + d.AddisDiscountAmount) ?? 0,
                 NetAmount = main.NetTotal,
                 Remarks = main.Remarks,
@@ -906,6 +1174,28 @@ namespace FinVentoryAPI.Services.Implementations
                     CessAmount = d.CessAmount,
                     LineTaxAmount = d.LineTaxAmount,
                     LineTotal = d.LineTotal,
+                    ItemManageBy = d.Item?.ItemManageBy.ToString(),
+
+                    // ── Batch / Serial allocations ───────────────
+                    Batches = d.Batches?.Select(b => new SalesInvoiceDetailBatchResponseDto
+                    {
+                        Id = b.Id,
+                        DetailId = b.DetailId,
+                        BatchId = b.BatchId,
+                        BatchNo = b.Batch?.BatchNo,
+                        ExpiryDate = b.Batch?.ExpiryDate,
+                        Qty = b.Qty
+                    }).ToList(),
+
+                    Serials = d.Serials?.Select(s => new SalesInvoiceDetailSerialResponseDto
+                    {
+                        Id = s.Id,
+                        DetailId = s.DetailId,
+                        SerialId = s.SerialId,
+                        SerialNo = s.Serial?.SerialNo,
+                        Status = s.Serial?.Status.ToString()
+                    }).ToList(),
+
                     TaxDetails = MapTaxDetails(d.TaxDetails)
                 }).ToList() ?? new List<SalesInvoiceDetailResponseDto>(),
 
@@ -920,11 +1210,8 @@ namespace FinVentoryAPI.Services.Implementations
             addr == null ? null :
             string.Join(", ", new[]
             {
-                addr.AddressLine1,
-                addr.AddressLine2,
-                addr.City,
-                addr.State.HasValue
-                    ? ((GstState)addr.State.Value).ToString() : null,
+                addr.AddressLine1, addr.AddressLine2, addr.City,
+                addr.State.HasValue ? ((GstState)addr.State.Value).ToString() : null,
                 addr.Pincode
             }.Where(x => !string.IsNullOrWhiteSpace(x)));
 
@@ -957,185 +1244,52 @@ namespace FinVentoryAPI.Services.Implementations
                 CessPostingAccount = td.CessPostingAccount?.AccountName
             };
 
-        // 5. Add this private helper method inside SalesInvoiceService
         private async Task PostStockLedgerAsync(SalesInvoiceMain main, bool isReversal)
         {
             if (main.Details == null || !main.Details.Any()) return;
-
             var lines = main.Details.Select(d => new StockLedgerLineDto
             {
                 ItemId = d.ItemId,
-                Qty = isReversal ? d.Qty : -d.Qty,   // negative = stock going OUT on sale
+                Qty = isReversal ? d.Qty : -d.Qty,
                 Rate = d.Rate,
                 Remarks = $"Sales Invoice: {main.InvoiceNo}"
             }).ToList();
-
             await _stockLedger.AddEntriesAsync(
-                companyId: main.CompanyId,
-                warehouseId: null,              // set from main.LocationId if you map Location → Warehouse
-                date: main.InvoiceDate,
-                voucherType: "Sales Invoice",
-                voucherNo: main.InvoiceNo,
-                businessPartnerId: main.BusinessPartnerId,
-                lines: lines,
-                createdBy: (int?)main.CreatedBy
-            );
+                companyId: main.CompanyId, warehouseId: null,
+                date: main.InvoiceDate, voucherType: "Sales Invoice",
+                voucherNo: main.InvoiceNo, businessPartnerId: main.BusinessPartnerId,
+                lines: lines, createdBy: (int?)main.CreatedBy);
         }
 
-        // ── Post to Account Ledger ────────────────────────────
         private async Task PostAccountLedgerAsync(SalesInvoiceMain main, bool isReversal)
         {
-            // Load BusinessPartner with AccountId if not already loaded
             var bp = main.BusinessPartner
                 ?? await _context.BusinessPartners
                     .FirstOrDefaultAsync(x => x.BusinessPartnerId == main.BusinessPartnerId);
-
             if (bp == null) return;
-
-            // ── Double entry for Sales Invoice ────────────────
-            //
-            //  Normal:   DR Receivable (customer)   → NetTotal
-            //            CR Sales Account           → SubTotal
-            //            CR Tax Accounts            → TaxAmount + CessAmount
-            //
-            //  Reversal: flip Debit ↔ Credit
-
-            var lines = new List<AccountLedgerLineDto>
-    {
-        // 1. Receivable account (Business Partner)
-        new()
-        {
-            AccountId         = bp.AccountId,
-            BusinessPartnerId = main.BusinessPartnerId,
-            Debit             = isReversal ? 0 : main.NetTotal,
-            Credit            = isReversal ? main.NetTotal : 0,
-            Remarks           = $"Sales Invoice: {main.InvoiceNo}"
-        },
-
-        // 2. Sales account
-        new()
-        {
-            AccountId         = main.SalesAccountId,
-            BusinessPartnerId = main.BusinessPartnerId,
-            Debit             = isReversal ? main.SubTotal : 0,
-            Credit            = isReversal ? 0 : main.SubTotal,
-            Remarks           = $"Sales Invoice: {main.InvoiceNo}"
-        }
-    };
-
-            // 3. Tax accounts — one line per unique tax posting account
-            if (main.TaxDetails != null && main.TaxDetails.Any())
-            {
-                // ── IGST (inter-state) ────────────────────────────
-                var igstGroups = main.TaxDetails
-                    .Where(t => t.IGSTPostingAccountId.HasValue
-                             && t.IGSTPostingAccountId.Value > 0    // ✅ guard against 0
-                             && t.IGSTAmount > 0)
-                    .GroupBy(t => t.IGSTPostingAccountId!.Value);
-
-                foreach (var g in igstGroups)
-                {
-                    lines.Add(new AccountLedgerLineDto
-                    {
-                        AccountId = g.Key,
-                        BusinessPartnerId = main.BusinessPartnerId,
-                        Debit = isReversal ? g.Sum(t => t.IGSTAmount) : 0,
-                        Credit = isReversal ? 0 : g.Sum(t => t.IGSTAmount),
-                        Remarks = $"IGST - Sales Invoice: {main.InvoiceNo}"
-                    });
-                }
-
-                // ── CGST (intra-state) ────────────────────────────
-                var cgstGroups = main.TaxDetails
-                    .Where(t => t.CGSTPostingAccountId.HasValue
-                             && t.CGSTPostingAccountId.Value > 0    // ✅ guard against 0
-                             && t.CGSTAmount > 0)
-                    .GroupBy(t => t.CGSTPostingAccountId!.Value);
-
-                foreach (var g in cgstGroups)
-                {
-                    lines.Add(new AccountLedgerLineDto
-                    {
-                        AccountId = g.Key,
-                        BusinessPartnerId = main.BusinessPartnerId,
-                        Debit = isReversal ? g.Sum(t => t.CGSTAmount) : 0,
-                        Credit = isReversal ? 0 : g.Sum(t => t.CGSTAmount),
-                        Remarks = $"CGST - Sales Invoice: {main.InvoiceNo}"
-                    });
-                }
-
-                // ── SGST (intra-state) ────────────────────────────
-                var sgstGroups = main.TaxDetails
-                    .Where(t => t.SGSTPostingAccountId.HasValue
-                             && t.SGSTPostingAccountId.Value > 0    // ✅ guard against 0
-                             && t.SGSTAmount > 0)
-                    .GroupBy(t => t.SGSTPostingAccountId!.Value);
-
-                foreach (var g in sgstGroups)
-                {
-                    lines.Add(new AccountLedgerLineDto
-                    {
-                        AccountId = g.Key,
-                        BusinessPartnerId = main.BusinessPartnerId,
-                        Debit = isReversal ? g.Sum(t => t.SGSTAmount) : 0,
-                        Credit = isReversal ? 0 : g.Sum(t => t.SGSTAmount),
-                        Remarks = $"SGST - Sales Invoice: {main.InvoiceNo}"
-                    });
-                }
-
-                // ── Cess ──────────────────────────────────────────
-                var cessGroups = main.TaxDetails
-                    .Where(t => t.CessPostingAccountId.HasValue
-                             && t.CessPostingAccountId.Value > 0    // ✅ guard against 0
-                             && t.CessAmount > 0)
-                    .GroupBy(t => t.CessPostingAccountId!.Value);
-
-                foreach (var g in cessGroups)
-                {
-                    lines.Add(new AccountLedgerLineDto
-                    {
-                        AccountId = g.Key,
-                        BusinessPartnerId = main.BusinessPartnerId,
-                        Debit = isReversal ? g.Sum(t => t.CessAmount) : 0,
-                        Credit = isReversal ? 0 : g.Sum(t => t.CessAmount),
-                        Remarks = $"Cess - Sales Invoice: {main.InvoiceNo}"
-                    });
-                }
-            }
-
+            var lines = BuildAccountLedgerLines(main, bp, isReversal);
             await _accountLedger.AddEntriesAsync(
-                companyId: main.CompanyId,
-                financialYearId: main.FinYearId,
-                date: main.InvoiceDate,
-                voucherType: "Sales Invoice",
-                voucherNo: main.InvoiceNo,
-                lines: lines,
-                createdBy: (int?)main.CreatedBy
-            );
+                companyId: main.CompanyId, financialYearId: main.FinYearId,
+                date: main.InvoiceDate, voucherType: "Sales Invoice",
+                voucherNo: main.InvoiceNo, lines: lines,
+                createdBy: (int?)main.CreatedBy);
         }
 
         private async Task UpdateStockLedgerAsync(SalesInvoiceMain main)
         {
             if (main.Details == null || !main.Details.Any()) return;
-
             var lines = main.Details.Select(d => new StockLedgerLineDto
             {
                 ItemId = d.ItemId,
-                Qty = -d.Qty,   // negative = stock OUT on sale
+                Qty = -d.Qty,
                 Rate = d.Rate,
                 Remarks = $"Sales Invoice: {main.InvoiceNo}"
             }).ToList();
-
             await _stockLedger.UpdateEntriesAsync(
-                companyId: main.CompanyId,
-                warehouseId: null,
-                date: main.InvoiceDate,
-                voucherType: "Sales Invoice",
-                voucherNo: main.InvoiceNo,
-                businessPartnerId: main.BusinessPartnerId,
-                lines: lines,
-                modifiedBy: (int?)main.ModifiedBy
-            );
+                companyId: main.CompanyId, warehouseId: null,
+                date: main.InvoiceDate, voucherType: "Sales Invoice",
+                voucherNo: main.InvoiceNo, businessPartnerId: main.BusinessPartnerId,
+                lines: lines, modifiedBy: (int?)main.ModifiedBy);
         }
 
         private async Task UpdateAccountLedgerAsync(SalesInvoiceMain main)
@@ -1143,42 +1297,35 @@ namespace FinVentoryAPI.Services.Implementations
             var bp = main.BusinessPartner
                 ?? await _context.BusinessPartners
                     .FirstOrDefaultAsync(x => x.BusinessPartnerId == main.BusinessPartnerId);
-
             if (bp == null) return;
-
             var lines = BuildAccountLedgerLines(main, bp, isReversal: false);
-
             await _accountLedger.UpdateEntriesAsync(
-                companyId: main.CompanyId,
-                financialYearId: main.FinYearId,
-                date: main.InvoiceDate,
-                voucherType: "Sales Invoice",
-                voucherNo: main.InvoiceNo,
-                lines: lines,
-                modifiedBy: (int?)main.ModifiedBy
-            );
+                companyId: main.CompanyId, financialYearId: main.FinYearId,
+                date: main.InvoiceDate, voucherType: "Sales Invoice",
+                voucherNo: main.InvoiceNo, lines: lines,
+                modifiedBy: (int?)main.ModifiedBy);
         }
 
         private List<AccountLedgerLineDto> BuildAccountLedgerLines(
-    SalesInvoiceMain main, BusinessPartner bp, bool isReversal)
+            SalesInvoiceMain main, BusinessPartner bp, bool isReversal)
         {
             var lines = new List<AccountLedgerLineDto>
-    {
-        new() {
-            AccountId         = bp.AccountId,
-            BusinessPartnerId = main.BusinessPartnerId,
-            Debit             = isReversal ? 0 : main.NetTotal,
-            Credit            = isReversal ? main.NetTotal : 0,
-            Remarks           = $"Sales Invoice: {main.InvoiceNo}"
-        },
-        new() {
-            AccountId         = main.SalesAccountId,
-            BusinessPartnerId = main.BusinessPartnerId,
-            Debit             = isReversal ? main.SubTotal : 0,
-            Credit            = isReversal ? 0 : main.SubTotal,
-            Remarks           = $"Sales Invoice: {main.InvoiceNo}"
-        }
-    };
+            {
+                new() {
+                    AccountId         = bp.AccountId,
+                    BusinessPartnerId = main.BusinessPartnerId,
+                    Debit             = isReversal ? 0 : main.NetTotal,
+                    Credit            = isReversal ? main.NetTotal : 0,
+                    Remarks           = $"Sales Invoice: {main.InvoiceNo}"
+                },
+                new() {
+                    AccountId         = main.SalesAccountId,
+                    BusinessPartnerId = main.BusinessPartnerId,
+                    Debit             = isReversal ? main.SubTotal : 0,
+                    Credit            = isReversal ? 0 : main.SubTotal,
+                    Remarks           = $"Sales Invoice: {main.InvoiceNo}"
+                }
+            };
 
             if (main.TaxDetails != null && main.TaxDetails.Any())
             {
@@ -1192,7 +1339,6 @@ namespace FinVentoryAPI.Services.Implementations
                                  && getAccountId(t)!.Value > 0
                                  && getAmount(t) > 0)
                         .GroupBy(t => getAccountId(t)!.Value);
-
                     foreach (var g in groups)
                         lines.Add(new AccountLedgerLineDto
                         {
@@ -1211,6 +1357,19 @@ namespace FinVentoryAPI.Services.Implementations
             }
 
             return lines;
+        }
+
+        private async Task SaveChangesAsync()
+        {
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                var inner = ex.InnerException?.Message ?? ex.Message;
+                throw new Exception($"Database error: {inner}");
+            }
         }
     }
 }

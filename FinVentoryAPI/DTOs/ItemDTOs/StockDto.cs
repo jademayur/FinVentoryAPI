@@ -1,4 +1,6 @@
-﻿namespace FinVentoryAPI.DTOs.ItemDTOs
+﻿using FinVentoryAPI.DTOs.StockLedgerDTOs;
+
+namespace FinVentoryAPI.DTOs.ItemDTOs
 {
     public class StockDto
     {
@@ -12,5 +14,10 @@
         public decimal Stock { get; set; }
         public string? Unit { get; set; }
 
+        public string ItemManageBy { get; set; }  // "None" | "Batch" | "Serial"
+        public List<BatchStockDto> Batches { get; set; } = new();
+        public List<SerialStockDto> Serials { get; set; } = new();
     }
+
 }
+
