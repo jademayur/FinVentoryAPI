@@ -24,16 +24,16 @@ namespace FinVentoryAPI.Services.Implementations
         {
             _context = context;
             _common = common;
-           
+
         }
 
-      
+
 
         public async Task<AccountResponseDto> CreateAsync(CreateAccountDto dto)
         {
             var CompanyId = _common.GetCompanyId();
-                         
-            var duplicate = await _context.Accounts          
+
+            var duplicate = await _context.Accounts
                 .AnyAsync(x =>
                  x.CompanyId == CompanyId &&
                  x.AccountName.ToLower() == dto.AccountName.ToLower() &&
@@ -78,7 +78,7 @@ namespace FinVentoryAPI.Services.Implementations
 
         }
 
-        public async Task<bool> UpdateAsync(int id,UpdateAccountDto dto) 
+        public async Task<bool> UpdateAsync(int id, UpdateAccountDto dto)
         {
             var CompanyId = _common.GetCompanyId();
 
@@ -87,7 +87,8 @@ namespace FinVentoryAPI.Services.Implementations
                    x.AccountId == id &&
                    x.CompanyId == CompanyId &&
                    !x.IsDeleted);
-            if (account == null) {
+            if (account == null)
+            {
                 return false;
             }
 
@@ -100,7 +101,7 @@ namespace FinVentoryAPI.Services.Implementations
                    x.AccountId != id &&
                    !x.IsDeleted);
 
-            if (duplicate) 
+            if (duplicate)
                 throw new Exception("Another account with same name already exists.");
 
             account.AccountName = dto.AccountName;
@@ -124,7 +125,7 @@ namespace FinVentoryAPI.Services.Implementations
             var companyId = _common.GetCompanyId();
 
             var accounts = await _context.Accounts
-                .Where(x =>x.CompanyId == companyId && !x.IsDeleted )
+                .Where(x => x.CompanyId == companyId && !x.IsDeleted)
                 .Include(x => x.AccountGroup)
                 .OrderBy(x => x.AccountId)
                 .ToListAsync();
@@ -136,11 +137,11 @@ namespace FinVentoryAPI.Services.Implementations
                 AccountCode = x.AccountCode,
                 AccountGroupId = x.AccountGroupId,
                 AccountGroupName = x.AccountGroup.GroupName,
-                AccountTypeId = (int) x.AccountType,
-                AccountTypeName= x.AccountType.ToString(),
-                BookTypeId = (int?)  x.BookType,
+                AccountTypeId = (int)x.AccountType,
+                AccountTypeName = x.AccountType.ToString(),
+                BookTypeId = (int?)x.BookType,
                 BookTypeName = x.BookType.ToString(),
-                BookSubTypeId = (int?) x.BookSubType,
+                BookSubTypeId = (int?)x.BookSubType,
                 BookSubTypeName = x.BookSubType.ToString(),
                 IsActive = x.IsActive
 
@@ -444,6 +445,66 @@ namespace FinVentoryAPI.Services.Implementations
                 .OrderBy(x => x.AccountName)
                 .ToListAsync();
         }
+
+        public async Task<List<AccountResponseDto>> GetDepositAccountsAsync()
+        {
+            var companyId = _common.GetCompanyId();
+
+            return await _context.Accounts
+                .Where(x => x.CompanyId == companyId
+                         && !x.IsDeleted
+                         && x.IsActive
+                         && (x.BookType == BookType.CASH || x.BookType == BookType.BANK))
+                .Select(x => new AccountResponseDto
+                {
+                    AccountId = x.AccountId,
+                    AccountName = x.AccountName,
+                    AccountCode = x.AccountCode
+                })
+                .OrderBy(x => x.AccountName)
+                .ToListAsync();
+        }
+
+        public async Task<List<AccountResponseDto>> GetCashBooksAsync()
+        {
+            var companyId = _common.GetCompanyId();
+
+            return await _context.Accounts
+                .Where(x =>
+                    x.CompanyId == companyId &&
+                    !x.IsDeleted
+                    && x.IsActive
+                    && (x.BookType == BookType.CASH))  // adjust to match your AccountType value
+                .OrderBy(x => x.AccountName)
+                .Select(x => new AccountResponseDto
+                {
+                    AccountId = x.AccountId,
+                    AccountName = x.AccountName,
+                    AccountCode = x.AccountCode
+                })
+                .ToListAsync();
+        }
+
+        public async Task<List<AccountResponseDto>> GetBankBooksAsync()
+        {
+            var companyId = _common.GetCompanyId();
+
+            return await _context.Accounts
+                .Where(x =>
+                    x.CompanyId == companyId
+                    && !x.IsDeleted
+                    && x.IsActive
+                    && (x.BookType == BookType.BANK))  // adjust to match your AccountType value
+                .OrderBy(x => x.AccountName)
+                .Select(x => new AccountResponseDto
+                {
+                    AccountId = x.AccountId,
+                    AccountName = x.AccountName,
+                    AccountCode = x.AccountCode
+                })
+                .ToListAsync();
+        }
+
 
     }
 }
