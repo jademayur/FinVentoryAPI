@@ -1,9 +1,8 @@
-﻿using FinVentoryAPI.DTOs.SalesInvoiceDTOs;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace FinVentoryAPI.DTOs.PurchaseInvoiceDTOs
 {
-    public class CreatePurchaseInvoiceMainDto
+    public class UpdatePurchaseInvoiceMainDto
     {
         [Required(ErrorMessage = "Invoice Date is required.")]
         public DateTime InvoiceDate { get; set; }
@@ -26,7 +25,6 @@ namespace FinVentoryAPI.DTOs.PurchaseInvoiceDTOs
         [Range(1, int.MaxValue, ErrorMessage = "Please select a valid Location.")]
         public int LocationId { get; set; }
 
-        // ✅ Purchase Book Account — selected by user
         [Required(ErrorMessage = "Purchase Account is required.")]
         [Range(1, int.MaxValue, ErrorMessage = "Please select a valid Purchase Account.")]
         public int PurchaseAccountId { get; set; }
@@ -37,16 +35,16 @@ namespace FinVentoryAPI.DTOs.PurchaseInvoiceDTOs
         [MaxLength(500, ErrorMessage = "Remarks cannot exceed 500 characters.")]
         public string? Remarks { get; set; }
 
-        public int PurchaseStateCode { get; set; }   // GstState enum int — supplier's state
-        public int BillStateCode { get; set; }       // GstState enum int — our company's state
+        public int PurchaseStateCode { get; set; }
+        public int BillStateCode { get; set; }
 
-        public int? ContactPersonId { get; set; }    // FK → BusinessPartnerContact.BPContactId
+        public int? ContactPersonId { get; set; }
 
         [Required(ErrorMessage = "Bill Address is required.")]
-        public int BillAddressId { get; set; }       // FK → BusinessPartnerAddress.BPAddressId
+        public int BillAddressId { get; set; }
 
         [Required(ErrorMessage = "Ship Address is required.")]
-        public int ShipAddressId { get; set; }       // FK → BusinessPartnerAddress.BPAddressId
+        public int ShipAddressId { get; set; }
 
         [MaxLength(200, ErrorMessage = "Transport Name cannot exceed 200 characters.")]
         public string? TransportName { get; set; }
@@ -61,7 +59,6 @@ namespace FinVentoryAPI.DTOs.PurchaseInvoiceDTOs
 
         [Required(ErrorMessage = "At least one item line is required.")]
         [MinLength(1, ErrorMessage = "At least one item line is required.")]
-        public List<CreatePurchaseInvoiceDetailDto> Details { get; set; } = new();
-
+        public List<UpdatePurchaseInvoiceDetailDto> Details { get; set; } = new();
     }
 }
