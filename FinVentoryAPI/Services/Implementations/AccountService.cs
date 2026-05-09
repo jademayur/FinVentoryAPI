@@ -446,6 +446,25 @@ namespace FinVentoryAPI.Services.Implementations
                 .ToListAsync();
         }
 
+        public async Task<List<AccountResponseDto>> GetPurchaseAccountsAsync()
+        {
+            var companyId = _common.GetCompanyId();
+
+            return await _context.Accounts
+                .Where(x => x.CompanyId == companyId
+                         && !x.IsDeleted
+                         && x.IsActive
+                         && x.BookType == BookType.PRCH)
+                .Select(x => new AccountResponseDto
+                {
+                    AccountId = x.AccountId,
+                    AccountName = x.AccountName,
+                    AccountCode = x.AccountCode
+                })
+                .OrderBy(x => x.AccountName)
+                .ToListAsync();
+        }
+
         public async Task<List<AccountResponseDto>> GetDepositAccountsAsync()
         {
             var companyId = _common.GetCompanyId();
