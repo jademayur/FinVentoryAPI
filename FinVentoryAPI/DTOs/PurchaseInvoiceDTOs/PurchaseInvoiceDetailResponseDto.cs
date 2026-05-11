@@ -24,6 +24,7 @@
         public decimal LineTotal { get; set; }
         public string? ItemManageBy { get; set; }
 
+        // Response uses BatchId/SerialId (these exist after creation)
         public List<PurchaseInvoiceDetailBatchResponseDto>? Batches { get; set; }
         public List<PurchaseInvoiceDetailSerialResponseDto>? Serials { get; set; }
         public List<PurchaseInvoiceTaxDetailResponseDto>? TaxDetails { get; set; }

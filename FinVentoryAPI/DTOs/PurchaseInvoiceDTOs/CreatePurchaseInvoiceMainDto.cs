@@ -26,7 +26,6 @@ namespace FinVentoryAPI.DTOs.PurchaseInvoiceDTOs
         [Range(1, int.MaxValue, ErrorMessage = "Please select a valid Location.")]
         public int LocationId { get; set; }
 
-        // ✅ Purchase Book Account — selected by user
         [Required(ErrorMessage = "Purchase Account is required.")]
         [Range(1, int.MaxValue, ErrorMessage = "Please select a valid Purchase Account.")]
         public int PurchaseAccountId { get; set; }
@@ -37,26 +36,19 @@ namespace FinVentoryAPI.DTOs.PurchaseInvoiceDTOs
         [MaxLength(500, ErrorMessage = "Remarks cannot exceed 500 characters.")]
         public string? Remarks { get; set; }
 
-        public int PurchaseStateCode { get; set; }   // GstState enum int — supplier's state
-        public int BillStateCode { get; set; }       // GstState enum int — our company's state
-
-        public int? ContactPersonId { get; set; }    // FK → BusinessPartnerContact.BPContactId
+        public int PurchaseStateCode { get; set; }
+        public int BillStateCode { get; set; }
+        public int? ContactPersonId { get; set; }
 
         [Required(ErrorMessage = "Bill Address is required.")]
-        public int BillAddressId { get; set; }       // FK → BusinessPartnerAddress.BPAddressId
+        public int BillAddressId { get; set; }
 
         [Required(ErrorMessage = "Ship Address is required.")]
-        public int ShipAddressId { get; set; }       // FK → BusinessPartnerAddress.BPAddressId
+        public int ShipAddressId { get; set; }
 
-        [MaxLength(200, ErrorMessage = "Transport Name cannot exceed 200 characters.")]
-        public string? TransportName { get; set; }
-
-        [MaxLength(50, ErrorMessage = "Vehicle No cannot exceed 50 characters.")]
-        public string? VehicleNo { get; set; }
-
-        [MaxLength(100, ErrorMessage = "LR No cannot exceed 100 characters.")]
-        public string? LrNo { get; set; }
-
+        [MaxLength(200)] public string? TransportName { get; set; }
+        [MaxLength(50)] public string? VehicleNo { get; set; }
+        [MaxLength(100)] public string? LrNo { get; set; }
         public DateTime? LrDate { get; set; }
 
         [Required(ErrorMessage = "At least one item line is required.")]

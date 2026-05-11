@@ -7,8 +7,8 @@ namespace FinVentoryAPI.Entities
     {
         [Key]
         public int TaxDetailId { get; set; }
-        public int InvoiceId { get; set; }   // FK → SalesInvoiceMain
-        public int DetailId { get; set; }    // FK → SalesInvoiceDetail
+        public int InvoiceId { get; set; }   // FK → PurchaseInvoiceMain
+        public int DetailId { get; set; }    // FK → PurchaseInvoiceDetail
         public int TaxId { get; set; }       // FK → Tax
 
         // Tax Rates — copied from Tax entity at time of save
@@ -22,25 +22,23 @@ namespace FinVentoryAPI.Entities
         public decimal CGSTAmount { get; set; }
         public decimal SGSTAmount { get; set; }
 
-        //Posting Accounts — copied from Tax entity at time of save
-        public int? IGSTPostingAccountId { get; set; }  // copied from Tax.IGSTPostingAccountId
-        public int? CGSTPostingAccountId { get; set; }  // copied from Tax.CGSTPostingAccountId
-        public int? SGSTPostingAccountId { get; set; }  // copied from Tax.SGSTPostingAccountId
-
+        // Posting Accounts — copied from Tax entity at time of save
+        public int? IGSTPostingAccountId { get; set; }
+        public int? CGSTPostingAccountId { get; set; }
+        public int? SGSTPostingAccountId { get; set; }
 
         // Cess — copied from Hsn entity at time of save
         public decimal CessRate { get; set; }
         public decimal CessAmount { get; set; }
-        public int? CessPostingAccountId { get; set; }  // copied from Hsn.CessPostingAc
+        public int? CessPostingAccountId { get; set; }
 
         // Total
-        public decimal TotalTaxAmount { get; set; }  // IGST+CGST+SGST+Cess
+        public decimal TotalTaxAmount { get; set; }
 
         // Navigation
         public PurchaseInvoiceMain? Invoice { get; set; }
         public PurchaseInvoiceDetail? Detail { get; set; }
         public Tax? Tax { get; set; }
-
 
         [ForeignKey(nameof(IGSTPostingAccountId))]
         public Account? IGSTPostingAccount { get; set; }

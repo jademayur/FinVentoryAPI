@@ -6,35 +6,37 @@ namespace FinVentoryAPI.Entities
     {
         [Key]
         public int DetailId { get; set; }
-        public int InvoiceId { get; set; }  // FK → SalesInvoiceMain
+        public int InvoiceId { get; set; }   // FK → PurchaseInvoiceMain
 
         // Item Info
         public int ItemId { get; set; }
-        public int HsnId { get; set; }               // FK → Hsn (saved at time of invoice)
-        public string HsnCode { get; set; } = string.Empty;  // copied from Hsn (for history)
+        public int HsnId { get; set; }
+        public string HsnCode { get; set; } = string.Empty;
 
         // Pricing
-        public string PriceType { get; set; } = string.Empty;  // MRP / Retail / Wholesale
+        public string PriceType { get; set; } = string.Empty;  // MRP / Retail / Wholesale / Purchase
         public decimal Qty { get; set; }
-        public decimal Rate { get; set; }
+        public decimal Rate { get; set; }                       // Purchase rate (excl. tax if IsTaxIncluded=false)
         public decimal DiscountRate { get; set; } = 0;
         public decimal AddisDiscountRate { get; set; } = 0;
         public decimal DiscountAmount { get; set; } = 0;
         public decimal AddisDiscountAmount { get; set; } = 0;
-        public bool IsTaxIncluded { get; set; }      // copied from ItemPrice
+        public bool IsTaxIncluded { get; set; }
 
         // Amounts
-        public decimal TaxableAmount { get; set; }   // (Rate * Qty) - Discount
-        public decimal CessRate { get; set; }        // copied from Hsn.Cess
-        public decimal CessAmount { get; set; }      // TaxableAmount * CessRate / 100
-        public decimal LineTaxAmount { get; set; }   // IGST/CGST/SGST + Cess
-        public decimal LineTotal { get; set; }       // TaxableAmount + LineTaxAmount
+        public decimal TaxableAmount { get; set; }
+        public decimal CessRate { get; set; }
+        public decimal CessAmount { get; set; }
+        public decimal LineTaxAmount { get; set; }
+        public decimal LineTotal { get; set; }
 
         // Navigation
         public PurchaseInvoiceMain? Invoice { get; set; }
         public Item? Item { get; set; }
         public Hsn? Hsn { get; set; }
-        //public ICollection<PurchaseInvoiceTaxDetail>? TaxDetails { get; set; }
-        public List<PurchaseInvoiceTaxDetail> TaxDetails { get; set; }
+        public List<PurchaseInvoiceTaxDetail> TaxDetails { get; set; } = new();
+
+        public ICollection<PurchaseInvoiceDetailBatch>? Batches { get; set; }
+        public ICollection<PurchaseInvoiceDetailSerial>? Serials { get; set; }
     }
 }

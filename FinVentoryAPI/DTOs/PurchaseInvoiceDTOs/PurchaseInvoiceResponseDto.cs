@@ -20,7 +20,7 @@
 
         public int PurchaseAccountId { get; set; }
         public string PurchaseAccountName { get; set; } = string.Empty;
-        public int PayableAccountId { get; set; }    // From BusinessPartner.AccountId
+        public int PayableAccountId { get; set; }
 
         public int? PurchaseStateCode { get; set; }
         public string? PurchaseStateName { get; set; }

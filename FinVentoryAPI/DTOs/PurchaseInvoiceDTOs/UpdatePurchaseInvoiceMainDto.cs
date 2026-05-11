@@ -8,7 +8,7 @@ namespace FinVentoryAPI.DTOs.PurchaseInvoiceDTOs
         public DateTime InvoiceDate { get; set; }
 
         [Required(ErrorMessage = "Supplier Invoice No is required.")]
-        [MaxLength(100, ErrorMessage = "Supplier Invoice No cannot exceed 100 characters.")]
+        [MaxLength(100)]
         public string SupplierInvoiceNo { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Supplier Invoice Date is required.")]
@@ -29,15 +29,11 @@ namespace FinVentoryAPI.DTOs.PurchaseInvoiceDTOs
         [Range(1, int.MaxValue, ErrorMessage = "Please select a valid Purchase Account.")]
         public int PurchaseAccountId { get; set; }
 
-        [Range(-1000, 1000, ErrorMessage = "Round Off must be between -1000 and 1000.")]
-        public decimal RoundOff { get; set; } = 0;
-
-        [MaxLength(500, ErrorMessage = "Remarks cannot exceed 500 characters.")]
-        public string? Remarks { get; set; }
+        [Range(-1000, 1000)] public decimal RoundOff { get; set; } = 0;
+        [MaxLength(500)] public string? Remarks { get; set; }
 
         public int PurchaseStateCode { get; set; }
         public int BillStateCode { get; set; }
-
         public int? ContactPersonId { get; set; }
 
         [Required(ErrorMessage = "Bill Address is required.")]
@@ -46,15 +42,9 @@ namespace FinVentoryAPI.DTOs.PurchaseInvoiceDTOs
         [Required(ErrorMessage = "Ship Address is required.")]
         public int ShipAddressId { get; set; }
 
-        [MaxLength(200, ErrorMessage = "Transport Name cannot exceed 200 characters.")]
-        public string? TransportName { get; set; }
-
-        [MaxLength(50, ErrorMessage = "Vehicle No cannot exceed 50 characters.")]
-        public string? VehicleNo { get; set; }
-
-        [MaxLength(100, ErrorMessage = "LR No cannot exceed 100 characters.")]
-        public string? LrNo { get; set; }
-
+        [MaxLength(200)] public string? TransportName { get; set; }
+        [MaxLength(50)] public string? VehicleNo { get; set; }
+        [MaxLength(100)] public string? LrNo { get; set; }
         public DateTime? LrDate { get; set; }
 
         [Required(ErrorMessage = "At least one item line is required.")]

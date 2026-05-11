@@ -9,27 +9,24 @@ namespace FinVentoryAPI.DTOs.PurchaseInvoiceDTOs
         public int ItemId { get; set; }
 
         [Required(ErrorMessage = "Price Type is required.")]
-        [MaxLength(50, ErrorMessage = "Price Type cannot exceed 50 characters.")]
+        [MaxLength(50)]
         public string PriceType { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Quantity is required.")]
         [Range(0.0001, double.MaxValue, ErrorMessage = "Quantity must be greater than 0.")]
         public decimal Qty { get; set; }
 
-        [Required(ErrorMessage = "Rate is required.")]
         [Range(0, double.MaxValue, ErrorMessage = "Rate must be 0 or greater.")]
         public decimal Rate { get; set; }
 
-        [Range(0, 100, ErrorMessage = "Discount Rate must be between 0 and 100.")]
-        public decimal DiscountRate { get; set; } = 0;
-
-        [Range(0, 100, ErrorMessage = "Additional Discount Rate must be between 0 and 100.")]
-        public decimal AddisDiscountRate { get; set; } = 0;
-
+        [Range(0, 100)] public decimal DiscountRate { get; set; }
+        [Range(0, 100)] public decimal AddisDiscountRate { get; set; }
         public bool IsTaxIncluded { get; set; }
 
-        // Batch / Serial allocations (required when item is Batch/Serial managed)
-        public List<PurchaseInvoiceBatchDto>? Batches { get; set; }
-        public List<PurchaseInvoiceSerialDto>? Serials { get; set; }
+        // ── Batch: create new ItemBatch records on receipt ────────────
+        public List<PurchaseInvoiceBatchCreateDto>? Batches { get; set; }
+
+        // ── Serial: create new ItemSerial records on receipt ──────────
+        public List<PurchaseInvoiceSerialCreateDto>? Serials { get; set; }
     }
 }
