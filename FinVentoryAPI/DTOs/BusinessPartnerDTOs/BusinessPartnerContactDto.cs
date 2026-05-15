@@ -2,11 +2,12 @@
 {
     public class BusinessPartnerContactDto
     {
+        public int BPContactId { get; set; }
+        public int BusinessPartnerId { get; set; }
         public string? Name { get; set; }
         public string? Mobile { get; set; }
         public string? Email { get; set; }
         public string? Designation { get; set; }
-
-        public bool IsPrimary { get; set; } = false;
+        public bool IsPrimary { get; set; }
     }
 }
