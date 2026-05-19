@@ -120,7 +120,19 @@ namespace FinVentoryAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
-
+        [HttpGet("purchase-accounts")]
+        public async Task<IActionResult> GetPurchaseAccounts()
+        {
+            try
+            {
+                var result = await _service.GetPurchaseAccountsAsync();
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
         [HttpGet("deposit-accounts")]
         public async Task<IActionResult> GetDepositeAsync()
         {
@@ -146,6 +158,14 @@ namespace FinVentoryAPI.Controllers
         public async Task<IActionResult> GetBankBooks()
         {
             var result = await _service.GetBankBooksAsync();
+            return Ok(result);
+        }
+
+
+        [HttpGet("jv-books")]
+        public async Task<IActionResult> GetJVBooks()
+        {
+            var result = await _service.GetJVBooksAsync();
             return Ok(result);
         }
     }

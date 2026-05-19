@@ -20,5 +20,6 @@ namespace FinVentoryAPI.Services.Interfaces
         Task<List<AccountResponseDto>> GetDepositAccountsAsync();
         Task<List<AccountResponseDto>> GetCashBooksAsync();       
         Task<List<AccountResponseDto>> GetBankBooksAsync();
+        Task<List<AccountResponseDto>> GetJVBooksAsync();
     }
 }
