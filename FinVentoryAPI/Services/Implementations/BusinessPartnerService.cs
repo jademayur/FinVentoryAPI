@@ -1,14 +1,11 @@
 ﻿using FinVentoryAPI.Data;
 using FinVentoryAPI.DTOs.BusinessPartnerDTOs;
-using FinVentoryAPI.DTOs.ItemDTOs;
 using FinVentoryAPI.DTOs.PagedRequestDto;
 using FinVentoryAPI.Entities;
 using FinVentoryAPI.Enums;
 using FinVentoryAPI.Helpers;
 using FinVentoryAPI.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Identity.Client;
-using System.Reflection;
 using System.Text.Json;
 
 namespace FinVentoryAPI.Services.Implementations
@@ -24,9 +21,9 @@ namespace FinVentoryAPI.Services.Implementations
             _context = context;
         }
 
-        // Fix CreateAsync — create Account exactly like AccountService.CreateAsync does
-        // Replace only the account creation block in BusinessPartnerService.cs
-
+        // ────────────────────────────────────────────────────
+        // CREATE
+        // ────────────────────────────────────────────────────
         public async Task<BusinessPartnerResponseDto> CreateAsync(CreateBusinessPartnerDto dto)
         {
             var companyId = _common.GetCompanyId();
@@ -40,23 +37,21 @@ namespace FinVentoryAPI.Services.Implementations
             if (duplicate)
                 throw new Exception("Business Partner already exists.");
 
-            // ── Create ledger account — same fields as AccountService.CreateAsync ──
             var account = new Account
             {
                 AccountName = dto.BPName,
                 AccountCode = dto.BPCode,
                 AccountGroupId = dto.AccountGroupId,
                 AccountType = AccountType.General,
-                BookType = null,          // not required — same as AccountService
-                BookSubType = null,          // not required — same as AccountService
+                BookType = null,
+                BookSubType = null,
                 CompanyId = companyId,
                 CreatedBy = _common.GetUserId(),
             };
 
             _context.Accounts.Add(account);
-            await _context.SaveChangesAsync();  // AccountId generated here
+            await _context.SaveChangesAsync();
 
-            // ── Create Business Partner ────────────────────────────────────────────
             var bp = new BusinessPartner
             {
                 CompanyId = companyId,
@@ -69,16 +64,14 @@ namespace FinVentoryAPI.Services.Implementations
                 CreditLimit = dto.CreditLimit,
                 CreditDays = dto.CreditDays,
                 AccountGroupId = dto.AccountGroupId,
-                AccountId = account.AccountId,  // link to newly created account
+                AccountId = account.AccountId,
                 CreatedBy = _common.GetUserId(),
                 DefaultPriceType = dto.DefaultPriceType
-                
             };
 
             _context.BusinessPartners.Add(bp);
             await _context.SaveChangesAsync();
 
-            // ── Addresses ─────────────────────────────────────────────────────────
             if (dto.BPAddresses != null && dto.BPAddresses.Any())
             {
                 var addresses = dto.BPAddresses.Select(p => new BusinessPartnerAddress
@@ -100,7 +93,6 @@ namespace FinVentoryAPI.Services.Implementations
                 await _context.SaveChangesAsync();
             }
 
-            // ── Contacts ──────────────────────────────────────────────────────────
             if (dto.BPContacts != null && dto.BPContacts.Any())
             {
                 var contacts = dto.BPContacts.Select(p => new BusinessPartnerContact
@@ -120,94 +112,9 @@ namespace FinVentoryAPI.Services.Implementations
             return await GetByIdAsync(bp.BusinessPartnerId);
         }
 
-        //public async Task<BusinessPartnerResponseDto> CreateAsync(CreateBusinessPartnerDto dto)
-        //{
-        //    var companyId = _common.GetCompanyId();
-
-        //    var duplicate = await _context.BusinessPartners
-        //        .AnyAsync(x =>
-        //            x.CompanyId == companyId &&
-        //            x.BusinessPartnerName.ToLower() == dto.BPName.ToLower() &&
-        //            !x.IsDeleted);
-
-        //    if (duplicate)
-        //        throw new Exception("Business Partner already exists.");
-
-        //    var account = new Account
-        //    {
-        //        AccountName = dto.BPName,           // or dto.PrintName, your choice
-        //        AccountCode = dto.BPCode,
-        //        AccountGroupId = dto.AccountGroup,  // make sure this is an int GroupId
-        //        AccountType = AccountType.General,  
-        //        CompanyId = companyId,
-        //        CreatedBy = _common.GetUserId()
-        //    };
-
-        //    _context.Accounts.Add(account);
-        //    await _context.SaveChangesAsync();      // ← AccountId is now generated
-
-        //    var bp = new BusinessPartner
-        //    {
-        //        CompanyId = companyId,
-        //        BusinessPartnerCode = dto.BPCode,
-        //        BusinessPartnerName = dto.BPName,
-        //        PrintName = dto.PrintName,
-        //        Type = dto.BPType,
-        //        Mobile = dto.Mobile,
-        //        Email = dto.Email,
-        //        CreditLimit = dto.CreditLimit,
-        //        CreditDays = dto.CreditDays,
-        //        AccountGroup = dto.AccountGroup,
-        //        AccountId = account.AccountId,
-        //        CreatedBy = _common.GetUserId()
-        //    };
-
-        //    _context.BusinessPartners.Add(bp);
-        //    await _context.SaveChangesAsync();
-
-        //    // 💰 Addresses
-        //    if (dto.BPAddresses != null && dto.BPAddresses.Any())
-        //    {
-        //        var addresses = dto.BPAddresses.Select(p => new BusinessPartnerAddress
-        //        {
-        //            BusinessPartnerId = bp.BusinessPartnerId,
-        //            Type = p.Type,
-        //            AddressLine1 = p.AddressLine1,
-        //            AddressLine2 = p.AddressLine2,
-        //            City = p.City,
-        //            State = p.State,
-        //            Country = p.Country,
-        //            Pincode = p.Pincode,
-        //            GSTType = p.GSTType,
-        //            GSTNo = p.GSTNo,
-        //            IsDefault = p.IsDefault,
-        //        }).ToList();
-
-        //        _context.BusinessPartnerAddresses.AddRange(addresses);
-        //        await _context.SaveChangesAsync();
-        //    }
-
-        //    // 💰 Contacts
-        //    if (dto.BPContacts != null && dto.BPContacts.Any())
-        //    {
-        //        var contacts = dto.BPContacts.Select(p => new BusinessPartnerContact
-        //        {
-        //            BusinessPartnerId = bp.BusinessPartnerId,
-        //            Name = p.Name,
-        //            Mobile = p.Mobile,
-        //            Email = p.Email,
-        //            Designation = p.Designation,
-        //            IsPrimary = p.IsPrimary,
-        //        }).ToList();
-
-        //        _context.BusinessPartnerContacts.AddRange(contacts);
-        //        await _context.SaveChangesAsync();
-        //    }
-
-        //    return await GetByIdAsync(bp.BusinessPartnerId);
-        //}
-
-        // ✅ UPDATE
+        // ────────────────────────────────────────────────────
+        // UPDATE
+        // ────────────────────────────────────────────────────
         public async Task<bool> UpdateAsync(int id, UpdateBusinessPartnerDto dto)
         {
             var companyId = _common.GetCompanyId();
@@ -231,9 +138,8 @@ namespace FinVentoryAPI.Services.Implementations
                     !x.IsDeleted);
 
             if (duplicate)
-                throw new Exception("Business Partners same name already exists.");
+                throw new Exception("Business Partner with the same name already exists.");
 
-            // Update
             bp.BusinessPartnerCode = dto.BPCode;
             bp.BusinessPartnerName = dto.BPName;
             bp.PrintName = dto.PrintName;
@@ -249,36 +155,33 @@ namespace FinVentoryAPI.Services.Implementations
             bp.ModifiedDate = DateTime.UtcNow;
             bp.DefaultPriceType = dto.DefaultPriceType;
 
-
-            // 🔥 Replace Addresses
             if (dto.BPAddresses != null)
             {
                 _context.BusinessPartnerAddresses.RemoveRange(bp.BPAddresses);
 
-                var newAddress = dto.BPAddresses.Select(p => new BusinessPartnerAddress
+                var newAddresses = dto.BPAddresses.Select(p => new BusinessPartnerAddress
                 {
                     BusinessPartnerId = bp.BusinessPartnerId,
                     Type = p.Type,
-                   AddressLine1 = p.AddressLine1,
-                   AddressLine2 = p.AddressLine2,
-                   City = p.City,
-                   State = p.State,
-                   Country = p.Country,
-                   Pincode = p.Pincode,
-                   GSTType = p.GSTType,
-                   GSTNo = p.GSTNo,
-                   IsDefault = p.IsDefault,
+                    AddressLine1 = p.AddressLine1,
+                    AddressLine2 = p.AddressLine2,
+                    City = p.City,
+                    State = p.State,
+                    Country = p.Country,
+                    Pincode = p.Pincode,
+                    GSTType = p.GSTType,
+                    GSTNo = p.GSTNo,
+                    IsDefault = p.IsDefault,
                 });
 
-                await _context.BusinessPartnerAddresses.AddRangeAsync(newAddress);
+                await _context.BusinessPartnerAddresses.AddRangeAsync(newAddresses);
             }
 
-            // 🔥 Replace Contacts
             if (dto.BPContacts != null)
             {
                 _context.BusinessPartnerContacts.RemoveRange(bp.BPContacts);
 
-                var newContact = dto.BPContacts.Select(p => new BusinessPartnerContact
+                var newContacts = dto.BPContacts.Select(p => new BusinessPartnerContact
                 {
                     BusinessPartnerId = bp.BusinessPartnerId,
                     Name = p.Name,
@@ -288,13 +191,16 @@ namespace FinVentoryAPI.Services.Implementations
                     IsPrimary = p.IsPrimary,
                 });
 
-                await _context.BusinessPartnerContacts.AddRangeAsync(newContact);
+                await _context.BusinessPartnerContacts.AddRangeAsync(newContacts);
             }
 
             await _context.SaveChangesAsync();
             return true;
         }
 
+        // ────────────────────────────────────────────────────
+        // DELETE
+        // ────────────────────────────────────────────────────
         public async Task<bool> DeleteAsync(int id)
         {
             var companyId = _common.GetCompanyId();
@@ -317,6 +223,9 @@ namespace FinVentoryAPI.Services.Implementations
             return true;
         }
 
+        // ────────────────────────────────────────────────────
+        // GET BY ID
+        // ────────────────────────────────────────────────────
         public async Task<BusinessPartnerResponseDto?> GetByIdAsync(int id)
         {
             var companyId = _common.GetCompanyId();
@@ -333,53 +242,12 @@ namespace FinVentoryAPI.Services.Implementations
             if (bp == null)
                 return null;
 
-            return new BusinessPartnerResponseDto
-            {
-
-                BusinessPartnerId = id,
-                Type = bp.Type,
-                BusinessPartnerCode = bp.BusinessPartnerCode,
-                BusinessPartnerName = bp.BusinessPartnerName,
-                PrintName = bp.PrintName,
-                Mobile = bp.Mobile,
-                Email = bp.Email,
-                CreditLimit = bp.CreditLimit,
-                CreditDays = bp.CreditDays,
-                AccountGroupId = bp.AccountGroupId,
-                AccountId = bp.AccountId,
-                DefaultPriceType = bp.DefaultPriceType,
-
-
-                // ── Address ────────────────────────────────────────────
-                BPAddresses = bp.BPAddresses?.Select(p => new BusinessPartnerAddressDto
-                {
-                    Type = p.Type,
-                    AddressLine1 = p.AddressLine1,
-                    AddressLine2 = p.AddressLine2,
-                    City = p.City,
-                    State = p.State,
-                    StateName = p.State.HasValue ? EnumHelper.GetStateName((int)p.State.Value) : null,  // 👈
-                    StateCode = p.State.HasValue ? ((int)p.State.Value).ToString("D2") : null,          // 👈
-                    Country = p.Country,
-                    Pincode = p.Pincode,
-                    GSTType = p.GSTType,
-                    GSTNo = p.GSTNo,
-                    IsDefault = p.IsDefault   // 👈 was missing
-                }).ToList(),
-
-                // ── Contacts ────────────────────────────────────────────
-                BPContacts = bp.BPContacts?.Select(p => new BusinessPartnerContactDto
-                {
-                    Name = p.Name,
-                    Mobile = p.Mobile,
-                    Email = p.Email,
-                    Designation = p.Designation,
-                    IsPrimary = p.IsPrimary
-                }).ToList()
-
-            };
+            return MapBP(bp);
         }
 
+        // ────────────────────────────────────────────────────
+        // GET ALL
+        // ────────────────────────────────────────────────────
         public async Task<List<BusinessPartnerResponseDto>> GetAllAsync()
         {
             var companyId = _common.GetCompanyId();
@@ -388,25 +256,12 @@ namespace FinVentoryAPI.Services.Implementations
                 .Where(x => x.CompanyId == companyId && !x.IsDeleted)
                 .ToListAsync();
 
-            return businessPartners.Select(x => new BusinessPartnerResponseDto
-            {
-              BusinessPartnerId = x.BusinessPartnerId,
-              Type = x.Type,
-              BusinessPartnerCode = x.BusinessPartnerCode,
-              BusinessPartnerName = x.BusinessPartnerName,
-              PrintName = x.PrintName,
-              Mobile = x.Mobile,
-              Email = x.Email,
-              CreditLimit = x.CreditLimit,                
-              CreditDays = x.CreditDays,
-              AccountGroupId = x.AccountGroupId,
-              AccountId = x.AccountId,
-              DefaultPriceType = x.DefaultPriceType
-
-            }).ToList();
+            return businessPartners.Select(MapBP).ToList();
         }
 
-        // ✅ PAGED
+        // ────────────────────────────────────────────────────
+        // GET PAGED
+        // ────────────────────────────────────────────────────
         public async Task<PagedResponseDto<BusinessPartnerResponseDto>> GetPagedAsync(PagedRequestDto request)
         {
             var companyId = _common.GetCompanyId();
@@ -416,18 +271,16 @@ namespace FinVentoryAPI.Services.Implementations
                 .Include(x => x.accountGroup)
                 .AsQueryable();
 
-            // 🔍 SEARCH
+            // SEARCH
             if (!string.IsNullOrWhiteSpace(request.Search))
             {
                 var search = request.Search.ToLower();
-
                 query = query.Where(x =>
                     x.BusinessPartnerName.ToLower().Contains(search) ||
-                    (x.BusinessPartnerName ?? "").ToLower().Contains(search));
-
+                    x.BusinessPartnerCode.ToLower().Contains(search));
             }
 
-            // 🎯 FILTERS
+            // FILTERS
             if (request.Filters != null)
             {
                 if (request.Filters.ContainsKey("type"))
@@ -443,11 +296,10 @@ namespace FinVentoryAPI.Services.Implementations
                 }
             }
 
-            // 🔽 SORTING
+            // SORTING
             if (request.Sorts != null && request.Sorts.Any())
             {
                 var sort = request.Sorts.First();
-
                 switch (sort.Column.ToLower())
                 {
                     case "bpname":
@@ -455,19 +307,16 @@ namespace FinVentoryAPI.Services.Implementations
                             ? query.OrderByDescending(x => x.BusinessPartnerName)
                             : query.OrderBy(x => x.BusinessPartnerName);
                         break;
-
                     case "type":
                         query = sort.Direction == "desc"
                             ? query.OrderByDescending(x => x.Type)
                             : query.OrderBy(x => x.Type);
-                        break;               
-
+                        break;
                     case "isactive":
                         query = sort.Direction == "desc"
                             ? query.OrderByDescending(x => x.IsActive)
                             : query.OrderBy(x => x.IsActive);
                         break;
-
                     default:
                         query = query.OrderBy(x => x.BusinessPartnerName);
                         break;
@@ -478,28 +327,11 @@ namespace FinVentoryAPI.Services.Implementations
                 query = query.OrderBy(x => x.BusinessPartnerName);
             }
 
-            // 📊 TOTAL COUNT
             var totalRecords = await query.CountAsync();
 
-            // 📄 DATA
             var data = await query
                 .Skip((request.PageNumber - 1) * request.PageSize)
                 .Take(request.PageSize)
-                .Select(x => new BusinessPartnerResponseDto
-                {
-                    BusinessPartnerId = x.BusinessPartnerId,
-                    BusinessPartnerName = x.BusinessPartnerName,
-                    PrintName = x.PrintName,
-                    Type = x.Type,
-                    Mobile = x.Mobile,
-                    Email = x.Email,
-                    CreditLimit = x.CreditLimit,
-                    CreditDays = x.CreditDays,
-                    AccountGroupId = x.AccountGroupId,
-                    AccountId = x.AccountId,
-                    IsActive = x.IsActive
-
-                })
                 .ToListAsync();
 
             return new PagedResponseDto<BusinessPartnerResponseDto>
@@ -507,17 +339,50 @@ namespace FinVentoryAPI.Services.Implementations
                 TotalRecords = totalRecords,
                 PageNumber = request.PageNumber,
                 PageSize = request.PageSize,
-                Data = data
+                Data = data.Select(MapBP).ToList()
             };
         }
 
         // ────────────────────────────────────────────────────
-        // GET ALL ADDRESSES BY BP
+        // GET CUSTOMERS
+        // ────────────────────────────────────────────────────
+        public async Task<List<BusinessPartnerResponseDto>> GetCustomersAsync()
+        {
+            var companyId = _common.GetCompanyId();
+
+            var businessPartners = await _context.BusinessPartners
+                .Where(x =>
+                    x.CompanyId == companyId &&
+                    !x.IsDeleted &&
+                    (x.Type == BusinessPartnerType.Customer || x.Type == BusinessPartnerType.Both))
+                .ToListAsync();
+
+            return businessPartners.Select(MapBP).ToList();
+        }
+
+        // ────────────────────────────────────────────────────
+        // GET SUPPLIERS
+        // ────────────────────────────────────────────────────
+        public async Task<List<BusinessPartnerResponseDto>> GetSuppliersAsync()
+        {
+            var companyId = _common.GetCompanyId();
+
+            var businessPartners = await _context.BusinessPartners
+                .Where(x =>
+                    x.CompanyId == companyId &&
+                    !x.IsDeleted &&
+                    (x.Type == BusinessPartnerType.Supplier || x.Type == BusinessPartnerType.Both))
+                .ToListAsync();
+
+            return businessPartners.Select(MapBP).ToList();
+        }
+
+        // ────────────────────────────────────────────────────
+        // GET ADDRESSES BY BP
         // ────────────────────────────────────────────────────
         public async Task<List<BPAddressResponseDto>> GetAddressesByBPAsync(int businessPartnerId)
         {
             var companyId = _common.GetCompanyId();
-
             await ValidateBPAsync(businessPartnerId, companyId);
 
             var addresses = await _context.BusinessPartnerAddresses
@@ -528,12 +393,11 @@ namespace FinVentoryAPI.Services.Implementations
         }
 
         // ────────────────────────────────────────────────────
-        // GET BILL ADDRESSES (Billing + Common)
+        // GET BILL ADDRESSES
         // ────────────────────────────────────────────────────
         public async Task<List<BPAddressResponseDto>> GetBillAddressesByBPAsync(int businessPartnerId)
         {
             var companyId = _common.GetCompanyId();
-
             await ValidateBPAsync(businessPartnerId, companyId);
 
             var addresses = await _context.BusinessPartnerAddresses
@@ -546,12 +410,11 @@ namespace FinVentoryAPI.Services.Implementations
         }
 
         // ────────────────────────────────────────────────────
-        // GET SHIP ADDRESSES (Shipping + Common)
+        // GET SHIP ADDRESSES
         // ────────────────────────────────────────────────────
         public async Task<List<BPAddressResponseDto>> GetShipAddressesByBPAsync(int businessPartnerId)
         {
             var companyId = _common.GetCompanyId();
-
             await ValidateBPAsync(businessPartnerId, companyId);
 
             var addresses = await _context.BusinessPartnerAddresses
@@ -569,7 +432,6 @@ namespace FinVentoryAPI.Services.Implementations
         public async Task<BPAddressResponseDto?> GetAddressByIdAsync(int businessPartnerId, int addressId)
         {
             var companyId = _common.GetCompanyId();
-
             await ValidateBPAsync(businessPartnerId, companyId);
 
             var a = await _context.BusinessPartnerAddresses
@@ -586,7 +448,6 @@ namespace FinVentoryAPI.Services.Implementations
         public async Task<List<BusinessPartnerContactResponseDto>> GetContactsByBPAsync(int businessPartnerId)
         {
             var companyId = _common.GetCompanyId();
-
             await ValidateBPAsync(businessPartnerId, companyId);
 
             var contacts = await _context.BusinessPartnerContacts
@@ -597,15 +458,13 @@ namespace FinVentoryAPI.Services.Implementations
         }
 
         // ────────────────────────────────────────────────────
-        // GET INVOICE DEFAULTS (Smart — one call for invoice form)
+        // GET INVOICE DEFAULTS
         // ────────────────────────────────────────────────────
         public async Task<BPAddressDropdownResponseDto> GetInvoiceDefaultsByBPAsync(int businessPartnerId)
         {
             var companyId = _common.GetCompanyId();
-
             await ValidateBPAsync(businessPartnerId, companyId);
 
-            // Fetch all in one query
             var allAddresses = await _context.BusinessPartnerAddresses
                 .Where(x => x.BusinessPartnerId == businessPartnerId)
                 .ToListAsync();
@@ -614,102 +473,143 @@ namespace FinVentoryAPI.Services.Implementations
                 .Where(x => x.BusinessPartnerId == businessPartnerId)
                 .ToListAsync();
 
-            // Categorize
-            var commonAddresses   = allAddresses.Where(x => x.Type == AddressType.Common).ToList();
-            var billingAddresses  = allAddresses.Where(x => x.Type == AddressType.Billing).ToList();
+            var commonAddresses = allAddresses.Where(x => x.Type == AddressType.Common).ToList();
+            var billingAddresses = allAddresses.Where(x => x.Type == AddressType.Billing).ToList();
             var shippingAddresses = allAddresses.Where(x => x.Type == AddressType.Shipping).ToList();
 
-            // Dropdowns
             var billList = billingAddresses.Concat(commonAddresses).ToList();
             var shipList = shippingAddresses.Concat(commonAddresses).ToList();
 
-            // Smart default — Priority: IsDefault flag → Common IsDefault → Any Common → First in list
             var defaultBill =
-                billingAddresses.FirstOrDefault(x => x.IsDefault)   // 1. Billing IsDefault
-                ?? commonAddresses.FirstOrDefault(x => x.IsDefault)  // 2. Common IsDefault
-                ?? commonAddresses.FirstOrDefault()                   // 3. Any Common (95% case)
-                ?? billingAddresses.FirstOrDefault();                 // 4. First Billing
+                billingAddresses.FirstOrDefault(x => x.IsDefault)
+                ?? commonAddresses.FirstOrDefault(x => x.IsDefault)
+                ?? commonAddresses.FirstOrDefault()
+                ?? billingAddresses.FirstOrDefault();
 
             var defaultShip =
-                shippingAddresses.FirstOrDefault(x => x.IsDefault)  // 1. Shipping IsDefault
-                ?? commonAddresses.FirstOrDefault(x => x.IsDefault) // 2. Common IsDefault
-                ?? commonAddresses.FirstOrDefault()                  // 3. Any Common (95% case)
-                ?? shippingAddresses.FirstOrDefault();               // 4. First Shipping
+                shippingAddresses.FirstOrDefault(x => x.IsDefault)
+                ?? commonAddresses.FirstOrDefault(x => x.IsDefault)
+                ?? commonAddresses.FirstOrDefault()
+                ?? shippingAddresses.FirstOrDefault();
 
             var defaultContact =
-                allContacts.FirstOrDefault(x => x.IsPrimary)        // 1. Primary contact
-                ?? allContacts.FirstOrDefault();                     // 2. First contact
+                allContacts.FirstOrDefault(x => x.IsPrimary)
+                ?? allContacts.FirstOrDefault();
 
             return new BPAddressDropdownResponseDto
             {
-                DefaultBillAddress = defaultBill    != null ? MapAddress(defaultBill)       : null,
-                DefaultShipAddress = defaultShip    != null ? MapAddress(defaultShip)       : null,
-                DefaultContact     = defaultContact != null ? MapContact(defaultContact)    : null,
-                BillAddresses      = MapAddresses(billList),
-                ShipAddresses      = MapAddresses(shipList),
-                Contacts           = MapContacts(allContacts)
+                DefaultBillAddress = defaultBill != null ? MapAddress(defaultBill) : null,
+                DefaultShipAddress = defaultShip != null ? MapAddress(defaultShip) : null,
+                DefaultContact = defaultContact != null ? MapContact(defaultContact) : null,
+                BillAddresses = MapAddresses(billList),
+                ShipAddresses = MapAddresses(shipList),
+                Contacts = MapContacts(allContacts)
             };
         }
 
-        public async Task<List<BusinessPartnerResponseDto>> GetCustomersAsync()
+        // ════════════════════════════════════════════════════
+        // PRIVATE HELPERS
+        // ════════════════════════════════════════════════════
+
+        // ── Map BusinessPartner → ResponseDto ────────────────
+        private BusinessPartnerResponseDto MapBP(BusinessPartner x)
         {
-            var companyId = _common.GetCompanyId();
-
-            var businessPartners = await _context.BusinessPartners
-                .Where(x =>
-                    x.CompanyId == companyId &&
-                    !x.IsDeleted &&
-                    (x.Type == BusinessPartnerType.Customer || x.Type == BusinessPartnerType.Both))
-                .ToListAsync();
-
-            return businessPartners.Select(x => new BusinessPartnerResponseDto
+            return new BusinessPartnerResponseDto
             {
                 BusinessPartnerId = x.BusinessPartnerId,
-                Type = x.Type,
+                CompanyId = x.CompanyId,
                 BusinessPartnerCode = x.BusinessPartnerCode,
                 BusinessPartnerName = x.BusinessPartnerName,
                 PrintName = x.PrintName,
+                Type = x.Type,
+                TypeName = x.Type.ToString(),
                 Mobile = x.Mobile,
                 Email = x.Email,
                 CreditLimit = x.CreditLimit,
                 CreditDays = x.CreditDays,
                 AccountGroupId = x.AccountGroupId,
                 AccountId = x.AccountId,
-                DefaultPriceType = x.DefaultPriceType
-            }).ToList();
+                IsActive = x.IsActive,
+                DefaultPriceType = x.DefaultPriceType,
+
+                BPAddresses = x.BPAddresses?.Select(p => new BusinessPartnerAddressDto
+                {
+                    BPAddressId = p.BPAddressId,
+                    BusinessPartnerId = p.BusinessPartnerId,
+                    Type = p.Type,
+                    AddressTypeName = p.Type.ToString(),
+                    AddressLine1 = p.AddressLine1,
+                    AddressLine2 = p.AddressLine2,
+                    City = p.City,
+                    State = p.State,
+                    StateName = p.State.HasValue ? p.State.Value.ToString() : null,
+                    StateCode = p.State.HasValue ? ((int)p.State.Value).ToString("D2") : null,
+                    Country = p.Country,
+                    Pincode = p.Pincode,
+                    GSTType = p.GSTType,
+                    GSTTypeName = p.GSTType.ToString(),
+                    GSTNo = p.GSTNo,
+                    IsDefault = p.IsDefault
+                }).ToList(),
+
+                BPContacts = x.BPContacts?.Select(p => new BusinessPartnerContactDto
+                {
+                    BPContactId = p.BPContactId,
+                    BusinessPartnerId = p.BusinessPartnerId,
+                    Name = p.Name,
+                    Mobile = p.Mobile,
+                    Email = p.Email,
+                    Designation = p.Designation,
+                    IsPrimary = p.IsPrimary
+                }).ToList()
+            };
         }
 
-        public async Task<List<BusinessPartnerResponseDto>> GetSuppliersAsync()
+        // ── Map single Address ───────────────────────────────
+        private BPAddressResponseDto MapAddress(BusinessPartnerAddress a)
         {
-            var companyId = _common.GetCompanyId();
-
-            var businessPartners = await _context.BusinessPartners
-                .Where(x =>
-                    x.CompanyId == companyId &&
-                    !x.IsDeleted &&
-                    (x.Type == BusinessPartnerType.Supplier || x.Type == BusinessPartnerType.Both))
-                .ToListAsync();
-
-            return businessPartners.Select(x => new BusinessPartnerResponseDto
+            return new BPAddressResponseDto
             {
-                BusinessPartnerId = x.BusinessPartnerId,
-                Type = x.Type,
-                BusinessPartnerCode = x.BusinessPartnerCode,
-                BusinessPartnerName = x.BusinessPartnerName,
-                PrintName = x.PrintName,
-                Mobile = x.Mobile,
-                Email = x.Email,
-                CreditLimit = x.CreditLimit,
-                CreditDays = x.CreditDays,
-                AccountGroupId = x.AccountGroupId,
-                AccountId = x.AccountId,
-                DefaultPriceType = x.DefaultPriceType
-            }).ToList();
+                BPAddressId = a.BPAddressId,
+                BusinessPartnerId = a.BusinessPartnerId,
+                AddressType = a.Type.ToString(),
+                AddressLine1 = a.AddressLine1,
+                AddressLine2 = a.AddressLine2,
+                City = a.City,
+                StateCode = a.State.HasValue ? (int)a.State.Value : null,
+                StateName = a.State.HasValue ? a.State.Value.ToString() : null,
+                Country = a.Country,
+                Pincode = a.Pincode,
+                GSTType = a.GSTType.ToString(),
+                GSTNo = a.GSTNo,
+                IsDefault = a.IsDefault
+            };
         }
 
-        // ────────────────────────────────────────────────────
-        // PRIVATE — Validate BP belongs to company
-        // ────────────────────────────────────────────────────
+        // ── Map Address list ─────────────────────────────────
+        private List<BPAddressResponseDto> MapAddresses(List<BusinessPartnerAddress> addresses)
+            => addresses.Select(MapAddress).ToList();
+
+        // ── Map single Contact ───────────────────────────────
+        private BusinessPartnerContactResponseDto MapContact(BusinessPartnerContact c)
+        {
+            return new BusinessPartnerContactResponseDto
+            {
+                BPContactId = c.BPContactId,
+                BusinessPartnerId = c.BusinessPartnerId,
+                Name = c.Name,
+                Mobile = c.Mobile,
+                Email = c.Email,
+                Designation = c.Designation,
+                IsPrimary = c.IsPrimary
+            };
+        }
+
+        // ── Map Contact list ─────────────────────────────────
+        private List<BusinessPartnerContactResponseDto> MapContacts(List<BusinessPartnerContact> contacts)
+            => contacts.Select(MapContact).ToList();
+
+        // ── Validate BP belongs to company ───────────────────
         private async Task ValidateBPAsync(int businessPartnerId, int companyId)
         {
             var exists = await _context.BusinessPartners
@@ -720,63 +620,6 @@ namespace FinVentoryAPI.Services.Implementations
 
             if (!exists)
                 throw new Exception("Business Partner not found.");
-        }
-
-        // ────────────────────────────────────────────────────
-        // PRIVATE — Map single Address
-        // ────────────────────────────────────────────────────
-        private BPAddressResponseDto MapAddress(BusinessPartnerAddress a)
-        {
-            return new BPAddressResponseDto
-            {
-                BPAddressId       = a.BPAddressId,
-                BusinessPartnerId = a.BusinessPartnerId,
-                AddressType       = a.Type.ToString(),
-                AddressLine1      = a.AddressLine1,
-                AddressLine2      = a.AddressLine2,
-                City              = a.City,
-                StateCode         = a.State.HasValue ? (int)a.State.Value : null,
-                StateName         = a.State.HasValue ? ((GstState)a.State.Value).ToString() : null,
-                Country           = a.Country,
-                Pincode           = a.Pincode,
-                GSTType           = a.GSTType.ToString(),
-                GSTNo             = a.GSTNo,
-                IsDefault         = a.IsDefault
-               
-            };
-        }
-
-        // ────────────────────────────────────────────────────
-        // PRIVATE — Map Address list
-        // ────────────────────────────────────────────────────
-        private List<BPAddressResponseDto> MapAddresses(List<BusinessPartnerAddress> addresses)
-        {
-            return addresses.Select(MapAddress).ToList();
-        }
-
-        // ────────────────────────────────────────────────────
-        // PRIVATE — Map single Contact
-        // ────────────────────────────────────────────────────
-        private BusinessPartnerContactResponseDto MapContact(BusinessPartnerContact c)
-        {
-            return new BusinessPartnerContactResponseDto
-            {
-                BPContactId       = c.BPContactId,
-                BusinessPartnerId = c.BusinessPartnerId,
-                Name              = c.Name,
-                Mobile            = c.Mobile,
-                Email             = c.Email,
-                Designation       = c.Designation,
-                IsPrimary         = c.IsPrimary
-            };
-        }
-
-        // ────────────────────────────────────────────────────
-        // PRIVATE — Map Contact list
-        // ────────────────────────────────────────────────────
-        private List<BusinessPartnerContactResponseDto> MapContacts(List<BusinessPartnerContact> contacts)
-        {
-            return contacts.Select(MapContact).ToList();
         }
     }
 }

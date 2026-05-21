@@ -47,6 +47,13 @@ builder.Services.AddScoped<IStockService, StockService>();
 builder.Services.AddScoped<IAccountLedgerPostingService, AccountLedgerPostingService>();
 builder.Services.AddScoped<IAccountLedgerService, AccountLedgerService>();
 builder.Services.AddScoped<ISalesReportService, SalesReportService>();
+builder.Services.AddScoped<IIncomingPaymentService, IncomingPaymentService>();
+builder.Services.AddScoped<IPurchaseInvoiceService, PurchaseInvoiceService>();
+builder.Services.AddScoped<IOutgoingPaymentService, OutgoingPaymentService>();
+builder.Services.AddScoped<ICashBankEntryService, CashBankEntryService>();
+builder.Services.AddScoped<IJournalEntryService, JournalEntryService>();
+builder.Services.AddScoped<IGSTReportsService, GSTReportsService>();
+builder.Services.AddScoped<IBankMasterService, BankMasterService>();
 
 
 builder.Services.AddHttpContextAccessor();
