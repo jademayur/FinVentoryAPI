@@ -61,8 +61,8 @@ namespace FinVentoryAPI.Services.Implementations
                 Type = dto.BPType,
                 Mobile = dto.Mobile,
                 Email = dto.Email,
-                CreditLimit = dto.CreditLimit,
-                CreditDays = dto.CreditDays,
+                CreditLimit = (decimal)dto.CreditLimit,
+                CreditDays = (int)dto.CreditDays,
                 AccountGroupId = dto.AccountGroupId,
                 AccountId = account.AccountId,
                 CreatedBy = _common.GetUserId(),
@@ -146,8 +146,8 @@ namespace FinVentoryAPI.Services.Implementations
             bp.Type = dto.BPType;
             bp.Mobile = dto.Mobile;
             bp.Email = dto.Email;
-            bp.CreditLimit = dto.CreditLimit;
-            bp.CreditDays = dto.CreditDays;
+            bp.CreditLimit = (decimal)dto.CreditLimit;
+            bp.CreditDays = (int)dto.CreditDays;
             bp.AccountGroupId = dto.AccountGroupId;
             bp.AccountId = dto.AccountId;
             bp.IsActive = dto.IsActive;

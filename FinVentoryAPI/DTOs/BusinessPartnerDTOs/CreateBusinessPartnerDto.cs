@@ -14,10 +14,10 @@ namespace FinVentoryAPI.DTOs.BusinessPartnerDTOs
         public string PrintName { get; set; } = string.Empty;
         [Required(ErrorMessage = "Business Partner Name is required.")]
         public BusinessPartnerType BPType { get; set; }
-        public string Mobile { get; set; } = string.Empty;
-        public string Email { get; set; } = string.Empty;
-        public decimal CreditLimit { get; set; } = 0;
-        public int CreditDays { get; set; } = 0;
+        public string? Mobile { get; set; } = string.Empty;
+        public string? Email { get; set; } = string.Empty;
+        public decimal? CreditLimit { get; set; } 
+        public int? CreditDays { get; set; } 
         [Required(ErrorMessage = "Group Name is required.")]
         public int AccountGroupId { get; set; }
         public int AccountId { get; set; }
