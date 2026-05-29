@@ -168,5 +168,19 @@ namespace FinVentoryAPI.Controllers
             var result = await _service.GetJVBooksAsync();
             return Ok(result);
         }
+
+        [HttpGet("credit-note")]
+        public async Task<IActionResult> GetCreditNote()
+        {
+            var result = await _service.GetCreditNoteAsync();
+            return Ok(result);
+        }
+
+        [HttpGet("debit-note")]
+        public async Task<IActionResult> GetDebitNote()
+        {
+            var result = await _service.GetDebitNoteAsync();
+            return Ok(result);
+        }
     }
 }
