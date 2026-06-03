@@ -128,7 +128,43 @@ namespace FinVentoryAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
-      
+
+        // ─────────────────────────────────────────────────────────────────────────────
+        // Add these two endpoints to your existing SalesInvoiceController
+        // ─────────────────────────────────────────────────────────────────────────────
+
+        // GET /api/SalesInvoice/by-customer/{businessPartnerId}
+        // Returns a lightweight list of invoices for the "Copy from Invoice" modal
+        [HttpGet("by-customer/{businessPartnerId}")]
+        public async Task<IActionResult> GetByCustomer(int businessPartnerId)
+        {
+            try
+            {
+                var result = await _service.GetByCustomerAsync(businessPartnerId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        // GET /api/SalesInvoice/{id}/for-return
+        // Returns full invoice detail used to populate the return form lines
+        [HttpGet("{id}/for-return")]
+        public async Task<IActionResult> GetForReturn(int id)
+        {
+            try
+            {
+                var result = await _service.GetForReturnAsync(id);
+                if (result == null) return NotFound();
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
 
     }
 }

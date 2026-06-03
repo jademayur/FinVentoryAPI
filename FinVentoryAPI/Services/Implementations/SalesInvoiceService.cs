@@ -896,6 +896,49 @@ namespace FinVentoryAPI.Services.Implementations
             }
         }
 
+        public async Task<List<SalesInvoiceListDto>> GetByCustomerAsync(int businessPartnerId)
+        {
+            var companyId = _common.GetCompanyId();
+
+            var invoices = await _context.SalesInvoiceMains
+                .Where(x =>
+                    x.CompanyId == companyId &&
+                    x.BusinessPartnerId == businessPartnerId &&
+                    !x.IsDeleted &&
+                    x.Status != "Cancelled")
+                .Include(x => x.Details!).ThenInclude(d => d.Item)
+                .OrderByDescending(x => x.InvoiceDate)
+                .ToListAsync();
+
+            return invoices.Select(x => new SalesInvoiceListDto
+            {
+                InvoiceId = x.InvoiceId,
+                InvoiceNo = x.InvoiceNo,
+                InvoiceDate = x.InvoiceDate,
+                NetTotal = x.NetTotal,
+                Status = x.Status,
+                Details = x.Details?.Select(d => new SalesInvoiceListDetailDto
+                {
+                    DetailId = d.DetailId,
+                    ItemId = d.ItemId,
+                    ItemName = d.Item?.ItemName ?? string.Empty,
+                    Qty = d.Qty,
+                    Rate = d.Rate
+                }).ToList() ?? new()
+            }).ToList();
+        }
+
+        public async Task<SalesInvoiceResponseDto?> GetForReturnAsync(int invoiceId)
+        {
+            // Delegates to the existing GetByIdAsync — same DTO, same includes.
+            // The Angular form reads: invoiceId, invoiceNo, invoiceDate, salesAccountId,
+            // salesStateCode, and details[]{detailId, itemId, itemManageBy, hsnId, hsnCode,
+            // priceType, qty, rate, discountRate, addisDiscountRate, isTaxIncluded,
+            // cessRate, taxDetails[]{taxId, igstRate, cgstRate, sgstRate, cessRate,
+            // igstPostingAccountId, cgstPostingAccountId, sgstPostingAccountId, cessPostingAccountId}}
+            return await GetByIdAsync(invoiceId);
+        }
+
         // ════════════════════════════════════════════════════
         // PRIVATE HELPERS — existing (unchanged)
         // ════════════════════════════════════════════════════
