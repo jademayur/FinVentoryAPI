@@ -1,4 +1,5 @@
 ﻿using FinVentoryAPI.Data;
+using FinVentoryAPI.DTOs.GRNDTOs;
 using FinVentoryAPI.DTOs.Gstr1DTOs;
 using FinVentoryAPI.DTOs.Gstr3bDTOs;
 using FinVentoryAPI.DTOs.Gstr9DTOs;
@@ -565,6 +566,360 @@ namespace FinVentoryAPI.Services.Implementations
                 .ToList();
         }
 
+        public async Task<Gstr1HsnSummaryDto> GetGstr1HsnSummaryAsync(string taxPeriod)
+        {
+            var companyId = _common.GetCompanyId();
+            var finYearId = _common.GetFinancialYearId();
+            var (from, to) = ParseTaxPeriod(taxPeriod);
+
+            var company = await _context.Companies
+                .FirstOrDefaultAsync(c => c.CompanyId == companyId)
+                ?? throw new Exception("Company not found.");
+
+            var salesMains = await _context.SalesInvoiceMains
+                .Where(x => x.CompanyId == companyId
+                         && x.FinYearId == finYearId
+                         && !x.IsDeleted
+                         && x.InvoiceDate >= from
+                         && x.InvoiceDate <= to)
+                .Include(x => x.Details!)
+                    .ThenInclude(d => d.TaxDetails)
+                .AsNoTracking()
+                .ToListAsync();
+
+            // ── Flatten all detail rows across invoices ──────────────────────
+            var allDetails = salesMains
+                .SelectMany(inv => (inv.Details ?? Enumerable.Empty<SalesInvoiceDetail>())
+                    .Select(d => new
+                    {
+                        HSNCode = d.HsnCode?.Trim() ?? string.Empty,
+                        UOM = d.Item.ItemName?.Trim() ?? string.Empty,
+                        Quantity = d.Qty,
+                        LineTotal = d.LineTotal,
+                        Taxable = d.TaxableAmount,
+                        IGST = d.TaxDetails?.FirstOrDefault()?.IGSTAmount ?? 0,
+                        CGST = d.TaxDetails?.FirstOrDefault()?.CGSTAmount ?? 0,
+                        SGST = d.TaxDetails?.FirstOrDefault()?.SGSTAmount ?? 0,
+                        Cess = d.TaxDetails?.FirstOrDefault()?.CessAmount ?? 0,
+                        Description = d.Hsn.Description ?? string.Empty   // fallback description
+                    }))
+                .Where(d => !string.IsNullOrWhiteSpace(d.HSNCode))  // skip lines with no HSN
+                .ToList();
+
+            // ── Group by (HSNCode, UOM) ───────────────────────────────────────
+            var hsnRows = allDetails
+                .GroupBy(d => (d.HSNCode, d.UOM))
+                .OrderBy(g => g.Key.HSNCode)
+                .Select(g => new Gstr1HsnRowDto
+                {
+                    HSNCode = g.Key.HSNCode,
+                    UOM = g.Key.UOM,
+                    Description = g.First().Description,   // first occurrence description
+                    TotalQuantity = g.Sum(d => d.Quantity),
+                    TotalValue = g.Sum(d => d.LineTotal),
+                    TaxableValue = g.Sum(d => d.Taxable),
+                    IGSTAmount = g.Sum(d => d.IGST),
+                    CGSTAmount = g.Sum(d => d.CGST),
+                    SGSTAmount = g.Sum(d => d.SGST),
+                    CessAmount = g.Sum(d => d.Cess)
+                })
+                .ToList();
+
+            return new Gstr1HsnSummaryDto
+            {
+                TaxPeriod = taxPeriod,
+                CompanyName = company.CompanyName,
+                GSTIN = company.GSTNumber ?? string.Empty,
+                HsnRows = hsnRows
+            };
+        }
+
+        public async Task<Gstr1CdnrSummaryDto> GetGstr1CdnrAsync(string taxPeriod)
+        {
+            var companyId = _common.GetCompanyId();
+            var finYearId = _common.GetFinancialYearId();
+            var (from, to) = ParseTaxPeriod(taxPeriod);
+
+            var company = await _context.Companies
+                .FirstOrDefaultAsync(c => c.CompanyId == companyId)
+                ?? throw new Exception("Company not found.");
+
+            var returns = await _context.SalesReturnMains
+                .Where(x => x.CompanyId == companyId
+                         && x.FinYearId == finYearId
+                         && !x.IsDeleted
+                         && x.ReturnDate >= from
+                         && x.ReturnDate <= to)
+                .Include(x => x.BusinessPartner)
+                .Include(x => x.BillAddress)
+                .Include(x => x.TaxDetails)
+                .AsNoTracking()
+                .OrderBy(x => x.ReturnDate)
+                .ToListAsync();
+
+            // ── Filter to registered dealers only (BillAddress has GSTIN) ───
+            var registered = returns
+                .Where(r => r.BillAddress != null
+                         && !string.IsNullOrWhiteSpace(r.BillAddress.GSTNo))
+                .ToList();
+
+            var rows = registered.Select(r =>
+            {
+                int? billState = r.BillStateCode;
+                bool isInterState = r.SalesStateCode.HasValue
+                                 && billState.HasValue
+                                 && r.SalesStateCode != billState;
+                int? pos = billState ?? r.SalesStateCode;
+
+                decimal igst = r.TaxDetails?.Sum(t => t.IGSTAmount) ?? 0;
+                decimal cgst = r.TaxDetails?.Sum(t => t.CGSTAmount) ?? 0;
+                decimal sgst = r.TaxDetails?.Sum(t => t.SGSTAmount) ?? 0;
+                decimal cess = r.TaxDetails?.Sum(t => t.CessAmount) ?? 0;
+
+                return new Gstr1CdnrRowDto
+                {
+                    ReturnId = r.ReturnId,
+                    ReturnNo = r.ReturnNo,
+                    ReturnDate = r.ReturnDate,
+                    NoteType = r.NoteType == "Credit" ? "C" : "D",
+                    OriginalInvoiceNo = r.OriginalInvoiceNo,
+                    OriginalInvoiceDate = r.OriginalInvoiceDate,
+                    RecipientGSTIN = r.BillAddress!.GSTNo!,
+                    RecipientName = r.BusinessPartner?.BusinessPartnerName ?? string.Empty,
+                    PlaceOfSupply = pos,
+                    IsInterState = isInterState,
+                    IsReverseCharge = r.IsReverseCharge ?? false,
+                    NoteValue = r.NetTotal,
+                    TaxableValue = r.SubTotal,
+                    IGSTAmount = igst,
+                    CGSTAmount = cgst,
+                    SGSTAmount = sgst,
+                    CessAmount = cess
+                };
+            }).ToList();
+
+            return new Gstr1CdnrSummaryDto
+            {
+                TaxPeriod = taxPeriod,
+                CompanyName = company.CompanyName,
+                GSTIN = company.GSTNumber ?? string.Empty,
+                CreditNotes = rows.Where(r => r.NoteType == "C").ToList(),
+                DebitNotes = rows.Where(r => r.NoteType == "D").ToList()
+            };
+        }
+        public async Task<Gstr1CdnurSummaryDto> GetGstr1CdnurAsync(string taxPeriod)
+        {
+            var companyId = _common.GetCompanyId();
+            var finYearId = _common.GetFinancialYearId();
+            var (from, to) = ParseTaxPeriod(taxPeriod);
+
+            var company = await _context.Companies
+                .FirstOrDefaultAsync(c => c.CompanyId == companyId)
+                ?? throw new Exception("Company not found.");
+
+            var returns = await _context.SalesReturnMains
+                .Where(x => x.CompanyId == companyId
+                         && x.FinYearId == finYearId
+                         && !x.IsDeleted
+                         && x.ReturnDate >= from
+                         && x.ReturnDate <= to)
+                .Include(x => x.BusinessPartner)
+                .Include(x => x.BillAddress)
+                .Include(x => x.TaxDetails)
+                .AsNoTracking()
+                .OrderBy(x => x.ReturnDate)
+                .ToListAsync();
+
+            // ── Filter to UNREGISTERED dealers (no GSTIN on BillAddress) ────
+            var unregistered = returns
+                .Where(r => r.BillAddress == null
+                         || string.IsNullOrWhiteSpace(r.BillAddress.GSTNo))
+                .ToList();
+
+            var rows = new List<Gstr1CdnurRowDto>();
+
+            foreach (var r in unregistered)
+            {
+                int? billState = r.BillStateCode;
+                bool isInterState = r.SalesStateCode.HasValue
+                                 && billState.HasValue
+                                 && r.SalesStateCode != billState;
+                int? pos = billState ?? r.SalesStateCode;
+
+                decimal igst = r.TaxDetails?.Sum(t => t.IGSTAmount) ?? 0;
+                decimal cgst = r.TaxDetails?.Sum(t => t.CGSTAmount) ?? 0;
+                decimal sgst = r.TaxDetails?.Sum(t => t.SGSTAmount) ?? 0;
+                decimal cess = r.TaxDetails?.Sum(t => t.CessAmount) ?? 0;
+
+                // ── Determine UrType ────────────────────────────────────────
+                string urType;
+                if (r.IsExport == true)
+                    urType = igst > 0 ? "EXPWP" : "EXPWOP";
+                else if (isInterState)
+                    urType = "B2CL";
+                else
+                    continue;   // intra-state unregistered → not reportable in CDNUR
+
+                rows.Add(new Gstr1CdnurRowDto
+                {
+                    ReturnId = r.ReturnId,
+                    ReturnNo = r.ReturnNo,
+                    ReturnDate = r.ReturnDate,
+                    NoteType = r.NoteType == "Credit" ? "C" : "D",
+                    OriginalInvoiceNo = r.OriginalInvoiceNo,
+                    OriginalInvoiceDate = r.OriginalInvoiceDate,
+                    PartyName = r.BusinessPartner?.BusinessPartnerName ?? string.Empty,
+                    PlaceOfSupply = pos,
+                    IsInterState = isInterState,
+                    UrType = urType,
+                    NoteValue = r.NetTotal,
+                    TaxableValue = r.SubTotal,
+                    IGSTAmount = igst,
+                    CGSTAmount = cgst,
+                    SGSTAmount = sgst,
+                    CessAmount = cess
+                });
+            }
+
+            return new Gstr1CdnurSummaryDto
+            {
+                TaxPeriod = taxPeriod,
+                CompanyName = company.CompanyName,
+                GSTIN = company.GSTNumber ?? string.Empty,
+                Notes = rows
+            };
+        }
+
+        public async Task<Gstr1DocSeriesSummaryDto> GetGstr1DocSeriesAsync(string taxPeriod)
+        {
+            var companyId = _common.GetCompanyId();
+            var finYearId = _common.GetFinancialYearId();
+            var (from, to) = ParseTaxPeriod(taxPeriod);
+
+            var company = await _context.Companies
+                .FirstOrDefaultAsync(c => c.CompanyId == companyId)
+                ?? throw new Exception("Company not found.");
+
+            // ── Fetch ALL invoices in period, including deleted (cancelled) ──
+            // We intentionally skip the !x.IsDeleted filter here so cancelled
+            // documents are included in TotalIssued and counted separately.
+            var allInvoices = await _context.SalesInvoiceMains
+                .Where(x => x.CompanyId == companyId
+                         && x.FinYearId == finYearId
+                         && x.InvoiceDate >= from
+                         && x.InvoiceDate <= to)
+                .Select(x => new { x.InvoiceNo, x.IsDeleted })
+                .AsNoTracking()
+                .ToListAsync();
+
+            // ── Build Tax Invoice row ────────────────────────────────────────
+            var taxInvRow = BuildDocSeriesRow("Tax Invoice", allInvoices
+                .Select(x => new DocumentEntry(x.InvoiceNo, x.IsDeleted))
+                .ToList());
+
+            // ── Placeholder rows for document types not yet implemented ─────
+            // Remove or replace these as Credit Note / Debit Note tables are added.
+            var creditNoteRow = new Gstr1DocSeriesRowDto
+            {
+                NatureOfDocument = "Credit Note",
+                SerialNoFrom = null,
+                SerialNoTo = null,
+                TotalIssued = 0,
+                TotalCancelled = 0
+            };
+
+            var debitNoteRow = new Gstr1DocSeriesRowDto
+            {
+                NatureOfDocument = "Debit Note",
+                SerialNoFrom = null,
+                SerialNoTo = null,
+                TotalIssued = 0,
+                TotalCancelled = 0
+            };
+
+            return new Gstr1DocSeriesSummaryDto
+            {
+                TaxPeriod = taxPeriod,
+                CompanyName = company.CompanyName,
+                GSTIN = company.GSTNumber ?? string.Empty,
+                DocumentSeries = new List<Gstr1DocSeriesRowDto>
+        {
+            taxInvRow,
+            creditNoteRow,
+            debitNoteRow
+        }
+            };
+        }
+
+        // ════════════════════════════════════════════════════════════════════
+        // PRIVATE — Build a single document series row
+        // Computes: SerialNoFrom, SerialNoTo, TotalIssued, TotalCancelled
+        // by extracting the trailing numeric segment from each InvoiceNo.
+        // ════════════════════════════════════════════════════════════════════
+
+        private record DocumentEntry(string InvoiceNo, bool IsCancelled);
+
+        private static Gstr1DocSeriesRowDto BuildDocSeriesRow(
+            string natureName,
+            List<DocumentEntry> entries)
+        {
+            var row = new Gstr1DocSeriesRowDto
+            {
+                NatureOfDocument = natureName,
+                TotalIssued = entries.Count,
+                TotalCancelled = entries.Count(e => e.IsCancelled)
+            };
+
+            if (!entries.Any())
+                return row;
+
+            // Extract trailing integer from each InvoiceNo for range detection
+            var parsed = entries
+                .Select(e => new
+                {
+                    e.InvoiceNo,
+                    Numeric = ExtractTrailingNumber(e.InvoiceNo)
+                })
+                .Where(x => x.Numeric.HasValue)
+                .OrderBy(x => x.Numeric!.Value)
+                .ToList();
+
+            if (parsed.Any())
+            {
+                row.SerialNoFrom = parsed.First().InvoiceNo;
+                row.SerialNoTo = parsed.Last().InvoiceNo;
+            }
+            else
+            {
+                // Fallback: alphabetic sort if no trailing number found
+                var sorted = entries.Select(e => e.InvoiceNo).OrderBy(n => n).ToList();
+                row.SerialNoFrom = sorted.First();
+                row.SerialNoTo = sorted.Last();
+            }
+
+            return row;
+        }
+
+        /// <summary>
+        /// Extracts the last contiguous run of digits from an invoice number.
+        /// "SI-001"        → 1
+        /// "INV/24-25/045" → 45
+        /// "ABC"           → null
+        /// </summary>
+        private static int? ExtractTrailingNumber(string invoiceNo)
+        {
+            if (string.IsNullOrWhiteSpace(invoiceNo)) return null;
+
+            // Walk from the end, collect digits
+            int end = invoiceNo.Length - 1;
+            while (end >= 0 && !char.IsDigit(invoiceNo[end])) end--;
+            if (end < 0) return null;
+
+            int start = end;
+            while (start > 0 && char.IsDigit(invoiceNo[start - 1])) start--;
+
+            return int.TryParse(invoiceNo[start..(end + 1)], out int n) ? n : null;
+        }
         // ════════════════════════════════════════════════════════════════════
         // GSTR-9 — Annual Return Summary
         // Covers the full financial year derived from FinancialYear table

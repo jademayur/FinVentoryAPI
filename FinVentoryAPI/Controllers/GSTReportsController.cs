@@ -1,4 +1,5 @@
-﻿using FinVentoryAPI.Services.Interfaces;
+﻿using FinVentoryAPI.Services.Implementations;
+using FinVentoryAPI.Services.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -163,5 +164,70 @@ namespace FinVentoryAPI.Controllers
             catch (Exception ex) { return StatusCode(500, new { message = ex.Message }); }
         }
 
+        [HttpGet("gstr1/doc-series")]
+        public async Task<IActionResult> GetGstr1DocSeries([FromQuery] string taxPeriod)
+        {
+            try
+            {
+                var result = await _service.GetGstr1DocSeriesAsync(taxPeriod);
+                return Ok(result);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// GSTR-1 Table 12 — HSN-wise Summary
+        /// GET /api/gst-reports/gstr1/hsn-summary?taxPeriod=04-2025
+        /// </summary>
+        [HttpGet("gstr1/hsn-summary")]
+        public async Task<IActionResult> GetGstr1HsnSummary([FromQuery] string taxPeriod)
+        {
+            try
+            {
+                var result = await _service.GetGstr1HsnSummaryAsync(taxPeriod);
+                return Ok(result);
+            }
+            catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
+            catch (Exception ex) { return StatusCode(500, new { message = ex.Message }); }
+        }
+
+        /// <summary>
+        /// GSTR-1 Table 9B — CDNR (Credit/Debit Notes to Registered Dealers)
+        /// GET /api/gst-reports/gstr1/cdnr?taxPeriod=04-2025
+        /// </summary>
+        [HttpGet("gstr1/cdnr")]
+        public async Task<IActionResult> GetGstr1Cdnr([FromQuery] string taxPeriod)
+        {
+            try
+            {
+                var result = await _service.GetGstr1CdnrAsync(taxPeriod);
+                return Ok(result);
+            }
+            catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
+            catch (Exception ex) { return StatusCode(500, new { message = ex.Message }); }
+        }
+
+        /// <summary>
+        /// GSTR-1 Table 9B — CDNUR (Credit/Debit Notes to Unregistered Dealers)
+        /// GET /api/gst-reports/gstr1/cdnur?taxPeriod=04-2025
+        /// </summary>
+        [HttpGet("gstr1/cdnur")]
+        public async Task<IActionResult> GetGstr1Cdnur([FromQuery] string taxPeriod)
+        {
+            try
+            {
+                var result = await _service.GetGstr1CdnurAsync(taxPeriod);
+                return Ok(result);
+            }
+            catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
+            catch (Exception ex) { return StatusCode(500, new { message = ex.Message }); }
+        }
     }
 }
