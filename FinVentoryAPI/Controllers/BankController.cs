@@ -71,10 +71,10 @@ namespace FinVentoryAPI.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id, [FromQuery] int userId)
         {
-            var deleted = await _service.DeleteAsync(id, userId);
+            var deleted = await _service.DeleteAsync(id);
 
             if (!deleted)
-                return NotFound(new { message = "Bank master not found." });
+                return NotFound(new { message = "Bank master not fond." });
 
             return Ok(new { message = "Bank master deleted successfully." });
         }

@@ -12,6 +12,6 @@ namespace FinVentoryAPI.Services.Interfaces
 
         Task<bool> UpdateAsync(int id, UpdateBankMasterDto dto);
 
-        Task<bool> DeleteAsync(int id, int userId);
+        Task<bool> DeleteAsync(int id);
     }
 }

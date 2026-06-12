@@ -8,5 +8,6 @@
         public string AccountNo { get; set; } = string.Empty;
         public string SwiftCode { get; set; } = string.Empty;
         public string IFSCCode { get; set; } = string.Empty;
+        public int CompanyId { get; set; }
     }
 }

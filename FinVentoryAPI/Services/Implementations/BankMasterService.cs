@@ -1,6 +1,7 @@
 ﻿using FinVentoryAPI.Data;
 using FinVentoryAPI.DTOs.BankDTOs;
 using FinVentoryAPI.Entities;
+using FinVentoryAPI.Helpers;
 using FinVentoryAPI.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,15 +10,22 @@ namespace FinVentoryAPI.Services.Implementations
     public class BankMasterService : IBankMasterService
     {
         private readonly AppDbContext _context;
+        private readonly Common _common;
 
-        public BankMasterService(AppDbContext context)
+        public BankMasterService(AppDbContext context, Common common)
         {
             _context = context;
+            _common = common;
         }
 
         public async Task<BankMasterResponseDto> CreateAsync(CreateBankMasterDto dto)
         {
-            if (await _context.Bank.AnyAsync(x => x.AccountNo == dto.AccountNo && !x.IsDeleted))
+            var companyId = _common.GetCompanyId();  // ✅ from JWT
+
+            if (await _context.Bank.AnyAsync(x =>
+                    x.CompanyId == companyId &&       // ✅ scoped to company
+                    x.AccountNo == dto.AccountNo &&
+                    !x.IsDeleted))
                 throw new Exception("Bank account number already exists.");
 
             var bank = new Bank
@@ -27,8 +35,9 @@ namespace FinVentoryAPI.Services.Implementations
                 AccountNo = dto.AccountNo,
                 SwiftCode = dto.SwiftCode,
                 IFSCCode = dto.IFSCCode,
-                CreatedBy = dto.CreatedBy,
-                CreatedDate = DateTime.UtcNow
+                CompanyId = companyId,               // ✅ from JWT, not DTO
+                CreatedBy = _common.GetUserId(),     // ✅ from JWT
+                CreatedDate = DateTime.UtcNow,
             };
 
             _context.Bank.Add(bank);
@@ -39,14 +48,20 @@ namespace FinVentoryAPI.Services.Implementations
 
         public async Task<bool> UpdateAsync(int id, UpdateBankMasterDto dto)
         {
+            var companyId = _common.GetCompanyId();  // ✅ from JWT
+
             var bank = await _context.Bank
-                .FirstOrDefaultAsync(x => x.BankId == id && !x.IsDeleted);
+                .FirstOrDefaultAsync(x =>
+                    x.BankId == id &&
+                    x.CompanyId == companyId &&      // ✅ scoped to company
+                    !x.IsDeleted);
 
             if (bank == null)
                 return false;
 
             var duplicate = await _context.Bank
                 .AnyAsync(x =>
+                    x.CompanyId == companyId &&      // ✅ scoped to company
                     x.AccountNo == dto.AccountNo &&
                     x.BankId != id &&
                     !x.IsDeleted);
@@ -60,18 +75,19 @@ namespace FinVentoryAPI.Services.Implementations
             bank.SwiftCode = dto.SwiftCode;
             bank.IFSCCode = dto.IFSCCode;
             bank.IsActive = dto.IsActive;
-            bank.ModifiedBy = dto.ModifiedBy;
+            bank.ModifiedBy = _common.GetUserId();   // ✅ from JWT
             bank.ModifiedDate = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
-
             return true;
         }
 
         public async Task<List<BankMasterResponseDto>> GetAllAsync()
         {
+            var companyId = _common.GetCompanyId();  // ✅ from JWT
+
             return await _context.Bank
-                .Where(x => !x.IsDeleted)
+                .Where(x => x.CompanyId == companyId && !x.IsDeleted)  // ✅ scoped to company
                 .Select(x => new BankMasterResponseDto
                 {
                     BankId = x.BankId,
@@ -88,8 +104,13 @@ namespace FinVentoryAPI.Services.Implementations
 
         public async Task<BankMasterResponseDto?> GetByIdAsync(int id)
         {
+            var companyId = _common.GetCompanyId();  // ✅ from JWT
+
             var bank = await _context.Bank
-                .FirstOrDefaultAsync(x => x.BankId == id && !x.IsDeleted);
+                .FirstOrDefaultAsync(x =>
+                    x.BankId == id &&
+                    x.CompanyId == companyId &&      // ✅ scoped to company
+                    !x.IsDeleted);
 
             if (bank == null)
                 return null;
@@ -97,21 +118,25 @@ namespace FinVentoryAPI.Services.Implementations
             return MapToResponse(bank);
         }
 
-        public async Task<bool> DeleteAsync(int id, int userId)
+        public async Task<bool> DeleteAsync(int id)
         {
+            var companyId = _common.GetCompanyId();  // ✅ from JWT
+
             var bank = await _context.Bank
-                .FirstOrDefaultAsync(x => x.BankId == id && !x.IsDeleted);
+                .FirstOrDefaultAsync(x =>
+                    x.BankId == id &&
+                    x.CompanyId == companyId &&      // ✅ scoped to company
+                    !x.IsDeleted);
 
             if (bank == null)
                 return false;
 
             bank.IsDeleted = true;
             bank.IsActive = false;
-            bank.ModifiedBy = userId;
+            bank.ModifiedBy = _common.GetUserId();   // ✅ from JWT
             bank.ModifiedDate = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
-
             return true;
         }
 
