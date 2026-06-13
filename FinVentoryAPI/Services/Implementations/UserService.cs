@@ -1,6 +1,7 @@
 ﻿using FinVentoryAPI.Data;
 using FinVentoryAPI.DTOs.UserDTOs;
 using FinVentoryAPI.Entities;
+using FinVentoryAPI.Migrations;
 using FinVentoryAPI.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -26,7 +27,8 @@ namespace FinVentoryAPI.Services.Implementations
                 Email = dto.Email,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
                 Mobile = dto.Mobile,
-                IsPlatformAdmin = dto.IsPlatformAdmin
+                IsPlatformAdmin = dto.IsPlatformAdmin,
+                RoleId = dto.roleId
             };
 
             _context.Users.Add(user);
@@ -38,6 +40,7 @@ namespace FinVentoryAPI.Services.Implementations
         public async Task<List<UserResponseDto>> GetAllAsync()
         {
             return await _context.Users
+                .Include(x => x.Role)
                 .Where(x => x.IsActive)
                 .Select(x => new UserResponseDto
                 {
@@ -47,7 +50,9 @@ namespace FinVentoryAPI.Services.Implementations
                     Mobile = x.Mobile,
                     IsPlatformAdmin = x.IsPlatformAdmin,
                     IsActive = x.IsActive,
-                    
+                    RoleId = x.RoleId,
+                    RoleName = x.Role != null ? x.Role.RoleName : null,
+
                 })
                 .ToListAsync();
         }
@@ -74,7 +79,8 @@ namespace FinVentoryAPI.Services.Implementations
             user.FullName = dto.FullName;
             user.Mobile = dto.Mobile;
             user.IsPlatformAdmin = dto.IsPlatformAdmin;
-            user.UpdatedDate = DateTime.UtcNow;
+            user.ModifiedDate = DateTime.UtcNow;
+            user.RoleId = dto.roleId;
 
             await _context.SaveChangesAsync();
 
@@ -90,7 +96,7 @@ namespace FinVentoryAPI.Services.Implementations
                 return false;
 
             user.IsActive = false;
-            user.UpdatedDate = DateTime.UtcNow;
+            user.ModifiedDate = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
 
@@ -107,6 +113,9 @@ namespace FinVentoryAPI.Services.Implementations
                 Mobile = user.Mobile,
                 IsPlatformAdmin = user.IsPlatformAdmin,
                 IsActive = user.IsActive,
+                RoleId = user.RoleId,
+                RoleName = user.Role?.RoleName
+                
                
             };
         }

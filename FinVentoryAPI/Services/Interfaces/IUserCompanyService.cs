@@ -4,10 +4,10 @@ namespace FinVentoryAPI.Services.Interfaces
 {
     public interface IUserCompanyService
     {
-        Task<IEnumerable<object>> GetAllAsync();
-        Task<object> GetByUserAsync(int userId);
-        Task<string> CreateAsync(UserCompanyCreateDto dto);
-        Task<string> UpdateAsync(UserCompanyUpdateDto dto);
-        Task<string> DeleteAsync(int id);
+        Task<List<UserCompanyResponseDto>> GetAllAsync();
+        Task<UserCompanyResponseDto?> CreateAsync(UserCompanyCreateDto dto);
+        Task<bool> UpdateAsync(int id, UserCompanyCreateDto dto);
+        Task<bool> DeleteAsync(int id);
+        Task<int> BulkCreateAsync(UserCompanyBulkCreateDto dto);
     }
 }

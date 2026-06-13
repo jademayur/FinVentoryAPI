@@ -15,94 +15,147 @@ namespace FinVentoryAPI.Services.Implementations
             _context = context;
         }
 
-        public async Task<IEnumerable<object>> GetAllAsync()
+        public async Task<List<UserCompanyResponseDto>> GetAllAsync()
         {
             return await _context.UserCompany
                 .Include(x => x.User)
                 .Include(x => x.Company)
-                .Include(x => x.Role)
                 .Include(x => x.FinancialYear)
-                .Select(x => new
+                .Include(x => x.Role)
+                .Select(x => new UserCompanyResponseDto
                 {
-                    x.UserCompanyId,
-                    User = x.User.FullName,
-                    Company = x.Company.CompanyName,
-                    Role = x.Role.RoleName,
-                    FinancialYear = x.FinancialYear.YearName
-                })
-                .ToListAsync();
-        }
+                    UserCompanyId = x.UserCompanyId,
 
-        public async Task<object> GetByUserAsync(int userId)
-        {
-            return await _context.UserCompany
-                .Include(x => x.Company)
-                .Include(x => x.Role)
-                .Include(x => x.FinancialYear)
-                .Where(x => x.UserId == userId)
-                .Select(x => new
-                {
-                    x.UserCompanyId,
-                    x.CompanyId,
+                    UserId = x.UserId,
+                    UserName = x.User.FullName,
+
+                    CompanyId = x.CompanyId,
                     CompanyName = x.Company.CompanyName,
-                    Role = x.Role.RoleName,
-                    FinancialYear = x.FinancialYear.YearName
+
+                    FinancialYearId = (int) x.FinancialYearId,
+                    FinancialYearName = x.FinancialYear.YearName,
+
+                    RoleId = x.RoleId,
+                    RoleName = x.Role.RoleName
                 })
                 .ToListAsync();
         }
 
-        public async Task<string> CreateAsync(UserCompanyCreateDto dto)
+        public async Task<UserCompanyResponseDto?> CreateAsync(UserCompanyCreateDto dto)
         {
-            var exists = await _context.UserCompany
-                .AnyAsync(x => x.UserId == dto.UserId &&
-                               x.CompanyId == dto.CompanyId);
+            var exists = await _context.UserCompany.AnyAsync(x =>
+                x.UserId == dto.UserId &&
+                x.CompanyId == dto.CompanyId &&
+                x.FinancialYearId == dto.FinancialYearId);
 
             if (exists)
-                return "User already assigned to this company";
+                throw new Exception("Access already assigned.");
 
             var entity = new UserCompany
             {
                 UserId = dto.UserId,
                 CompanyId = dto.CompanyId,
-                RoleId = dto.RoleId,
-                FinancialYearId = dto.FinancialYearId
-
+                FinancialYearId = dto.FinancialYearId,
+                RoleId = dto.RoleId
             };
 
             _context.UserCompany.Add(entity);
             await _context.SaveChangesAsync();
 
-            return "User assigned to company successfully";
-        }
+            return await _context.UserCompany
+                .Include(x => x.User)
+                .Include(x => x.Company)
+                .Include(x => x.FinancialYear)
+                .Include(x => x.Role)
+                .Where(x => x.UserCompanyId == entity.UserCompanyId)
+                .Select(x => new UserCompanyResponseDto
+                {
+                    UserCompanyId = x.UserCompanyId,
 
-        public async Task<string> UpdateAsync(UserCompanyUpdateDto dto)
+                    UserId = x.UserId,
+                    UserName = x.User.FullName,
+
+                    CompanyId = x.CompanyId,
+                    CompanyName = x.Company.CompanyName,
+
+                    FinancialYearId = (int)x.FinancialYearId,
+                    FinancialYearName = x.FinancialYear.YearName,
+
+                    RoleId = x.RoleId,
+                    RoleName = x.Role.RoleName
+                })
+                .FirstOrDefaultAsync();
+        }
+        public async Task<bool> UpdateAsync(int id, UserCompanyCreateDto dto)
         {
             var entity = await _context.UserCompany
-                .FindAsync(dto.UserCompanyId);
+                .FirstOrDefaultAsync(x => x.UserCompanyId == id);
 
             if (entity == null)
-                return "Record not found";
+                return false;
 
+            var duplicateExists = await _context.UserCompany.AnyAsync(x =>
+                x.UserCompanyId != id &&
+                x.UserId == dto.UserId &&
+                x.CompanyId == dto.CompanyId &&
+                x.FinancialYearId == dto.FinancialYearId);
+
+            if (duplicateExists)
+                throw new Exception("Access already assigned.");
+
+            entity.UserId = dto.UserId;
+            entity.CompanyId = dto.CompanyId;
+            entity.FinancialYearId = dto.FinancialYearId;
             entity.RoleId = dto.RoleId;
-          //  entity.IsActive = dto.IsActive;
 
             await _context.SaveChangesAsync();
 
-            return "User company mapping updated";
+            return true;
         }
 
-        public async Task<string> DeleteAsync(int id)
+        public async Task<bool> DeleteAsync(int id)
         {
-            var entity = await _context.UserCompany.FindAsync(id);
+            var entity = await _context.UserCompany
+                .FirstOrDefaultAsync(x => x.UserCompanyId == id);
 
             if (entity == null)
-                return "Record not found";
+                return false;
 
-            //entity.IsActive = false;
-
+            _context.UserCompany.Remove(entity);
             await _context.SaveChangesAsync();
 
-            return "Mapping deleted successfully";
+            return true;
+        }
+
+        public async Task<int> BulkCreateAsync(UserCompanyBulkCreateDto dto)
+        {
+            int inserted = 0;
+
+            foreach (var assignment in dto.Assignments)
+            {
+                foreach (var yearId in assignment.FinancialYearIds)
+                {
+                    bool exists = await _context.UserCompany.AnyAsync(x =>
+                        x.UserId == dto.UserId &&
+                        x.CompanyId == assignment.CompanyId &&
+                        x.FinancialYearId == yearId);
+
+                    if (exists) continue; // skip duplicates silently
+
+                    _context.UserCompany.Add(new UserCompany
+                    {
+                        UserId = dto.UserId,
+                        CompanyId = assignment.CompanyId,
+                        FinancialYearId = yearId,
+                        RoleId = dto.RoleId
+                    });
+
+                    inserted++;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return inserted;
         }
     }
 }
