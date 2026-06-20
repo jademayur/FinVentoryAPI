@@ -8,5 +8,7 @@
         public List<BPAddressResponseDto> BillAddresses { get; set; } = new();
         public List<BPAddressResponseDto> ShipAddresses { get; set; } = new();
         public List<BusinessPartnerContactResponseDto> Contacts { get; set; } = new();
+
+        public string DefaultPriceType { get; set; }
     }
 }

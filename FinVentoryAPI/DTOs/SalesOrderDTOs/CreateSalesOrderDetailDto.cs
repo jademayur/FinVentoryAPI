@@ -9,5 +9,10 @@
         public decimal DiscountRate { get; set; }
         public decimal AddisDiscountRate { get; set; }
         public bool IsTaxIncluded { get; set; }
+        public int? ManualTaxId { get; set; }
+        public decimal? ManualIgstRate { get; set; }
+        public decimal? ManualCgstRate { get; set; }
+        public decimal? ManualSgstRate { get; set; }
+        public decimal? ManualCessRate { get; set; }
     }
 }

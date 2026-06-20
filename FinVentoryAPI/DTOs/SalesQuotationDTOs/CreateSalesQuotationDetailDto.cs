@@ -25,5 +25,15 @@ namespace FinVentoryAPI.DTOs.SalesQuotationDTOs
         public decimal AddisDiscountRate { get; set; } = 0;
 
         public bool IsTaxIncluded { get; set; } = false;
+
+        // ── Manual tax override ────────────────────────────────────────────────
+        // Null  → use HSN-linked tax (normal flow)
+        // 0     → zero-tax / export / exempt (no tax at all)
+        // > 0   → specific tax from tax master (item has no HSN, or export override)
+        public int? ManualTaxId { get; set; }
+        public decimal? ManualIgstRate { get; set; }
+        public decimal? ManualCgstRate { get; set; }
+        public decimal? ManualSgstRate { get; set; }
+        public decimal? ManualCessRate { get; set; }
     }
 }
