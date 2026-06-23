@@ -121,22 +121,20 @@ namespace FinVentoryAPI.Services.Implementations
 
             return tax.Select(x => new TaxResponseDto
             {
-               TaxId= x.TaxId,
-               TaxName = x.TaxName,
-               TaxType = x.TaxType,
-               TaxRate = x.TaxRate,
-               IGST = x.IGST,
-               CGST = x.CGST,
-               SGST = x.SGST,
-               IsActive = x.IsActive,
-               IGSTPostingAccountId = x.IGSTPostingAccountId,
-               IGSTPostingAccountName = x.IGSTAccount.AccountName,
-               CGSTPostingAccountId = x.CGSTPostingAccountId,
-               CGSTPostingAccountName = x.CGSTAccount.AccountName,
+                TaxId = x.TaxId,
+                TaxName = x.TaxName,
+                TaxType = x.TaxType,
+                TaxRate = x.TaxRate,
+                IGST = x.IGST,
+                CGST = x.CGST,
+                SGST = x.SGST,
+                IsActive = x.IsActive,
+                IGSTPostingAccountId = x.IGSTPostingAccountId,
+                IGSTPostingAccountName = x.IGSTAccount != null ? x.IGSTAccount.AccountName : null,  // ✅
+                CGSTPostingAccountId = x.CGSTPostingAccountId,
+                CGSTPostingAccountName = x.CGSTAccount != null ? x.CGSTAccount.AccountName : null,  // ✅
                 SGSTPostingAccountId = x.SGSTPostingAccountId,
-                SGSTPostingAccountName = x.SGSTAccount.AccountName,
-
-
+                SGSTPostingAccountName = x.SGSTAccount != null ? x.SGSTAccount.AccountName : null,  // ✅
             }).ToList();
         }
 

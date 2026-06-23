@@ -170,7 +170,12 @@ namespace FinVentoryAPI.Services.Implementations
                     Rate = lineDto.Rate,
                     DiscountRate = lineDto.DiscountRate,
                     AddisDiscountRate = lineDto.AddisDiscountRate,
-                    IsTaxIncluded = lineDto.IsTaxIncluded
+                    IsTaxIncluded = lineDto.IsTaxIncluded,
+                    ManualTaxId = lineDto.ManualTaxId,
+                    ManualIgstRate = lineDto.ManualIgstRate,
+                    ManualCgstRate = lineDto.ManualCgstRate,
+                    ManualSgstRate = lineDto.ManualSgstRate,
+                    ManualCessRate = lineDto.ManualCessRate
                 };
                 incomingDetails.Add(await BuildDetailWithTaxAsync(
                     createDto, dto.SalesStateCode, dto.BillStateCode));
@@ -228,38 +233,35 @@ namespace FinVentoryAPI.Services.Implementations
                         existing.LineTaxAmount = incoming.LineTaxAmount;
                         existing.LineTotal = incoming.LineTotal;
 
-                        var existingTaxList = existing.TaxDetails?.ToList() ?? new();
-                        var incomingTaxList = incoming.TaxDetails ?? new();
+                     
 
-                        for (int t = 0; t < incomingTaxList.Count; t++)
+                        // Wipe existing tax rows and re-insert fresh
+                        if (existing.TaxDetails != null && existing.TaxDetails.Any())
                         {
-                            var inTax = incomingTaxList[t];
-                            if (t < existingTaxList.Count)
-                            {
-                                var exTax = existingTaxList[t];
-                                exTax.TaxId = inTax.TaxId;
-                                exTax.IGSTRate = inTax.IGSTRate;
-                                exTax.CGSTRate = inTax.CGSTRate;
-                                exTax.SGSTRate = inTax.SGSTRate;
-                                exTax.TaxableAmount = inTax.TaxableAmount;
-                                exTax.IGSTAmount = inTax.IGSTAmount;
-                                exTax.CGSTAmount = inTax.CGSTAmount;
-                                exTax.SGSTAmount = inTax.SGSTAmount;
-                                exTax.CessRate = inTax.CessRate;
-                                exTax.CessAmount = inTax.CessAmount;
-                                exTax.TotalTaxAmount = inTax.TotalTaxAmount;
-                            }
-                            else
-                            {
-                                inTax.OrderId = main.OrderId;
-                                inTax.OrderDetailId = existing.OrderDetailId;
-                                _context.SalesOrderTaxDetails.Add(inTax);
-                            }
+                            _context.SalesOrderTaxDetails.RemoveRange(existing.TaxDetails);
+                            await SaveChangesAsync(); // flush deletes before re-insert
                         }
 
-                        if (existingTaxList.Count > incomingTaxList.Count)
-                            _context.SalesOrderTaxDetails.RemoveRange(
-                                existingTaxList.Skip(incomingTaxList.Count));
+
+                        foreach (var inTax in incoming.TaxDetails ?? new())
+                        {
+                            _context.SalesOrderTaxDetails.Add(new SalesOrderTaxDetail
+                            {
+                                OrderId = main.OrderId,
+                                OrderDetailId = existing.OrderDetailId,
+                                TaxId = inTax.TaxId,
+                                IGSTRate = inTax.IGSTRate,
+                                CGSTRate = inTax.CGSTRate,
+                                SGSTRate = inTax.SGSTRate,
+                                TaxableAmount = inTax.TaxableAmount,
+                                IGSTAmount = inTax.IGSTAmount,
+                                CGSTAmount = inTax.CGSTAmount,
+                                SGSTAmount = inTax.SGSTAmount,
+                                CessRate = inTax.CessRate,
+                                CessAmount = inTax.CessAmount,
+                                TotalTaxAmount = inTax.TotalTaxAmount
+                            });
+                        }
 
                         totalSubTotal += existing.TaxableAmount;
                         totalCessAmount += existing.CessAmount;
@@ -692,20 +694,65 @@ namespace FinVentoryAPI.Services.Implementations
         // PRIVATE — Build detail + tax  (same logic as quotation)
         // ════════════════════════════════════════════════════
         private async Task<SalesOrderDetail> BuildDetailWithTaxAsync(
-            CreateSalesOrderDetailDto lineDto,
-            int? salesStateCode, int? billStateCode)
+      CreateSalesOrderDetailDto lineDto,
+      int? salesStateCode, int? billStateCode)
         {
             var item = await _context.Items
                 .Include(i => i.Hsn).ThenInclude(h => h!.tax)
                 .FirstOrDefaultAsync(i => i.ItemId == lineDto.ItemId && !i.IsDeleted)
                 ?? throw new Exception($"Item {lineDto.ItemId} not found.");
 
-            if (item.HSNCodeId == 0) throw new Exception($"Item '{item.ItemName}' has no HSN Code assigned.");
-            if (item.Hsn == null) throw new Exception($"Item '{item.ItemName}' — HSN (Id: {item.HSNCodeId}) not found.");
-            if (item.Hsn.tax == null) throw new Exception($"HSN '{item.Hsn.HsnName}' has no Tax assigned.");
+            bool hasHsn = item.HSNCodeId != 0 && item.Hsn != null;
+            bool useManualTax = lineDto.ManualTaxId.HasValue;
 
-            var hsn = item.Hsn;
-            var tax = hsn.tax;
+            int resolvedTaxId;
+            decimal igstRate, cgstRate, sgstRate, cessRate;
+            int hsnId;
+            string hsnCode;
+
+            if (useManualTax)
+            {
+                var manualTax = await _context.Taxes
+                    .FirstOrDefaultAsync(t => t.TaxId == lineDto.ManualTaxId && !t.IsDeleted)
+                    ?? throw new Exception($"Tax {lineDto.ManualTaxId} not found.");
+
+                resolvedTaxId = manualTax.TaxId;
+                igstRate = lineDto.ManualIgstRate ?? manualTax.IGST;
+                cgstRate = lineDto.ManualCgstRate ?? manualTax.CGST;
+                sgstRate = lineDto.ManualSgstRate ?? manualTax.SGST;
+                cessRate = lineDto.ManualCessRate ?? 0;
+                hsnId = item.Hsn?.HsnId ?? 0;
+                hsnCode = item.Hsn?.HsnName ?? string.Empty;
+            }
+            else
+            {
+                if (!hasHsn)
+                    throw new Exception(
+                        $"Item '{item.ItemName}' has no HSN Code assigned. Please select a tax manually.");
+
+                if (item.Hsn!.tax == null)
+                    throw new Exception(
+                        $"HSN '{item.Hsn.HsnName}' has no Tax assigned.");
+
+                var hsn = item.Hsn;
+                var tax = hsn.tax!;
+
+                resolvedTaxId = tax.TaxId;
+                igstRate = tax.IGST;
+                cgstRate = tax.CGST;
+                sgstRate = tax.SGST;
+                cessRate = hsn.Cess ?? 0;
+                hsnId = hsn.HsnId;
+                hsnCode = hsn.HsnName;
+            }
+
+            bool isIntraState = (salesStateCode.HasValue && billStateCode.HasValue)
+                ? salesStateCode.Value == billStateCode.Value
+                : true;
+
+            decimal effectiveIgst = isIntraState ? 0 : igstRate;
+            decimal effectiveCgst = isIntraState ? cgstRate : 0;
+            decimal effectiveSgst = isIntraState ? sgstRate : 0;
 
             decimal grossAmount = lineDto.Rate * lineDto.Qty;
             decimal discountAmt = Math.Round(grossAmount * lineDto.DiscountRate / 100, 2);
@@ -713,31 +760,27 @@ namespace FinVentoryAPI.Services.Implementations
             decimal addisDiscAmt = Math.Round(afterFirst * lineDto.AddisDiscountRate / 100, 2);
             decimal taxableAmount = afterFirst - addisDiscAmt;
 
-            bool isIntraState = (salesStateCode.HasValue && billStateCode.HasValue)
-                ? salesStateCode.Value == billStateCode.Value
-                : true;
-
             if (lineDto.IsTaxIncluded)
             {
                 decimal totalTaxRate = isIntraState
-                    ? (tax.CGST + tax.SGST)
-                    : tax.IGST;
+                    ? (effectiveCgst + effectiveSgst)
+                    : effectiveIgst;
+
                 if (totalTaxRate > 0)
                     taxableAmount = Math.Round(taxableAmount / (1 + totalTaxRate / 100), 2);
             }
 
-            decimal igstAmount = (!isIntraState) ? Math.Round(taxableAmount * tax.IGST / 100, 2) : 0;
-            decimal cgstAmount = (isIntraState) ? Math.Round(taxableAmount * tax.CGST / 100, 2) : 0;
-            decimal sgstAmount = (isIntraState) ? Math.Round(taxableAmount * tax.SGST / 100, 2) : 0;
-            decimal cessRate = hsn.Cess ?? 0;
-            decimal cessAmount = Math.Round(taxableAmount * cessRate / 100, 2);
-            decimal lineTaxAmt = igstAmount + cgstAmount + sgstAmount + cessAmount;
+            decimal igstAmount = effectiveIgst > 0 ? Math.Round(taxableAmount * effectiveIgst / 100, 2) : 0;
+            decimal cgstAmount = effectiveCgst > 0 ? Math.Round(taxableAmount * effectiveCgst / 100, 2) : 0;
+            decimal sgstAmount = effectiveSgst > 0 ? Math.Round(taxableAmount * effectiveSgst / 100, 2) : 0;
+            decimal cessAmt = cessRate > 0 ? Math.Round(taxableAmount * cessRate / 100, 2) : 0;
+            decimal lineTaxAmt = igstAmount + cgstAmount + sgstAmount + cessAmt;
 
             return new SalesOrderDetail
             {
                 ItemId = lineDto.ItemId,
-                HsnId = hsn.HsnId,
-                HsnCode = hsn.HsnName,
+                HsnId = hsnId,
+                HsnCode = hsnCode,
                 PriceType = lineDto.PriceType,
                 Qty = lineDto.Qty,
                 Rate = lineDto.Rate,
@@ -748,26 +791,26 @@ namespace FinVentoryAPI.Services.Implementations
                 IsTaxIncluded = lineDto.IsTaxIncluded,
                 TaxableAmount = taxableAmount,
                 CessRate = cessRate,
-                CessAmount = cessAmount,
+                CessAmount = cessAmt,
                 LineTaxAmount = lineTaxAmt,
                 LineTotal = taxableAmount + lineTaxAmt,
                 TaxDetails = new List<SalesOrderTaxDetail>
-                {
-                    new()
-                    {
-                        TaxId          = tax.TaxId,
-                        IGSTRate       = isIntraState ? 0        : tax.IGST,
-                        CGSTRate       = isIntraState ? tax.CGST : 0,
-                        SGSTRate       = isIntraState ? tax.SGST : 0,
-                        TaxableAmount  = taxableAmount,
-                        IGSTAmount     = igstAmount,
-                        CGSTAmount     = cgstAmount,
-                        SGSTAmount     = sgstAmount,
-                        CessRate       = cessRate,
-                        CessAmount     = cessAmount,
-                        TotalTaxAmount = lineTaxAmt
-                    }
-                }
+        {
+            new()
+            {
+                TaxId          = resolvedTaxId,
+                IGSTRate       = effectiveIgst,
+                CGSTRate       = effectiveCgst,
+                SGSTRate       = effectiveSgst,
+                TaxableAmount  = taxableAmount,
+                IGSTAmount     = igstAmount,
+                CGSTAmount     = cgstAmount,
+                SGSTAmount     = sgstAmount,
+                CessRate       = cessRate,
+                CessAmount     = cessAmt,
+                TotalTaxAmount = lineTaxAmt
+            }
+        }
             };
         }
 

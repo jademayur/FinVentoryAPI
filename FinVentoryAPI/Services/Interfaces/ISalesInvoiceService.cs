@@ -14,5 +14,8 @@ namespace FinVentoryAPI.Services.Interfaces
         Task<PagedResponseDto<SalesInvoiceResponseDto>> GetPagedAsync(PagedRequestDto request);
         Task<List<SalesInvoiceListDto>>      GetByCustomerAsync(int businessPartnerId);
         Task<SalesInvoiceResponseDto?>       GetForReturnAsync(int invoiceId);
+
+        Task<InvoicePrefillDto> GetInvoicePrefillFromDeliveryAsync(List<int> deliveryIds);
+                
     }
 }

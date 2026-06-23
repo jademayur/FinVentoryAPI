@@ -1,6 +1,7 @@
 ﻿using FinVentoryAPI.Data;
 using FinVentoryAPI.DTOs.AccountLedgerPostingDTOs;
 using FinVentoryAPI.DTOs.PagedRequestDto;
+using FinVentoryAPI.DTOs.PurchaseReturnDTOs;
 using FinVentoryAPI.DTOs.SalesReturnDTOs;
 using FinVentoryAPI.DTOs.StockLedgerDTOs;
 using FinVentoryAPI.Entities;
@@ -12,14 +13,14 @@ using System.Text.Json;
 
 namespace FinVentoryAPI.Services.Implementations
 {
-    public class SalesReturnService : ISalesReturnService
+    public class PurchaseReturnService : IPurchaseReturnService
     {
         private readonly AppDbContext _context;
         private readonly Common _common;
         private readonly IStockLedgerService _stockLedger;
         private readonly IAccountLedgerPostingService _accountLedger;
 
-        public SalesReturnService(
+        public PurchaseReturnService(
             AppDbContext context,
             Common common,
             IStockLedgerService stockLedger,
@@ -34,21 +35,22 @@ namespace FinVentoryAPI.Services.Implementations
         // ════════════════════════════════════════════════════
         // CREATE
         // ════════════════════════════════════════════════════
-        public async Task<SalesReturnResponseDto> CreateAsync(CreateSalesReturnMainDto dto)
+        public async Task<PurchaseReturnResponseDto> CreateAsync(CreatePurchaseReturnMainDto dto)
         {
             var companyId = _common.GetCompanyId();
             var userId = _common.GetUserId();
             var finYearId = _common.GetFinancialYearId();
 
+            // ✅ Validate BEFORE transaction (read-only)
             await ValidateHeaderAsync(
                 dto.BusinessPartnerId, dto.LocationId,
-                dto.SalesAccountId, companyId,
-                dto.SalesStateCode, dto.BillStateCode,
+                dto.PurchaseAccountId, companyId,
+                dto.PurchaseStateCode, dto.BillStateCode,
                 dto.BillAddressId);
 
             var returnNo = await GenerateReturnNoAsync(companyId, finYearId);
 
-            var main = new SalesReturnMain
+            var main = new PurchaseReturnMain
             {
                 CompanyId = companyId,
                 FinYearId = finYearId,
@@ -60,17 +62,17 @@ namespace FinVentoryAPI.Services.Implementations
                 NoteType = dto.NoteType,
                 BusinessPartnerId = dto.BusinessPartnerId,
                 LocationId = dto.LocationId,
-                SalesAccountId = dto.SalesAccountId,
+                PurchaseAccountId = dto.PurchaseAccountId,
                 RoundOff = dto.RoundOff,
                 Remarks = dto.Remarks,
                 Status = "Draft",
-                SalesStateCode = dto.SalesStateCode,
+                PurchaseStateCode = dto.PurchaseStateCode,
                 BillStateCode = dto.BillStateCode,
                 BillAddressId = dto.BillAddressId,
                 CreatedBy = userId,
                 CreatedDate = DateTime.UtcNow,
-                Details = new List<SalesReturnDetail>(),
-                TaxDetails = new List<SalesReturnTaxDetail>()
+                Details = new List<PurchaseReturnDetail>(),
+                TaxDetails = new List<PurchaseReturnTaxDetail>()
             };
 
             decimal totalSubTotal = 0;
@@ -79,15 +81,14 @@ namespace FinVentoryAPI.Services.Implementations
 
             foreach (var lineDto in dto.Details)
             {
-                // ── Pass manual-tax fields through to builder ──────────────────
                 var detail = await BuildDetailWithTaxAsync(
-                    lineDto, userId, dto.SalesStateCode, dto.BillStateCode);
+                    lineDto, userId, dto.PurchaseStateCode, dto.BillStateCode);
 
                 totalSubTotal += detail.TaxableAmount;
                 totalCessAmount += detail.CessAmount;
                 totalTaxAmount += detail.LineTaxAmount - detail.CessAmount;
 
-                foreach (var td in detail.TaxDetails ?? Enumerable.Empty<SalesReturnTaxDetail>())
+                foreach (var td in detail.TaxDetails ?? Enumerable.Empty<PurchaseReturnTaxDetail>())
                 {
                     td.Return = main;
                     td.Detail = detail;
@@ -102,12 +103,14 @@ namespace FinVentoryAPI.Services.Implementations
             main.CessAmount = totalCessAmount;
             main.NetTotal = totalSubTotal + totalTaxAmount + totalCessAmount + dto.RoundOff;
 
+            // ── Begin Transaction ─────────────────────────────────────────
             await using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                _context.SalesReturnMains.Add(main);
+                _context.PurchaseReturnMains.Add(main);
                 await SaveChangesAsync();
 
+                // ✅ Clear tracker so EF re-fetches ItemSerial/ItemBatch fresh
                 _context.ChangeTracker.Clear();
                 _context.Attach(main);
 
@@ -115,14 +118,13 @@ namespace FinVentoryAPI.Services.Implementations
                 {
                     var lineDto = dto.Details[i];
 
-                    var detail = await _context.SalesReturnDetails
+                    var detail = await _context.PurchaseReturnDetails
                         .FirstOrDefaultAsync(d =>
                             d.ReturnId == main.ReturnId &&
                             d.ItemId == lineDto.ItemId)
-                        ?? throw new Exception(
-                            $"Detail for item {lineDto.ItemId} not found after save.");
+                        ?? throw new Exception($"Detail for item {lineDto.ItemId} not found after save.");
 
-                    var updateDto = new UpdateSalesReturnDetailDto
+                    var updateDto = new UpdatePurchaseReturnDetailDto
                     {
                         ItemId = lineDto.ItemId,
                         PriceType = lineDto.PriceType,
@@ -131,29 +133,22 @@ namespace FinVentoryAPI.Services.Implementations
                         DiscountRate = lineDto.DiscountRate,
                         AddisDiscountRate = lineDto.AddisDiscountRate,
                         IsTaxIncluded = lineDto.IsTaxIncluded,
-                        ManualTaxId = lineDto.ManualTaxId,
-                        ManualIgstRate = lineDto.ManualIgstRate,
-                        ManualCgstRate = lineDto.ManualCgstRate,
-                        ManualSgstRate = lineDto.ManualSgstRate,
-                        ManualCessRate = lineDto.ManualCessRate,
-                        SourceDetailId = lineDto.SourceDetailId,
-                        OriginalQty = lineDto.OriginalQty,
                         Batches = lineDto.Batches,
                         Serials = lineDto.Serials
                     };
 
-                    await SaveBatchAllocationsAsync(detail, updateDto, companyId, isNew: true);
+                    await SaveBatchAllocationsAsync(detail, updateDto, companyId, main.FinYearId, isNew: true);
                 }
 
                 await SaveChangesAsync();
 
-                // Re-fetch for stock/account posting
-                var mainForPosting = await _context.SalesReturnMains
+                // Re-fetch with all includes for stock/account posting
+                var mainForPosting = await _context.PurchaseReturnMains
                     .Include(m => m.Details!).ThenInclude(d => d.TaxDetails)
                     .Include(m => m.TaxDetails)
                     .Include(m => m.BusinessPartner)
                     .FirstOrDefaultAsync(m => m.ReturnId == main.ReturnId)
-                    ?? throw new Exception("Sales return not found after save.");
+                    ?? throw new Exception("Purchase return not found after save.");
 
                 await PostStockLedgerAsync(mainForPosting, isReversal: false);
                 await PostAccountLedgerAsync(mainForPosting, isReversal: false);
@@ -167,18 +162,18 @@ namespace FinVentoryAPI.Services.Implementations
             }
 
             return await GetByIdAsync(main.ReturnId)
-                ?? throw new Exception("Failed to retrieve saved sales return.");
+                ?? throw new Exception("Failed to retrieve saved purchase return.");
         }
 
         // ════════════════════════════════════════════════════
         // UPDATE
         // ════════════════════════════════════════════════════
-        public async Task<bool> UpdateAsync(int id, UpdateSalesReturnMainDto dto)
+        public async Task<bool> UpdateAsync(int id, UpdatePurchaseReturnMainDto dto)
         {
             var companyId = _common.GetCompanyId();
             var userId = _common.GetUserId();
 
-            var main = await _context.SalesReturnMains
+            var main = await _context.PurchaseReturnMains
                 .Include(m => m.Details!).ThenInclude(d => d.TaxDetails)
                 .Include(m => m.Details!).ThenInclude(d => d.Batches!).ThenInclude(b => b.Batch)
                 .Include(m => m.Details!).ThenInclude(d => d.Serials!).ThenInclude(s => s.Serial)
@@ -195,15 +190,15 @@ namespace FinVentoryAPI.Services.Implementations
 
             await ValidateHeaderAsync(
                 dto.BusinessPartnerId, dto.LocationId,
-                dto.SalesAccountId, companyId,
-                dto.SalesStateCode, dto.BillStateCode,
+                dto.PurchaseAccountId, companyId,
+                dto.PurchaseStateCode, dto.BillStateCode,
                 dto.BillAddressId);
 
-            // ── Build incoming details — now passes manual-tax fields ───────────
-            var incomingDetails = new List<SalesReturnDetail>();
+            // Build fresh detail calculations before transaction (read-only)
+            var incomingDetails = new List<PurchaseReturnDetail>();
             foreach (var lineDto in dto.Details)
             {
-                var createDto = new CreateSalesReturnDetailDto
+                var createDto = new CreatePurchaseReturnDetailDto
                 {
                     ItemId = lineDto.ItemId,
                     PriceType = lineDto.PriceType,
@@ -211,23 +206,16 @@ namespace FinVentoryAPI.Services.Implementations
                     Rate = lineDto.Rate,
                     DiscountRate = lineDto.DiscountRate,
                     AddisDiscountRate = lineDto.AddisDiscountRate,
-                    IsTaxIncluded = lineDto.IsTaxIncluded,
-                    // ── FIX: pass manual tax fields so BuildDetailWithTaxAsync ──
-                    // uses the user-selected tax instead of always falling back
-                    // to the item's HSN-derived tax.
-                    ManualTaxId = lineDto.ManualTaxId,
-                    ManualIgstRate = lineDto.ManualIgstRate,
-                    ManualCgstRate = lineDto.ManualCgstRate,
-                    ManualSgstRate = lineDto.ManualSgstRate,
-                    ManualCessRate = lineDto.ManualCessRate,
+                    IsTaxIncluded = lineDto.IsTaxIncluded
                 };
                 incomingDetails.Add(await BuildDetailWithTaxAsync(
-                    createDto, userId, dto.SalesStateCode, dto.BillStateCode));
+                    createDto, userId, dto.PurchaseStateCode, dto.BillStateCode));
             }
 
             await using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
+                // Update header
                 main.ReturnDate = dto.ReturnDate;
                 main.OriginalInvoiceId = dto.OriginalInvoiceId;
                 main.OriginalInvoiceNo = dto.OriginalInvoiceNo;
@@ -235,12 +223,12 @@ namespace FinVentoryAPI.Services.Implementations
                 main.NoteType = dto.NoteType;
                 main.BusinessPartnerId = dto.BusinessPartnerId;
                 main.LocationId = dto.LocationId;
-                main.SalesAccountId = dto.SalesAccountId;
+                main.PurchaseAccountId = dto.PurchaseAccountId;
                 main.RoundOff = dto.RoundOff;
                 main.Remarks = dto.Remarks;
                 main.ModifiedBy = userId;
                 main.ModifiedDate = DateTime.UtcNow;
-                main.SalesStateCode = dto.SalesStateCode;
+                main.PurchaseStateCode = dto.PurchaseStateCode;
                 main.BillStateCode = dto.BillStateCode;
                 main.BillAddressId = dto.BillAddressId;
 
@@ -276,6 +264,7 @@ namespace FinVentoryAPI.Services.Implementations
                         existing.LineTaxAmount = incoming.LineTaxAmount;
                         existing.LineTotal = incoming.LineTotal;
 
+                        // Sync tax details
                         var existingTaxList = existing.TaxDetails?.ToList() ?? new();
                         var incomingTaxList = incoming.TaxDetails ?? new();
 
@@ -305,15 +294,15 @@ namespace FinVentoryAPI.Services.Implementations
                             {
                                 inTax.ReturnId = main.ReturnId;
                                 inTax.DetailId = existing.DetailId;
-                                _context.SalesReturnTaxDetails.Add(inTax);
+                                _context.PurchaseReturnTaxDetails.Add(inTax);
                             }
                         }
 
                         if (existingTaxList.Count > incomingTaxList.Count)
-                            _context.SalesReturnTaxDetails.RemoveRange(
+                            _context.PurchaseReturnTaxDetails.RemoveRange(
                                 existingTaxList.Skip(incomingTaxList.Count));
 
-                        await SaveBatchAllocationsAsync(existing, incomingDto, companyId, isNew: false);
+                        await SaveBatchAllocationsAsync(existing, incomingDto, companyId, main.FinYearId, isNew: false);
 
                         totalSubTotal += existing.TaxableAmount;
                         totalCessAmount += existing.CessAmount;
@@ -321,23 +310,24 @@ namespace FinVentoryAPI.Services.Implementations
                     }
                     else
                     {
+                        // Insert new detail row
                         incoming.ReturnId = main.ReturnId;
                         var newTaxList = incoming.TaxDetails ?? new();
-                        incoming.TaxDetails = null;
+                        incoming.TaxDetails = null!;
                         incoming.Batches = null;
                         incoming.Serials = null;
 
-                        _context.SalesReturnDetails.Add(incoming);
+                        _context.PurchaseReturnDetails.Add(incoming);
                         await SaveChangesAsync();
 
                         foreach (var inTax in newTaxList)
                         {
                             inTax.ReturnId = main.ReturnId;
                             inTax.DetailId = incoming.DetailId;
-                            _context.SalesReturnTaxDetails.Add(inTax);
+                            _context.PurchaseReturnTaxDetails.Add(inTax);
                         }
 
-                        await SaveBatchAllocationsAsync(incoming, incomingDto, companyId, isNew: true);
+                        await SaveBatchAllocationsAsync(incoming, incomingDto, companyId, main.FinYearId, isNew: true);
 
                         totalSubTotal += incoming.TaxableAmount;
                         totalCessAmount += incoming.CessAmount;
@@ -345,6 +335,7 @@ namespace FinVentoryAPI.Services.Implementations
                     }
                 }
 
+                // Remove surplus detail rows
                 if (existingDetails.Count > incomingDetails.Count)
                 {
                     var surplus = existingDetails.Skip(incomingDetails.Count).ToList();
@@ -352,9 +343,9 @@ namespace FinVentoryAPI.Services.Implementations
                     {
                         await ReverseBatchAllocationsAsync(sd);
                         if (sd.TaxDetails != null && sd.TaxDetails.Any())
-                            _context.SalesReturnTaxDetails.RemoveRange(sd.TaxDetails);
+                            _context.PurchaseReturnTaxDetails.RemoveRange(sd.TaxDetails);
                     }
-                    _context.SalesReturnDetails.RemoveRange(surplus);
+                    _context.PurchaseReturnDetails.RemoveRange(surplus);
                 }
 
                 main.SubTotal = totalSubTotal;
@@ -387,7 +378,7 @@ namespace FinVentoryAPI.Services.Implementations
             var companyId = _common.GetCompanyId();
             var userId = _common.GetUserId();
 
-            var main = await _context.SalesReturnMains
+            var main = await _context.PurchaseReturnMains
                 .Include(m => m.TaxDetails)
                 .Include(m => m.BusinessPartner)
                 .Include(m => m.Details!)
@@ -433,14 +424,15 @@ namespace FinVentoryAPI.Services.Implementations
         // ════════════════════════════════════════════════════
         // GET ALL
         // ════════════════════════════════════════════════════
-        public async Task<List<SalesReturnResponseDto>> GetAllAsync()
+        public async Task<List<PurchaseReturnResponseDto>> GetAllAsync()
         {
             var companyId = _common.GetCompanyId();
-            var returns = await _context.SalesReturnMains
+
+            var returns = await _context.PurchaseReturnMains
                 .Where(x => x.CompanyId == companyId && !x.IsDeleted)
                 .Include(x => x.BusinessPartner)
                 .Include(x => x.Location)
-                .Include(x => x.SalesAccount)
+                .Include(x => x.PurchaseAccount)
                 .Include(x => x.BillAddress)
                 .Include(x => x.Details!).ThenInclude(d => d.Item)
                 .Include(x => x.Details!).ThenInclude(d => d.Hsn)
@@ -450,20 +442,23 @@ namespace FinVentoryAPI.Services.Implementations
                 .Include(x => x.TaxDetails!).ThenInclude(td => td.Tax)
                 .OrderByDescending(x => x.ReturnDate)
                 .ToListAsync();
+
             return returns.Select(MapToResponseDto).ToList();
         }
 
         // ════════════════════════════════════════════════════
         // GET BY ID
         // ════════════════════════════════════════════════════
-        public async Task<SalesReturnResponseDto?> GetByIdAsync(int id)
+        public async Task<PurchaseReturnResponseDto?> GetByIdAsync(int id)
         {
             var companyId = _common.GetCompanyId();
-            var main = await _context.SalesReturnMains
-                .AsNoTracking().AsSplitQuery()
+
+            var main = await _context.PurchaseReturnMains
+                .AsNoTracking()
+                .AsSplitQuery()
                 .Include(x => x.BusinessPartner)
                 .Include(x => x.Location)
-                .Include(x => x.SalesAccount)
+                .Include(x => x.PurchaseAccount)
                 .Include(x => x.BillAddress)
                 .Include(x => x.Details!).ThenInclude(d => d.Item)
                 .Include(x => x.Details!).ThenInclude(d => d.Hsn)
@@ -479,6 +474,7 @@ namespace FinVentoryAPI.Services.Implementations
                     x.ReturnId == id &&
                     x.CompanyId == companyId &&
                     !x.IsDeleted);
+
             if (main == null) return null;
             return MapToResponseDto(main);
         }
@@ -486,15 +482,15 @@ namespace FinVentoryAPI.Services.Implementations
         // ════════════════════════════════════════════════════
         // GET PAGED
         // ════════════════════════════════════════════════════
-        public async Task<PagedResponseDto<SalesReturnResponseDto>> GetPagedAsync(
-            PagedRequestDto request)
+        public async Task<PagedResponseDto<PurchaseReturnResponseDto>> GetPagedAsync(PagedRequestDto request)
         {
             var companyId = _common.GetCompanyId();
-            var query = _context.SalesReturnMains
+
+            var query = _context.PurchaseReturnMains
                 .Where(x => x.CompanyId == companyId && !x.IsDeleted)
                 .Include(x => x.BusinessPartner)
                 .Include(x => x.Location)
-                .Include(x => x.SalesAccount)
+                .Include(x => x.PurchaseAccount)
                 .Include(x => x.Details!)
                 .AsQueryable();
 
@@ -509,32 +505,40 @@ namespace FinVentoryAPI.Services.Implementations
             if (request.Filters != null)
             {
                 if (request.Filters.ContainsKey("status"))
-                    query = query.Where(x => x.Status ==
-                        ((JsonElement)request.Filters["status"]).GetString());
-
+                {
+                    var status = ((JsonElement)request.Filters["status"]).GetString();
+                    query = query.Where(x => x.Status == status);
+                }
                 if (request.Filters.ContainsKey("businessPartnerId"))
-                    query = query.Where(x => x.BusinessPartnerId ==
-                        ((JsonElement)request.Filters["businessPartnerId"]).GetInt32());
-
+                {
+                    var bpId = ((JsonElement)request.Filters["businessPartnerId"]).GetInt32();
+                    query = query.Where(x => x.BusinessPartnerId == bpId);
+                }
                 if (request.Filters.ContainsKey("noteType"))
-                    query = query.Where(x => x.NoteType ==
-                        ((JsonElement)request.Filters["noteType"]).GetString());
-
+                {
+                    var noteType = ((JsonElement)request.Filters["noteType"]).GetString();
+                    query = query.Where(x => x.NoteType == noteType);
+                }
                 if (request.Filters.ContainsKey("finYearId"))
-                    query = query.Where(x => x.FinYearId ==
-                        ((JsonElement)request.Filters["finYearId"]).GetInt32());
-
+                {
+                    var finYearId = ((JsonElement)request.Filters["finYearId"]).GetInt32();
+                    query = query.Where(x => x.FinYearId == finYearId);
+                }
                 if (request.Filters.ContainsKey("fromDate"))
-                    query = query.Where(x => x.ReturnDate >=
-                        ((JsonElement)request.Filters["fromDate"]).GetDateTime());
-
+                {
+                    var fromDate = ((JsonElement)request.Filters["fromDate"]).GetDateTime();
+                    query = query.Where(x => x.ReturnDate >= fromDate);
+                }
                 if (request.Filters.ContainsKey("toDate"))
-                    query = query.Where(x => x.ReturnDate <=
-                        ((JsonElement)request.Filters["toDate"]).GetDateTime());
-
+                {
+                    var toDate = ((JsonElement)request.Filters["toDate"]).GetDateTime();
+                    query = query.Where(x => x.ReturnDate <= toDate);
+                }
                 if (request.Filters.ContainsKey("originalInvoiceId"))
-                    query = query.Where(x => x.OriginalInvoiceId ==
-                        ((JsonElement)request.Filters["originalInvoiceId"]).GetInt32());
+                {
+                    var invId = ((JsonElement)request.Filters["originalInvoiceId"]).GetInt32();
+                    query = query.Where(x => x.OriginalInvoiceId == invId);
+                }
             }
 
             if (request.Sorts != null && request.Sorts.Any())
@@ -562,6 +566,7 @@ namespace FinVentoryAPI.Services.Implementations
             }
 
             var totalRecords = await query.CountAsync();
+
             var data = await query
                 .Skip((request.PageNumber - 1) * request.PageSize)
                 .Take(request.PageSize)
@@ -572,7 +577,7 @@ namespace FinVentoryAPI.Services.Implementations
                 .Include(x => x.TaxDetails!).ThenInclude(td => td.Tax)
                 .ToListAsync();
 
-            return new PagedResponseDto<SalesReturnResponseDto>
+            return new PagedResponseDto<PurchaseReturnResponseDto>
             {
                 TotalRecords = totalRecords,
                 PageNumber = request.PageNumber,
@@ -582,188 +587,39 @@ namespace FinVentoryAPI.Services.Implementations
         }
 
         // ════════════════════════════════════════════════════
-        // PRIVATE — Build detail + tax
-        // Supports both HSN-auto and manual-tax override.
-        // ManualTaxId == null  → use HSN-derived tax (item must have HSN).
-        // ManualTaxId == 0     → zero tax / export / exempt.
-        // ManualTaxId > 0      → specific tax master entry.
-        // Item with no HSN (HSNCodeId == 0) MUST always provide ManualTaxId.
-        // ════════════════════════════════════════════════════
-        private async Task<SalesReturnDetail> BuildDetailWithTaxAsync(
-            CreateSalesReturnDetailDto lineDto, int userId,
-            int? salesStateCode, int? billStateCode)
-        {
-            var item = await _context.Items
-                .Include(i => i.Hsn).ThenInclude(h => h!.tax)
-                .FirstOrDefaultAsync(i => i.ItemId == lineDto.ItemId && !i.IsDeleted)
-                ?? throw new Exception($"Item {lineDto.ItemId} not found.");
-
-            bool hasHsn = item.HSNCodeId != 0 && item.Hsn != null;
-            bool isManualTax = lineDto.ManualTaxId.HasValue || !hasHsn;
-
-            int taxId;
-            decimal rawIgst, rawCgst, rawSgst, cessRate;
-            int? igstPostingAccountId, cgstPostingAccountId, sgstPostingAccountId, cessPostingAccountId;
-            int hsnId;
-            string? hsnCode;
-
-            if (!isManualTax)
-            {
-                // ── Auto: derive from item's HSN ──────────────────────────────
-                if (item.Hsn == null)
-                    throw new Exception($"Item '{item.ItemName}' — HSN (Id: {item.HSNCodeId}) not found.");
-                if (item.Hsn.tax == null)
-                    throw new Exception($"HSN '{item.Hsn.HsnName}' has no Tax assigned.");
-
-                var hsn = item.Hsn;
-                var tax = hsn.tax;
-
-                taxId = tax.TaxId;
-                rawIgst = tax.IGST;
-                rawCgst = tax.CGST;
-                rawSgst = tax.SGST;
-                cessRate = hsn.Cess ?? 0;
-                igstPostingAccountId = tax.IGSTPostingAccountId;
-                cgstPostingAccountId = tax.CGSTPostingAccountId;
-                sgstPostingAccountId = tax.SGSTPostingAccountId;
-                cessPostingAccountId = hsn.CessPostingAc;
-                hsnId = hsn.HsnId;
-                hsnCode = hsn.HsnName;
-            }
-            else
-            {
-                // ── Manual tax override (with or without HSN) ─────────────────
-                hsnId = hasHsn ? item.Hsn!.HsnId : 0;
-                hsnCode = hasHsn ? item.Hsn!.HsnName : null;
-
-                if (!lineDto.ManualTaxId.HasValue || lineDto.ManualTaxId.Value == 0)
-                {
-                    // 0% / export / exempt
-                    taxId = 0;
-                    rawIgst = 0;
-                    rawCgst = 0;
-                    rawSgst = 0;
-                    cessRate = 0;
-                    igstPostingAccountId = null;
-                    cgstPostingAccountId = null;
-                    sgstPostingAccountId = null;
-                    cessPostingAccountId = null;
-                }
-                else
-                {
-                    // Specific tax master entry — re-query for integrity
-                    var manualTax = await _context.Taxes
-                        .FirstOrDefaultAsync(t => t.TaxId == lineDto.ManualTaxId.Value)
-                        ?? throw new Exception($"Tax {lineDto.ManualTaxId.Value} not found.");
-
-                    taxId = manualTax.TaxId;
-                    rawIgst = manualTax.IGST;
-                    rawCgst = manualTax.CGST;
-                    rawSgst = manualTax.SGST;
-                    cessRate = lineDto.ManualCessRate ?? 0; // cess not on tax master
-                    igstPostingAccountId = manualTax.IGSTPostingAccountId;
-                    cgstPostingAccountId = manualTax.CGSTPostingAccountId;
-                    sgstPostingAccountId = manualTax.SGSTPostingAccountId;
-                    cessPostingAccountId = item.Hsn?.CessPostingAc;
-                }
-            }
-
-            // ── Calculation ───────────────────────────────────────────────────
-            decimal grossAmount = lineDto.Rate * lineDto.Qty;
-            decimal discountAmt = Math.Round(grossAmount * lineDto.DiscountRate / 100, 2);
-            decimal afterFirst = grossAmount - discountAmt;
-            decimal addisDiscAmt = Math.Round(afterFirst * lineDto.AddisDiscountRate / 100, 2);
-            decimal taxableAmount = afterFirst - addisDiscAmt;
-
-            bool isIntraState = (salesStateCode.HasValue && billStateCode.HasValue)
-                ? salesStateCode.Value == billStateCode.Value : true;
-
-            decimal igstRate = isIntraState ? 0 : rawIgst;
-            decimal cgstRate = isIntraState ? rawCgst : 0;
-            decimal sgstRate = isIntraState ? rawSgst : 0;
-
-            if (lineDto.IsTaxIncluded)
-            {
-                decimal totalTaxRate = isIntraState ? (cgstRate + sgstRate) : igstRate;
-                if (totalTaxRate > 0)
-                    taxableAmount = Math.Round(taxableAmount / (1 + totalTaxRate / 100), 2);
-            }
-
-            decimal igstAmount = igstRate > 0 ? Math.Round(taxableAmount * igstRate / 100, 2) : 0;
-            decimal cgstAmount = cgstRate > 0 ? Math.Round(taxableAmount * cgstRate / 100, 2) : 0;
-            decimal sgstAmount = sgstRate > 0 ? Math.Round(taxableAmount * sgstRate / 100, 2) : 0;
-            decimal cessAmount = cessRate > 0 ? Math.Round(taxableAmount * cessRate / 100, 2) : 0;
-            decimal lineTaxAmt = igstAmount + cgstAmount + sgstAmount + cessAmount;
-
-            return new SalesReturnDetail
-            {
-                ItemId = lineDto.ItemId,
-                HsnId = hsnId,
-                HsnCode = hsnCode,
-                PriceType = lineDto.PriceType,
-                Qty = lineDto.Qty,
-                Rate = lineDto.Rate,
-                DiscountRate = lineDto.DiscountRate,
-                AddisDiscountRate = lineDto.AddisDiscountRate,
-                DiscountAmount = discountAmt,
-                AddisDiscountAmount = addisDiscAmt,
-                IsTaxIncluded = lineDto.IsTaxIncluded,
-                TaxableAmount = taxableAmount,
-                CessRate = cessRate,
-                CessAmount = cessAmount,
-                LineTaxAmount = lineTaxAmt,
-                LineTotal = taxableAmount + lineTaxAmt,
-                TaxDetails = new List<SalesReturnTaxDetail>
-                {
-                    new()
-                    {
-                        TaxId                = taxId,
-                        IGSTRate             = igstRate,
-                        CGSTRate             = cgstRate,
-                        SGSTRate             = sgstRate,
-                        TaxableAmount        = taxableAmount,
-                        IGSTAmount           = igstAmount,
-                        CGSTAmount           = cgstAmount,
-                        SGSTAmount           = sgstAmount,
-                        CessRate             = cessRate,
-                        CessAmount           = cessAmount,
-                        TotalTaxAmount       = lineTaxAmt,
-                        IGSTPostingAccountId = isIntraState ? null : igstPostingAccountId,
-                        CGSTPostingAccountId = isIntraState ? cgstPostingAccountId : null,
-                        SGSTPostingAccountId = isIntraState ? sgstPostingAccountId : null,
-                        CessPostingAccountId = cessPostingAccountId
-                    }
-                }
-            };
-        }
-
-        // ════════════════════════════════════════════════════
-        // PRIVATE — Batch / Serial helpers
+        // PRIVATE HELPERS — Batch / Serial
+        // Purchase Return = stock going BACK OUT to supplier.
+        // Batch  → reduce AvailableQty (undo the original receipt).
+        // Serial → set Status = Returned (item sent back to supplier).
         // ════════════════════════════════════════════════════
         private async Task SaveBatchAllocationsAsync(
-            SalesReturnDetail detail,
-            UpdateSalesReturnDetailDto lineDto,
+            PurchaseReturnDetail detail,
+            UpdatePurchaseReturnDetailDto lineDto,
             int companyId,
+            int finYearId,
             bool isNew)
         {
-            var item = await _context.Items.FirstOrDefaultAsync(i => i.ItemId == detail.ItemId)
+            var item = await _context.Items
+                .FirstOrDefaultAsync(i => i.ItemId == detail.ItemId)
                 ?? throw new Exception($"Item {detail.ItemId} not found.");
 
             switch (item.ItemManageBy)
             {
                 case ItemManageBy.Batch:
-                    await SaveBatchLinesAsync(detail, lineDto, companyId);
+                    await SaveBatchLinesAsync(detail, lineDto, companyId, finYearId);
                     break;
                 case ItemManageBy.Serial:
                     await SaveSerialLinesAsync(detail, lineDto, companyId);
                     break;
+                    // Regular → nothing to do
             }
         }
 
         private async Task SaveBatchLinesAsync(
-            SalesReturnDetail detail,
-            UpdateSalesReturnDetailDto lineDto,
-            int companyId)
+            PurchaseReturnDetail detail,
+            UpdatePurchaseReturnDetailDto lineDto,
+            int companyId,
+            int finYearId)
         {
             if (lineDto.Batches == null || !lineDto.Batches.Any())
                 throw new Exception(
@@ -779,38 +635,38 @@ namespace FinVentoryAPI.Services.Implementations
                 var batch = await _context.ItemBatches
                     .FirstOrDefaultAsync(b =>
                         b.BatchNo == batchDto.BatchNo &&
-                        b.ItemId == detail.ItemId &&
                         b.CompanyId == companyId &&
+                        b.ItemId == detail.ItemId &&
                         !b.IsDeleted)
-                    ?? throw new Exception($"Batch '{batchDto.BatchNo}' not found for this item.");
+                    ?? throw new Exception($"Batch {batchDto.BatchNo} not found.");
 
-                if (batchDto.Qty > batch.UsedQty)
+                if (batch.AvailableQty < batchDto.Qty)
                     throw new Exception(
-                        $"Return qty ({batchDto.Qty}) for batch '{batch.BatchNo}' " +
-                        $"exceeds sold qty ({batch.UsedQty}).");
+                        $"Batch '{batch.BatchNo}' has only {batch.AvailableQty} units available " +
+                        $"but {batchDto.Qty} requested for return.");
 
-                batch.AvailableQty += batchDto.Qty;
-                batch.UsedQty -= batchDto.Qty;
+                // Purchase Return → reduce available (stock going out)
+                batch.AvailableQty -= batchDto.Qty;
+                batch.ReceivedQty -= batchDto.Qty;
 
-                _context.SalesReturnDetailBatches.Add(new SalesReturnDetailBatch
+                _context.PurchaseReturnDetailBatches.Add(new PurchaseReturnDetailBatch
                 {
                     DetailId = detail.DetailId,
                     ReturnId = detail.ReturnId,
-                    BatchId = batch.BatchId,
+                    BatchNo = batchDto.BatchNo,
                     Qty = batchDto.Qty
                 });
             }
         }
 
         private async Task SaveSerialLinesAsync(
-            SalesReturnDetail detail,
-            UpdateSalesReturnDetailDto lineDto,
+            PurchaseReturnDetail detail,
+            UpdatePurchaseReturnDetailDto lineDto,
             int companyId)
         {
             if (lineDto.Serials == null || !lineDto.Serials.Any())
                 throw new Exception(
-                    $"Item {detail.ItemId} is Serial-managed. " +
-                    "Please select at least one serial number.");
+                    $"Item {detail.ItemId} is Serial-managed. Please select at least one serial number.");
 
             if (lineDto.Serials.Count != (int)detail.Qty)
                 throw new Exception(
@@ -818,76 +674,112 @@ namespace FinVentoryAPI.Services.Implementations
 
             foreach (var serialDto in lineDto.Serials)
             {
+                // Always read fresh from DB
                 var serial = await _context.ItemSerials
+                    .AsNoTracking()
                     .FirstOrDefaultAsync(s =>
                         s.SerialNo == serialDto.SerialNo &&
-                        s.ItemId == detail.ItemId &&
                         s.CompanyId == companyId &&
+                        s.ItemId == detail.ItemId &&
                         !s.IsDeleted)
-                    ?? throw new Exception(
-                        $"Serial '{serialDto.SerialNo}' not found for item {detail.ItemId}.");
+                    ?? throw new Exception($"Serial {serialDto.SerialNo} not found.");
 
-                if (serial.Status != SerialStatus.Sold)
+                // Must be InStock to be returnable to supplier
+                if (serial.Status != SerialStatus.InStock)
                     throw new Exception(
-                        $"Serial '{serial.SerialNo}' is not Sold (current: {serial.Status}). Cannot return.");
+                        $"Serial '{serial.SerialNo}' is not InStock (current: {serial.Status}). Cannot return to supplier.");
 
-                serial.Status = SerialStatus.InStock;
+                // Set to Returned
+                var trackedSerial = await _context.ItemSerials
+                    .FirstOrDefaultAsync(s => s.SerialNo == serialDto.SerialNo);
 
-                _context.SalesReturnDetailSerials.Add(new SalesReturnDetailSerial
+                if (trackedSerial != null)
+                    trackedSerial.Status = SerialStatus.Returned;
+
+                _context.PurchaseReturnDetailSerials.Add(new PurchaseReturnDetailSerial
                 {
                     DetailId = detail.DetailId,
                     ReturnId = detail.ReturnId,
-                    SerialId = serial.SerialId
+                    SerialNo = serialDto.SerialNo
                 });
             }
         }
 
-        private async Task ReverseBatchAllocationsAsync(SalesReturnDetail detail)
+        /// <summary>
+        /// When a purchase return detail is updated/deleted:
+        /// Undo stock reduction — restore batch qty, reset serial to InStock.
+        /// </summary>
+        private async Task ReverseBatchAllocationsAsync(PurchaseReturnDetail detail)
         {
+            var userId = _common.GetUserId();
+
+            // Reverse Batches — restore qty
             if (detail.Batches != null && detail.Batches.Any())
             {
                 foreach (var alloc in detail.Batches)
                 {
-                    var batch = alloc.Batch ?? await _context.ItemBatches.FindAsync(alloc.BatchId);
-                    if (batch != null) { batch.AvailableQty -= alloc.Qty; batch.UsedQty += alloc.Qty; }
+                    var batch = alloc.Batch
+                        ?? await _context.ItemBatches.FindAsync(alloc.BatchId);
+
+                    if (batch != null)
+                    {
+                        batch.AvailableQty += alloc.Qty;
+                        batch.ReceivedQty += alloc.Qty;
+                        batch.ModifiedBy = userId;
+                        batch.ModifiedDate = DateTime.UtcNow;
+                    }
                 }
-                _context.SalesReturnDetailBatches.RemoveRange(detail.Batches);
+                _context.PurchaseReturnDetailBatches.RemoveRange(detail.Batches);
             }
 
+            // Reverse Serials — set back to InStock
             if (detail.Serials != null && detail.Serials.Any())
             {
                 foreach (var alloc in detail.Serials)
                 {
-                    var serial = alloc.Serial ?? await _context.ItemSerials.FindAsync(alloc.SerialId);
-                    if (serial != null) serial.Status = SerialStatus.Sold;
+                    var serial = alloc.Serial
+                        ?? await _context.ItemSerials.FindAsync(alloc.SerialId);
+
+                    if (serial != null)
+                    {
+                        serial.Status = SerialStatus.InStock;
+                        serial.ModifiedBy = userId;
+                        serial.ModifiedDate = DateTime.UtcNow;
+                    }
                 }
-                _context.SalesReturnDetailSerials.RemoveRange(detail.Serials);
+                _context.PurchaseReturnDetailSerials.RemoveRange(detail.Serials);
             }
         }
 
         // ════════════════════════════════════════════════════
-        // PRIVATE — Validation
+        // PRIVATE HELPERS — Validation
         // ════════════════════════════════════════════════════
         private async Task ValidateHeaderAsync(
-            int businessPartnerId, int locationId, int salesAccountId, int companyId,
-            int? salesStateCode, int? billStateCode, int? billAddressId)
+            int businessPartnerId, int locationId, int purchaseAccountId,
+            int companyId,
+            int? purchaseStateCode, int? billStateCode,
+            int? billAddressId)
         {
             var bpExists = await _context.BusinessPartners
-                .AnyAsync(x => x.BusinessPartnerId == businessPartnerId &&
-                               x.CompanyId == companyId && !x.IsDeleted);
-            if (!bpExists) throw new Exception("Business Partner not found.");
+                .AnyAsync(x =>
+                    x.BusinessPartnerId == businessPartnerId &&
+                    x.CompanyId == companyId &&
+                    !x.IsDeleted);
+            if (!bpExists) throw new Exception("Business Partner (Supplier) not found.");
 
             var locationExists = await _context.Locations
                 .AnyAsync(x => x.LocationId == locationId && x.CompanyId == companyId);
             if (!locationExists) throw new Exception("Location not found.");
 
-            var salesAccountExists = await _context.Accounts
-                .AnyAsync(x => x.AccountId == salesAccountId &&
-                               x.CompanyId == companyId && !x.IsDeleted);
-            if (!salesAccountExists) throw new Exception("Sales Account not found.");
+            var purchaseAccountExists = await _context.Accounts
+                .AnyAsync(x =>
+                    x.AccountId == purchaseAccountId &&
+                    x.CompanyId == companyId &&
+                    !x.IsDeleted);
+            if (!purchaseAccountExists) throw new Exception("Purchase Account not found.");
 
-            if (salesStateCode.HasValue && !Enum.IsDefined(typeof(GstState), salesStateCode.Value))
-                throw new Exception("Invalid Sales State Code.");
+            if (purchaseStateCode.HasValue && !Enum.IsDefined(typeof(GstState), purchaseStateCode.Value))
+                throw new Exception("Invalid Purchase State Code.");
 
             if (billStateCode.HasValue && !Enum.IsDefined(typeof(GstState), billStateCode.Value))
                 throw new Exception("Invalid Bill State Code.");
@@ -895,153 +787,280 @@ namespace FinVentoryAPI.Services.Implementations
             if (billAddressId.HasValue)
             {
                 var billExists = await _context.BusinessPartnerAddresses
-                    .AnyAsync(x => x.BPAddressId == billAddressId &&
-                                   x.BusinessPartnerId == businessPartnerId);
+                    .AnyAsync(x =>
+                        x.BPAddressId == billAddressId &&
+                        x.BusinessPartnerId == businessPartnerId);
                 if (!billExists)
                     throw new Exception("Bill Address not found for this Business Partner.");
             }
         }
 
         // ════════════════════════════════════════════════════
-        // PRIVATE — Generate return number
+        // PRIVATE HELPERS — Tax Calculation
+        // Same logic as PurchaseInvoiceService.BuildDetailWithTaxAsync
+        // ════════════════════════════════════════════════════
+        private async Task<PurchaseReturnDetail> BuildDetailWithTaxAsync(
+            CreatePurchaseReturnDetailDto lineDto, int userId,
+            int? purchaseStateCode, int? billStateCode)
+        {
+            var item = await _context.Items
+                .Include(i => i.Hsn).ThenInclude(h => h!.tax)
+                .FirstOrDefaultAsync(i => i.ItemId == lineDto.ItemId && !i.IsDeleted)
+                ?? throw new Exception($"Item {lineDto.ItemId} not found.");
+
+            if (item.HSNCodeId == 0)
+                throw new Exception($"Item '{item.ItemName}' has no HSN Code assigned.");
+            if (item.Hsn == null)
+                throw new Exception($"Item '{item.ItemName}' — HSN (Id: {item.HSNCodeId}) not found.");
+            if (item.Hsn.tax == null)
+                throw new Exception($"HSN '{item.Hsn.HsnName}' has no Tax assigned.");
+
+            var hsn = item.Hsn;
+            var tax = hsn.tax;
+
+            decimal grossAmount = lineDto.Rate * lineDto.Qty;
+            decimal discountAmt = Math.Round(grossAmount * lineDto.DiscountRate / 100, 2);
+            decimal afterFirst = grossAmount - discountAmt;
+            decimal addisDiscAmt = Math.Round(afterFirst * lineDto.AddisDiscountRate / 100, 2);
+            decimal taxableAmount = afterFirst - addisDiscAmt;
+
+            bool isIntraState = (purchaseStateCode.HasValue && billStateCode.HasValue)
+                ? purchaseStateCode.Value == billStateCode.Value : true;
+
+            if (lineDto.IsTaxIncluded)
+            {
+                decimal totalTaxRate = isIntraState
+                    ? (tax.CGST + tax.SGST) : tax.IGST;
+                if (totalTaxRate > 0)
+                    taxableAmount = Math.Round(taxableAmount / (1 + totalTaxRate / 100), 2);
+            }
+
+            decimal igstAmount = !isIntraState ? Math.Round(taxableAmount * tax.IGST / 100, 2) : 0;
+            decimal cgstAmount = isIntraState ? Math.Round(taxableAmount * tax.CGST / 100, 2) : 0;
+            decimal sgstAmount = isIntraState ? Math.Round(taxableAmount * tax.SGST / 100, 2) : 0;
+            decimal cessRate = hsn.Cess ?? 0;
+            decimal cessAmount = Math.Round(taxableAmount * cessRate / 100, 2);
+            decimal lineTaxAmt = igstAmount + cgstAmount + sgstAmount + cessAmount;
+
+            return new PurchaseReturnDetail
+            {
+                ItemId = lineDto.ItemId,
+                HsnId = hsn.HsnId,
+                HsnCode = hsn.HsnName,
+                PriceType = lineDto.PriceType,
+                Qty = lineDto.Qty,
+                Rate = lineDto.Rate,
+                DiscountRate = lineDto.DiscountRate,
+                AddisDiscountRate = lineDto.AddisDiscountRate,
+                DiscountAmount = discountAmt,
+                AddisDiscountAmount = addisDiscAmt,
+                IsTaxIncluded = lineDto.IsTaxIncluded,
+                TaxableAmount = taxableAmount,
+                CessRate = cessRate,
+                CessAmount = cessAmount,
+                LineTaxAmount = lineTaxAmt,
+                LineTotal = taxableAmount + lineTaxAmt,
+                TaxDetails = new List<PurchaseReturnTaxDetail>
+                {
+                    new()
+                    {
+                        TaxId                = tax.TaxId,
+                        IGSTRate             = isIntraState ? 0        : tax.IGST,
+                        CGSTRate             = isIntraState ? tax.CGST : 0,
+                        SGSTRate             = isIntraState ? tax.SGST : 0,
+                        TaxableAmount        = taxableAmount,
+                        IGSTAmount           = igstAmount,
+                        CGSTAmount           = cgstAmount,
+                        SGSTAmount           = sgstAmount,
+                        CessRate             = cessRate,
+                        CessAmount           = cessAmount,
+                        TotalTaxAmount       = lineTaxAmt,
+                        IGSTPostingAccountId = isIntraState ? null : tax.IGSTPostingAccountId,
+                        CGSTPostingAccountId = isIntraState ? tax.CGSTPostingAccountId : null,
+                        SGSTPostingAccountId = isIntraState ? tax.SGSTPostingAccountId : null,
+                        CessPostingAccountId = hsn.CessPostingAc
+                    }
+                }
+            };
+        }
+
+        // ════════════════════════════════════════════════════
+        // PRIVATE HELPERS — Return Number
         // ════════════════════════════════════════════════════
         private async Task<string> GenerateReturnNoAsync(int companyId, int finYearId)
         {
             var financialYear = await _context.FinancialYears
                 .FirstOrDefaultAsync(x => x.FinancialYearId == finYearId);
+
             var yearLabel = financialYear != null
                 ? $"{financialYear.StartDate.Year % 100}{financialYear.EndDate.Year % 100}"
                 : finYearId.ToString();
-            var count = await _context.SalesReturnMains
-                .CountAsync(x => x.CompanyId == companyId &&
-                                 x.FinYearId == finYearId &&
-                                 !x.IsDeleted);
-            return $"SR-{yearLabel}-{(count + 1):D4}";
+
+            var count = await _context.PurchaseReturnMains
+                .CountAsync(x =>
+                    x.CompanyId == companyId &&
+                    x.FinYearId == finYearId &&
+                    !x.IsDeleted);
+
+            return $"PR-{yearLabel}-{(count + 1):D4}";
         }
 
         // ════════════════════════════════════════════════════
-        // PRIVATE — Stock Ledger
+        // PRIVATE HELPERS — Stock Ledger
+        // Purchase Return = stock OUT (negative qty), opposite of Purchase Invoice
         // ════════════════════════════════════════════════════
-        private async Task PostStockLedgerAsync(SalesReturnMain main, bool isReversal)
+        private async Task PostStockLedgerAsync(PurchaseReturnMain main, bool isReversal)
         {
             if (main.Details == null || !main.Details.Any()) return;
+
             var lines = main.Details.Select(d => new StockLedgerLineDto
             {
                 ItemId = d.ItemId,
-                Qty = isReversal ? -d.Qty : d.Qty,
+                Qty = isReversal ? d.Qty : -d.Qty,  // negative = stock OUT on return
                 Rate = d.Rate,
-                Remarks = $"Sales Return: {main.ReturnNo}"
+                Remarks = $"Purchase Return: {main.ReturnNo}"
             }).ToList();
+
             await _stockLedger.AddEntriesAsync(
-                companyId: main.CompanyId, warehouseId: null,
-                date: main.ReturnDate, voucherType: "Sales Return",
-                voucherNo: main.ReturnNo, businessPartnerId: main.BusinessPartnerId,
-                lines: lines, createdBy: (int?)main.CreatedBy);
+                companyId: main.CompanyId,
+                warehouseId: null,
+                date: main.ReturnDate,
+                voucherType: "Purchase Return",
+                voucherNo: main.ReturnNo,
+                businessPartnerId: main.BusinessPartnerId,
+                lines: lines,
+                createdBy: (int?)main.CreatedBy);
         }
 
-        private async Task UpdateStockLedgerAsync(SalesReturnMain main)
+        private async Task UpdateStockLedgerAsync(PurchaseReturnMain main)
         {
             if (main.Details == null || !main.Details.Any()) return;
+
             var lines = main.Details.Select(d => new StockLedgerLineDto
             {
                 ItemId = d.ItemId,
-                Qty = d.Qty,
+                Qty = -d.Qty,
                 Rate = d.Rate,
-                Remarks = $"Sales Return: {main.ReturnNo}"
+                Remarks = $"Purchase Return: {main.ReturnNo}"
             }).ToList();
+
             await _stockLedger.UpdateEntriesAsync(
-                companyId: main.CompanyId, warehouseId: null,
-                date: main.ReturnDate, voucherType: "Sales Return",
-                voucherNo: main.ReturnNo, businessPartnerId: main.BusinessPartnerId,
-                lines: lines, modifiedBy: (int?)main.ModifiedBy);
+                companyId: main.CompanyId,
+                warehouseId: null,
+                date: main.ReturnDate,
+                voucherType: "Purchase Return",
+                voucherNo: main.ReturnNo,
+                businessPartnerId: main.BusinessPartnerId,
+                lines: lines,
+                modifiedBy: (int?)main.ModifiedBy);
         }
 
         // ════════════════════════════════════════════════════
-        // PRIVATE — Account Ledger
+        // PRIVATE HELPERS — Account Ledger
+        // Purchase Return journal (opposite of Purchase Invoice):
+        //   Cr  Purchase Account       (reverse the expense)
+        //   Cr  Tax Input Accounts     (reverse IGST/CGST/SGST input credit)
+        //   Dr  Supplier (AP) Account  (reduce payable)
         // ════════════════════════════════════════════════════
-        private async Task PostAccountLedgerAsync(SalesReturnMain main, bool isReversal)
+        private async Task PostAccountLedgerAsync(PurchaseReturnMain main, bool isReversal)
         {
             var bp = main.BusinessPartner
                 ?? await _context.BusinessPartners
                     .FirstOrDefaultAsync(x => x.BusinessPartnerId == main.BusinessPartnerId);
             if (bp == null) return;
+
             var lines = BuildAccountLedgerLines(main, bp, isReversal);
             await _accountLedger.AddEntriesAsync(
-                companyId: main.CompanyId, financialYearId: main.FinYearId,
-                date: main.ReturnDate, voucherType: "Sales Return",
-                voucherNo: main.ReturnNo, lines: lines, createdBy: (int?)main.CreatedBy);
+                companyId: main.CompanyId,
+                financialYearId: main.FinYearId,
+                date: main.ReturnDate,
+                voucherType: "Purchase Return",
+                voucherNo: main.ReturnNo,
+                lines: lines,
+                createdBy: (int?)main.CreatedBy);
         }
 
-        private async Task UpdateAccountLedgerAsync(SalesReturnMain main)
+        private async Task UpdateAccountLedgerAsync(PurchaseReturnMain main)
         {
             var bp = main.BusinessPartner
                 ?? await _context.BusinessPartners
                     .FirstOrDefaultAsync(x => x.BusinessPartnerId == main.BusinessPartnerId);
             if (bp == null) return;
+
             var lines = BuildAccountLedgerLines(main, bp, isReversal: false);
             await _accountLedger.UpdateEntriesAsync(
-                companyId: main.CompanyId, financialYearId: main.FinYearId,
-                date: main.ReturnDate, voucherType: "Sales Return",
-                voucherNo: main.ReturnNo, lines: lines, modifiedBy: (int?)main.ModifiedBy);
+                companyId: main.CompanyId,
+                financialYearId: main.FinYearId,
+                date: main.ReturnDate,
+                voucherType: "Purchase Return",
+                voucherNo: main.ReturnNo,
+                lines: lines,
+                modifiedBy: (int?)main.ModifiedBy);
         }
 
         private List<AccountLedgerLineDto> BuildAccountLedgerLines(
-            SalesReturnMain main, BusinessPartner bp, bool isReversal)
+            PurchaseReturnMain main, BusinessPartner bp, bool isReversal)
         {
             var lines = new List<AccountLedgerLineDto>
             {
+                // Supplier (AP) — Debit on return (reduce payable)
                 new() {
                     AccountId         = bp.AccountId,
                     BusinessPartnerId = main.BusinessPartnerId,
-                    Debit             = isReversal ? main.NetTotal : 0,
-                    Credit            = isReversal ? 0 : main.NetTotal,
-                    Remarks           = $"Sales Return: {main.ReturnNo}"
+                    Debit             = isReversal ? 0 : main.NetTotal,
+                    Credit            = isReversal ? main.NetTotal : 0,
+                    Remarks           = $"Purchase Return: {main.ReturnNo}"
                 },
+                // Purchase Account — Credit on return (reverse expense)
                 new() {
-                    AccountId         = main.SalesAccountId,
+                    AccountId         = main.PurchaseAccountId,
                     BusinessPartnerId = main.BusinessPartnerId,
-                    Debit             = isReversal ? 0 : main.SubTotal,
-                    Credit            = isReversal ? main.SubTotal : 0,
-                    Remarks           = $"Sales Return: {main.ReturnNo}"
+                    Debit             = isReversal ? main.SubTotal : 0,
+                    Credit            = isReversal ? 0 : main.SubTotal,
+                    Remarks           = $"Purchase Return: {main.ReturnNo}"
                 }
             };
 
             if (main.TaxDetails != null && main.TaxDetails.Any())
             {
                 void AddTaxLines(
-                    Func<SalesReturnTaxDetail, int?> getAccountId,
-                    Func<SalesReturnTaxDetail, decimal> getAmount,
+                    Func<PurchaseReturnTaxDetail, int?> getAccountId,
+                    Func<PurchaseReturnTaxDetail, decimal> getAmount,
                     string label)
                 {
                     var groups = main.TaxDetails
-                        .Where(t => getAccountId(t).HasValue &&
-                                    getAccountId(t)!.Value > 0 &&
-                                    getAmount(t) > 0)
+                        .Where(t => getAccountId(t).HasValue
+                                 && getAccountId(t)!.Value > 0
+                                 && getAmount(t) > 0)
                         .GroupBy(t => getAccountId(t)!.Value);
+
                     foreach (var g in groups)
                         lines.Add(new AccountLedgerLineDto
                         {
                             AccountId = g.Key,
                             BusinessPartnerId = main.BusinessPartnerId,
-                            Debit = isReversal ? 0 : g.Sum(getAmount),
-                            Credit = isReversal ? g.Sum(getAmount) : 0,
-                            Remarks = $"{label} Return - Sales Return: {main.ReturnNo}"
+                            // Input tax reversed → Credit on return (reduce ITC)
+                            Debit = isReversal ? g.Sum(getAmount) : 0,
+                            Credit = isReversal ? 0 : g.Sum(getAmount),
+                            Remarks = $"{label} Input Return - Purchase Return: {main.ReturnNo}"
                         });
                 }
+
                 AddTaxLines(t => t.IGSTPostingAccountId, t => t.IGSTAmount, "IGST");
                 AddTaxLines(t => t.CGSTPostingAccountId, t => t.CGSTAmount, "CGST");
                 AddTaxLines(t => t.SGSTPostingAccountId, t => t.SGSTAmount, "SGST");
                 AddTaxLines(t => t.CessPostingAccountId, t => t.CessAmount, "Cess");
             }
+
             return lines;
         }
 
         // ════════════════════════════════════════════════════
-        // PRIVATE — Map to response DTO
+        // PRIVATE HELPERS — Mapping
         // ════════════════════════════════════════════════════
-        private SalesReturnResponseDto MapToResponseDto(SalesReturnMain main)
+        private PurchaseReturnResponseDto MapToResponseDto(PurchaseReturnMain main)
         {
-            return new SalesReturnResponseDto
+            return new PurchaseReturnResponseDto
             {
                 ReturnId = main.ReturnId,
                 FinYearId = main.FinYearId,
@@ -1055,9 +1074,9 @@ namespace FinVentoryAPI.Services.Implementations
                 BusinessPartnerName = main.BusinessPartner?.BusinessPartnerName ?? string.Empty,
                 LocationId = main.LocationId,
                 LocationName = main.Location?.LocationName ?? string.Empty,
-                SalesAccountId = main.SalesAccountId,
-                SalesAccountName = main.SalesAccount?.AccountName ?? string.Empty,
-                SalesStateCode = main.SalesStateCode,
+                PurchaseAccountId = main.PurchaseAccountId,
+                PurchaseAccountName = main.PurchaseAccount?.AccountName ?? string.Empty,
+                PurchaseStateCode = main.PurchaseStateCode,
                 BillStateCode = main.BillStateCode,
                 BillAddressId = main.BillAddressId,
                 BillAddressLine = FormatAddress(main.BillAddress),
@@ -1073,7 +1092,7 @@ namespace FinVentoryAPI.Services.Implementations
                 ModifiedBy = main.ModifiedBy,
                 ModifiedDate = main.ModifiedDate,
 
-                Details = main.Details?.Select(d => new SalesReturnDetailResponseDto
+                Details = main.Details?.Select(d => new PurchaseReturnDetailResponseDto
                 {
                     DetailId = d.DetailId,
                     ReturnId = d.ReturnId,
@@ -1096,6 +1115,7 @@ namespace FinVentoryAPI.Services.Implementations
                     LineTaxAmount = d.LineTaxAmount,
                     LineTotal = d.LineTotal,
                     ItemManageBy = d.Item?.ItemManageBy.ToString(),
+
                     Batches = d.Batches?.Select(b => new ReturnBatchResponseDto
                     {
                         Id = b.Id,
@@ -1105,6 +1125,7 @@ namespace FinVentoryAPI.Services.Implementations
                         ExpiryDate = b.Batch?.ExpiryDate,
                         Qty = b.Qty
                     }).ToList(),
+
                     Serials = d.Serials?.Select(s => new ReturnSerialResponseDto
                     {
                         Id = s.Id,
@@ -1113,13 +1134,14 @@ namespace FinVentoryAPI.Services.Implementations
                         SerialNo = s.Serial?.SerialNo,
                         Status = s.Serial?.Status.ToString()
                     }).ToList(),
+
                     TaxDetails = d.TaxDetails?.Select(MapTaxDetailDto).ToList()
-                }).ToList() ?? new List<SalesReturnDetailResponseDto>(),
+                }).ToList() ?? new List<PurchaseReturnDetailResponseDto>(),
 
                 TaxDetails = main.Details?
                     .Where(d => d.TaxDetails != null)
                     .SelectMany(d => d.TaxDetails!.Select(MapTaxDetailDto))
-                    .ToList() ?? new List<SalesReturnTaxDetailResponseDto>()
+                    .ToList() ?? new List<PurchaseReturnTaxDetailResponseDto>()
             };
         }
 
@@ -1132,7 +1154,7 @@ namespace FinVentoryAPI.Services.Implementations
                 addr.Pincode
             }.Where(x => !string.IsNullOrWhiteSpace(x)));
 
-        private static SalesReturnTaxDetailResponseDto MapTaxDetailDto(SalesReturnTaxDetail td) =>
+        private static PurchaseReturnTaxDetailResponseDto MapTaxDetailDto(PurchaseReturnTaxDetail td) =>
             new()
             {
                 TaxDetailId = td.TaxDetailId,
@@ -1153,7 +1175,10 @@ namespace FinVentoryAPI.Services.Implementations
 
         private async Task SaveChangesAsync()
         {
-            try { await _context.SaveChangesAsync(); }
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
             catch (DbUpdateException ex)
             {
                 var inner = ex.InnerException?.Message ?? ex.Message;

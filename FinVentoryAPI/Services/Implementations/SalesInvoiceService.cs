@@ -940,6 +940,134 @@ namespace FinVentoryAPI.Services.Implementations
         }
 
         // ════════════════════════════════════════════════════
+        // COPY FROM GOODS DELIVERY (one or more deliveries)
+        // ════════════════════════════════════════════════════
+        public async Task<InvoicePrefillDto> GetInvoicePrefillFromDeliveryAsync(List<int> deliveryIds)
+        {
+            var companyId = _common.GetCompanyId();
+
+            if (!deliveryIds.Any())
+                throw new Exception("At least one delivery must be selected.");
+
+            var deliveries = await _context.GoodsDeliveryMains
+                .AsNoTracking()
+                .Where(x =>
+                    deliveryIds.Contains(x.DeliveryId) &&
+                    x.CompanyId == companyId &&
+                    x.Status == "Confirmed" &&
+                    !x.IsDeleted)
+                .Include(x => x.Details!).ThenInclude(d => d.Item)
+                .Include(x => x.Details!).ThenInclude(d => d.Hsn).ThenInclude(h => h!.tax)
+                .Include(x => x.Details!).ThenInclude(d => d.TaxDetails!).ThenInclude(td => td.Tax)
+                .ToListAsync();
+
+            if (deliveries.Count != deliveryIds.Count)
+                throw new Exception("One or more deliveries not found or not in Confirmed status.");
+
+            var bpIds = deliveries.Select(d => d.BusinessPartnerId).Distinct().ToList();
+            if (bpIds.Count > 1)
+                throw new Exception("All selected deliveries must belong to the same customer.");
+
+            // ── Already-invoiced qty map (so partial invoicing across multiple deliveries works) ──
+            var allDetailIds = deliveries
+                .SelectMany(d => d.Details!.Select(x => x.DeliveryDetailId))
+                .ToList();
+
+            var invoicedQtyMap = await GetInvoicedQtyByDeliveryDetailMapAsync(allDetailIds, companyId);
+
+            var firstDelivery = deliveries[0];
+            var prefillDetails = new List<InvoicePrefillDetailDto>();
+
+            foreach (var delivery in deliveries)
+            {
+                foreach (var d in delivery.Details ?? Enumerable.Empty<GoodsDeliveryDetail>())
+                {
+                    var alreadyInvoiced = invoicedQtyMap.GetValueOrDefault(d.DeliveryDetailId, 0m);
+                    var pending = d.DeliveryQty - alreadyInvoiced;
+
+                    if (pending <= 0) continue;
+
+                    bool isIntra = (firstDelivery.SalesStateCode.HasValue && firstDelivery.BillStateCode.HasValue)
+                        ? firstDelivery.SalesStateCode.Value == firstDelivery.BillStateCode.Value
+                        : true;
+
+                    var deliveryTax = d.TaxDetails?.FirstOrDefault();
+                    bool hasHsn = d.HsnId != 0;
+                    var hsnTax = d.Hsn?.tax;
+
+                    decimal hsnIgst = isIntra ? 0 : (hsnTax?.IGST ?? 0);
+                    decimal hsnCgst = isIntra ? (hsnTax?.CGST ?? 0) : 0;
+                    decimal hsnSgst = isIntra ? (hsnTax?.SGST ?? 0) : 0;
+                    decimal hsnCess = d.Hsn?.Cess ?? 0;
+
+                    bool isManualTax = !hasHsn;
+                    int? manualTaxId = null;
+
+                    if (deliveryTax != null)
+                    {
+                        bool ratesDiffer =
+                            deliveryTax.IGSTRate != hsnIgst ||
+                            deliveryTax.CGSTRate != hsnCgst ||
+                            deliveryTax.SGSTRate != hsnSgst ||
+                            deliveryTax.CessRate != hsnCess ||
+                            deliveryTax.TaxId != (hsnTax?.TaxId ?? 0);
+
+                        if (!hasHsn || ratesDiffer)
+                        {
+                            isManualTax = true;
+                            manualTaxId = deliveryTax.TaxId;
+                        }
+                    }
+
+                    prefillDetails.Add(new InvoicePrefillDetailDto
+                    {
+                        DeliveryId = delivery.DeliveryId,
+                        DeliveryNo = delivery.DeliveryNo,
+                        DeliveryDetailId = d.DeliveryDetailId,
+                        OrderId = d.OrderId,
+                        OrderDetailId = d.OrderDetailId,
+                        ItemId = d.ItemId,
+                        ItemName = d.Item?.ItemName ?? string.Empty,
+                        ItemCode = d.Item?.ItemCode,
+                        HsnId = d.HsnId,
+                        HsnCode = d.HsnCode,
+                        PriceType = d.PriceType,
+                        DeliveredQty = d.DeliveryQty,
+                        PreviouslyInvoicedQty = alreadyInvoiced,
+                        PendingQty = pending,
+                        SuggestedQty = pending,
+                        Rate = d.Rate,
+                        DiscountRate = d.DiscountRate,
+                        AddisDiscountRate = d.AddisDiscountRate,
+                        IsTaxIncluded = d.IsTaxIncluded,
+
+                        CgstRate = isManualTax ? (deliveryTax?.CGSTRate ?? 0) : hsnCgst,
+                        SgstRate = isManualTax ? (deliveryTax?.SGSTRate ?? 0) : hsnSgst,
+                        IgstRate = isManualTax ? (deliveryTax?.IGSTRate ?? 0) : hsnIgst,
+                        CessRate = isManualTax ? (deliveryTax?.CessRate ?? 0) : hsnCess,
+
+                        IsManualTax = isManualTax,
+                        ManualTaxId = manualTaxId
+                    });
+                }
+            }
+
+            return new InvoicePrefillDto
+            {
+                BusinessPartnerId = firstDelivery.BusinessPartnerId,
+                LocationId = firstDelivery.LocationId,
+                ContactPersonId = firstDelivery.ContactPersonId,
+                SalesPersonId = firstDelivery.SalesPersonId,
+                BillAddressId = firstDelivery.BillAddressId,
+                ShipAddressId = firstDelivery.ShipAddressId,
+                SalesStateCode = firstDelivery.SalesStateCode,
+                BillStateCode = firstDelivery.BillStateCode,
+                Details = prefillDetails
+            };
+        }
+
+
+        // ════════════════════════════════════════════════════
         // PRIVATE HELPERS — existing (unchanged)
         // ════════════════════════════════════════════════════
 
@@ -1413,6 +1541,28 @@ namespace FinVentoryAPI.Services.Implementations
                 var inner = ex.InnerException?.Message ?? ex.Message;
                 throw new Exception($"Database error: {inner}");
             }
+        }
+
+        // ════════════════════════════════════════════════════
+        // PRIVATE — already-invoiced qty per delivery detail
+        // NOTE: requires SalesInvoiceDetail to carry DeliveryDetailId
+        // ════════════════════════════════════════════════════
+        private async Task<Dictionary<int, decimal>> GetInvoicedQtyByDeliveryDetailMapAsync(
+            List<int> deliveryDetailIds, int companyId)
+        {
+            if (!deliveryDetailIds.Any())
+                return new Dictionary<int, decimal>();
+
+            return await _context.SalesInvoiceDetails
+                .Where(d =>
+                    d.DeliveryDetailId.HasValue &&
+                    deliveryDetailIds.Contains(d.DeliveryDetailId.Value) &&
+                    d.Invoice!.CompanyId == companyId &&
+                    d.Invoice.Status != "Cancelled" &&
+                    !d.Invoice.IsDeleted)
+                .GroupBy(d => d.DeliveryDetailId!.Value)
+                .Select(g => new { DeliveryDetailId = g.Key, Total = g.Sum(x => x.Qty) })
+                .ToDictionaryAsync(x => x.DeliveryDetailId, x => x.Total);
         }
     }
 }
