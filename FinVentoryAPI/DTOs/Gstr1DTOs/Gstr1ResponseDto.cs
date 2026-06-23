@@ -27,7 +27,7 @@ namespace FinVentoryAPI.DTOs.Gstr1DTOs
         public Gstr1NilExemptDto NilExempt { get; set; } = new();
 
         /// <summary>12 — HSN-wise summary of outward supplies</summary>
-        public List<Gstr1HsnSummaryRowDto> HsnSummary { get; set; } = new();
+        public List<Gstr1HsnRowDto> HsnSummary { get; set; } = new();
 
         /// <summary>13 — Documents issued (invoice series count)</summary>
         public List<Gstr1DocumentIssuedDto> DocumentsIssued { get; set; } = new();
