@@ -30,6 +30,9 @@ namespace FinVentoryAPI.DTOs.SalesInvoiceDTOs
 
         public bool IsTaxIncluded { get; set; }
 
+        public int? DeliveryId { get; set; }
+        public int? DeliveryDetailId { get; set; }
+
         // ── Batch / Serial ────────────────────────────────
         // Required only when Item.ItemManageBy == Batch.
         // Sum of Qty across all entries must equal Qty above.

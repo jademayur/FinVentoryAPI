@@ -129,9 +129,12 @@ namespace FinVentoryAPI.Controllers
             }
         }
 
-        // ─────────────────────────────────────────────────────────────────────────────
-        // Add these two endpoints to your existing SalesInvoiceController
-        // ─────────────────────────────────────────────────────────────────────────────
+        [HttpPost("prefill-from-delivery")]
+        public async Task<IActionResult> GetDeliveryPrefill([FromBody] List<int> orderIds)
+        {
+            var result = await _service.GetInvoicePrefillFromDeliveryAsync(orderIds);
+            return Ok(result);
+        }
 
         // GET /api/SalesInvoice/by-customer/{businessPartnerId}
         // Returns a lightweight list of invoices for the "Copy from Invoice" modal

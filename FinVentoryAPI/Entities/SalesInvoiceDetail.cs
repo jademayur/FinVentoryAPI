@@ -30,6 +30,9 @@ namespace FinVentoryAPI.Entities
         public decimal LineTaxAmount { get; set; }   // IGST/CGST/SGST + Cess
         public decimal LineTotal { get; set; }       // TaxableAmount + LineTaxAmount
 
+        public int? DeliveryId { get; set; }
+        public int? DeliveryDetailId { get; set; }
+
         // Navigation
         public SalesInvoiceMain? Invoice { get; set; }
         public Item? Item { get; set; }

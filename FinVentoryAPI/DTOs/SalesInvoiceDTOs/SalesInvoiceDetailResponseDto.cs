@@ -32,6 +32,10 @@
         public decimal LineTotal { get; set; }
         public string? ItemManageBy { get; set; }
 
+        public int? DeliveryId { get; set; }
+        public string? DeliveryNo { get; set; }
+        public int? DeliveryDetailId { get; set; }
+
         // ── Batch / Serial allocations ────────────────────
         public List<SalesInvoiceDetailBatchResponseDto>? Batches { get; set; }
         public List<SalesInvoiceDetailSerialResponseDto>? Serials { get; set; }
