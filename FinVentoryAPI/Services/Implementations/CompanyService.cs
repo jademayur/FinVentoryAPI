@@ -14,11 +14,13 @@ namespace FinVentoryAPI.Services.Implementations
     {
         private readonly AppDbContext appDbContext;
         private readonly Common _common;
+        private readonly ICompanySeedService _seedService;
 
-        public CompanyService(AppDbContext appDbContext, Common common)
+        public CompanyService(AppDbContext appDbContext, Common common, ICompanySeedService seedService)
         {
             this.appDbContext = appDbContext;
             _common = common;
+            _seedService = seedService;
         }
 
         public async Task<CompanyResponseDto> CreateCompanyAsync(CompanyCreateDto dto, int userId)
@@ -40,6 +42,9 @@ namespace FinVentoryAPI.Services.Implementations
 
             appDbContext.Companies.Add(company);
             await appDbContext.SaveChangesAsync();
+
+            // wherever you create a company — after SaveChangesAsync() gives you the Id:
+            var seedResult = await _seedService.SeedAllAsync(company.CompanyId, _common.GetUserId());
 
             return MapToResponse(company);
         }

@@ -32,48 +32,49 @@ namespace FinVentoryAPI.Services.Implementations
             if (!BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
                 return null;
 
-            // If Platform Admin
             if (user.IsPlatformAdmin)
             {
                 return new
                 {
                     userId = user.UserId,
                     isPlatformAdmin = true,
-                    companies = new List<object>(),
-                    financialYears = new List<object>(),
+                    companies = new List<object>()
                 };
             }
 
-            // Get assigned companies
-            var companies = await _context.UserCompany
-                .Where(x => x.UserId == user.UserId )
-                .Include(x => x.Company)
-                .Select(x => new
-                {
-                    x.CompanyId,
-                    x.Company.CompanyName
-                })
-                .ToListAsync();
-
-            //get assigned years
-            var years = await _context.UserCompany
+            // ── Single query, group by company ──
+            var records = await _context.UserCompany
                 .Where(x => x.UserId == user.UserId)
+                .Include(x => x.Company)
                 .Include(x => x.FinancialYear)
                 .Select(x => new
                 {
+                    x.CompanyId,
+                    x.Company.CompanyName,
                     x.FinancialYearId,
                     x.FinancialYear.YearName
                 })
                 .ToListAsync();
 
-
+            var companies = records
+                .GroupBy(x => new { x.CompanyId, x.CompanyName })
+                .Select(g => new
+                {
+                    companyId = g.Key.CompanyId,
+                    companyName = g.Key.CompanyName,
+                    years = g.Select(y => new
+                    {
+                        financialYearId = y.FinancialYearId,
+                        yearName = y.YearName
+                    }).ToList()
+                })
+                .ToList();
 
             return new
             {
                 userId = user.UserId,
                 isPlatformAdmin = false,
-                companies,
-                years
+                companies
             };
         }
 

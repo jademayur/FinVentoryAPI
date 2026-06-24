@@ -473,6 +473,12 @@ namespace FinVentoryAPI.Services.Implementations
                 .Where(x => x.BusinessPartnerId == businessPartnerId)
                 .ToListAsync();
 
+            var bp = await _context.BusinessPartners
+       .FirstOrDefaultAsync(x =>
+           x.BusinessPartnerId == businessPartnerId &&
+           x.CompanyId == companyId &&
+           !x.IsDeleted);
+
             var commonAddresses = allAddresses.Where(x => x.Type == AddressType.Common).ToList();
             var billingAddresses = allAddresses.Where(x => x.Type == AddressType.Billing).ToList();
             var shippingAddresses = allAddresses.Where(x => x.Type == AddressType.Shipping).ToList();
@@ -503,7 +509,9 @@ namespace FinVentoryAPI.Services.Implementations
                 DefaultContact = defaultContact != null ? MapContact(defaultContact) : null,
                 BillAddresses = MapAddresses(billList),
                 ShipAddresses = MapAddresses(shipList),
-                Contacts = MapContacts(allContacts)
+                Contacts = MapContacts(allContacts),
+                
+                DefaultPriceType = string.IsNullOrWhiteSpace(bp.DefaultPriceType) ? "Sales" : bp.DefaultPriceType
             };
         }
 
@@ -583,6 +591,7 @@ namespace FinVentoryAPI.Services.Implementations
                 GSTType = a.GSTType.ToString(),
                 GSTNo = a.GSTNo,
                 IsDefault = a.IsDefault
+                
             };
         }
 
