@@ -90,7 +90,7 @@ namespace FinVentoryAPI.Controllers
             try
             {
                 var result = await _service.GetPagedAsync(request);
-                return Ok(result);
+                return Ok(new { success = true, data = result });
             }
             catch (Exception ex)
             {

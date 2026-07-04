@@ -33,7 +33,7 @@ namespace FinVentoryAPI.Services.Implementations
             await ValidateHeaderAsync(
                 dto.BusinessPartnerId, dto.LocationId, companyId,
                 dto.PurchaseStateCode, dto.BillStateCode,
-                dto.ContactPersonId, 
+                dto.ContactPersonId,
                 dto.BillAddressId, dto.ShipAddressId);
 
             var orderNo = await GenerateOrderNoAsync(companyId, finYearId);
@@ -131,10 +131,10 @@ namespace FinVentoryAPI.Services.Implementations
             await ValidateHeaderAsync(
                 dto.BusinessPartnerId, dto.LocationId, companyId,
                 dto.PurchaseStateCode, dto.BillStateCode,
-                dto.ContactPersonId, 
+                dto.ContactPersonId,
                 dto.BillAddressId, dto.ShipAddressId);
 
-            // Build incoming detail objects (fresh tax calc)
+            // ── Build incoming details — now passes manual-tax fields ───────────
             var incomingDetails = new List<PurchaseOrderDetail>();
             foreach (var lineDto in dto.Details)
             {
@@ -146,7 +146,12 @@ namespace FinVentoryAPI.Services.Implementations
                     Rate = lineDto.Rate,
                     DiscountRate = lineDto.DiscountRate,
                     AddisDiscountRate = lineDto.AddisDiscountRate,
-                    IsTaxIncluded = lineDto.IsTaxIncluded
+                    IsTaxIncluded = lineDto.IsTaxIncluded,
+                    ManualTaxId = lineDto.ManualTaxId,
+                    ManualIgstRate = lineDto.ManualIgstRate,
+                    ManualCgstRate = lineDto.ManualCgstRate,
+                    ManualSgstRate = lineDto.ManualSgstRate,
+                    ManualCessRate = lineDto.ManualCessRate,
                 };
                 incomingDetails.Add(await BuildDetailWithTaxAsync(
                     createDto, dto.PurchaseStateCode, dto.BillStateCode));
@@ -165,7 +170,7 @@ namespace FinVentoryAPI.Services.Implementations
                 main.Remarks = dto.Remarks;
                 main.PurchaseStateCode = dto.PurchaseStateCode;
                 main.BillStateCode = dto.BillStateCode;
-                main.ContactPersonId = dto.ContactPersonId;                
+                main.ContactPersonId = dto.ContactPersonId;
                 main.BillAddressId = dto.BillAddressId;
                 main.ShipAddressId = dto.ShipAddressId;
                 main.ModifiedBy = userId;
@@ -179,7 +184,6 @@ namespace FinVentoryAPI.Services.Implementations
                 for (int i = 0; i < incomingDetails.Count; i++)
                 {
                     var incoming = incomingDetails[i];
-                    var incomingDto = dto.Details[i];
 
                     if (i < existingDetails.Count)
                     {
@@ -410,7 +414,7 @@ namespace FinVentoryAPI.Services.Implementations
                 .Where(x => x.CompanyId == companyId && !x.IsDeleted)
                 .Include(x => x.BusinessPartner)
                 .Include(x => x.Location)
-                .Include(x => x.ContactPerson)               
+                .Include(x => x.ContactPerson)
                 .Include(x => x.BillAddress)
                 .Include(x => x.ShipAddress)
                 .Include(x => x.Details!).ThenInclude(d => d.Item)
@@ -435,7 +439,7 @@ namespace FinVentoryAPI.Services.Implementations
                 .AsSplitQuery()
                 .Include(x => x.BusinessPartner)
                 .Include(x => x.Location)
-                .Include(x => x.ContactPerson)              
+                .Include(x => x.ContactPerson)
                 .Include(x => x.BillAddress)
                 .Include(x => x.ShipAddress)
                 .Include(x => x.Details!).ThenInclude(d => d.Item)
@@ -461,7 +465,7 @@ namespace FinVentoryAPI.Services.Implementations
                 .Where(x => x.CompanyId == companyId && !x.IsDeleted)
                 .Include(x => x.BusinessPartner)
                 .Include(x => x.Location)
-                .Include(x => x.ContactPerson)               
+                .Include(x => x.ContactPerson)
                 .Include(x => x.BillAddress)
                 .Include(x => x.ShipAddress)
                 .Include(x => x.Details!)
@@ -507,7 +511,6 @@ namespace FinVentoryAPI.Services.Implementations
                     var toDate = ((JsonElement)request.Filters["toDate"]).GetDateTime();
                     query = query.Where(x => x.OrderDate <= toDate);
                 }
-            
             }
 
             if (request.Sorts != null && request.Sorts.Any())
@@ -551,6 +554,11 @@ namespace FinVentoryAPI.Services.Implementations
 
         // ════════════════════════════════════════════════════
         // PRIVATE — Build detail + tax
+        // Supports both HSN-auto and manual-tax override.
+        // ManualTaxId == null  → use HSN-derived tax (item must have HSN).
+        // ManualTaxId == 0     → zero tax / export / exempt.
+        // ManualTaxId > 0      → specific tax master entry.
+        // Item with no HSN (HSNCodeId == 0) MUST always provide ManualTaxId.
         // ════════════════════════════════════════════════════
         private async Task<PurchaseOrderDetail> BuildDetailWithTaxAsync(
             CreatePurchaseOrderDetailDto lineDto,
@@ -561,12 +569,69 @@ namespace FinVentoryAPI.Services.Implementations
                 .FirstOrDefaultAsync(i => i.ItemId == lineDto.ItemId && !i.IsDeleted)
                 ?? throw new Exception($"Item {lineDto.ItemId} not found.");
 
-            if (item.HSNCodeId == 0) throw new Exception($"Item '{item.ItemName}' has no HSN Code assigned.");
-            if (item.Hsn == null) throw new Exception($"Item '{item.ItemName}' — HSN (Id: {item.HSNCodeId}) not found.");
-            if (item.Hsn.tax == null) throw new Exception($"HSN '{item.Hsn.HsnName}' has no Tax assigned.");
+            bool isIntraState = (purchaseStateCode.HasValue && billStateCode.HasValue)
+                ? purchaseStateCode.Value == billStateCode.Value
+                : true;
 
-            var hsn = item.Hsn;
-            var tax = hsn.tax;
+            int hsnId = 0;
+            string? hsnCode = null;
+            decimal igstRate, cgstRate, sgstRate, cessRate;
+            int taxId;
+
+            bool hasHsn = item.HSNCodeId != 0 && item.Hsn != null;
+
+            if (lineDto.ManualTaxId.HasValue)
+            {
+                // ── Manual tax override (with or without HSN) ──
+                hsnId = hasHsn ? item.Hsn!.HsnId : 0;
+                hsnCode = hasHsn ? item.Hsn!.HsnName : null;
+
+                if (lineDto.ManualTaxId.Value == 0)
+                {
+                    // 0% / export / exempt
+                    taxId = 0;
+                    igstRate = 0;
+                    cgstRate = 0;
+                    sgstRate = 0;
+                    cessRate = 0;
+                }
+                else
+                {
+                    // Re-query tax master for integrity
+                    var manualTax = await _context.Taxes
+                        .FirstOrDefaultAsync(t => t.TaxId == lineDto.ManualTaxId.Value)
+                        ?? throw new Exception($"Tax {lineDto.ManualTaxId.Value} not found.");
+
+                    taxId = manualTax.TaxId;
+                    igstRate = manualTax.IGST;
+                    cgstRate = manualTax.CGST;
+                    sgstRate = manualTax.SGST;
+                    cessRate = 0; // cess is per-HSN, not on tax master
+                }
+            }
+            else
+            {
+                // ── Auto: derive from item's HSN ──
+                if (item.HSNCodeId == 0) throw new Exception($"Item '{item.ItemName}' has no HSN Code assigned.");
+                if (item.Hsn == null) throw new Exception($"Item '{item.ItemName}' — HSN (Id: {item.HSNCodeId}) not found.");
+                if (item.Hsn.tax == null) throw new Exception($"HSN '{item.Hsn.HsnName}' has no Tax assigned.");
+
+                var hsn = item.Hsn;
+                var tax = hsn.tax;
+
+                hsnId = hsn.HsnId;
+                hsnCode = hsn.HsnName;
+                taxId = tax.TaxId;
+                igstRate = tax.IGST;
+                cgstRate = tax.CGST;
+                sgstRate = tax.SGST;
+                cessRate = hsn.Cess ?? 0;
+            }
+
+            // ── Apply intra/inter state ──
+            decimal effIgstRate = isIntraState ? 0 : igstRate;
+            decimal effCgstRate = isIntraState ? cgstRate : 0;
+            decimal effSgstRate = isIntraState ? sgstRate : 0;
 
             decimal grossAmount = lineDto.Rate * lineDto.Qty;
             decimal discountAmt = Math.Round(grossAmount * lineDto.DiscountRate / 100, 2);
@@ -574,31 +639,26 @@ namespace FinVentoryAPI.Services.Implementations
             decimal addisDiscAmt = Math.Round(afterFirst * lineDto.AddisDiscountRate / 100, 2);
             decimal taxableAmount = afterFirst - addisDiscAmt;
 
-            bool isIntraState = (purchaseStateCode.HasValue && billStateCode.HasValue)
-                ? purchaseStateCode.Value == billStateCode.Value
-                : true;
-
             if (lineDto.IsTaxIncluded)
             {
                 decimal totalTaxRate = isIntraState
-                    ? (tax.CGST + tax.SGST)
-                    : tax.IGST;
+                    ? (effCgstRate + effSgstRate)
+                    : effIgstRate;
                 if (totalTaxRate > 0)
                     taxableAmount = Math.Round(taxableAmount / (1 + totalTaxRate / 100), 2);
             }
 
-            decimal igstAmount = (!isIntraState) ? Math.Round(taxableAmount * tax.IGST / 100, 2) : 0;
-            decimal cgstAmount = (isIntraState) ? Math.Round(taxableAmount * tax.CGST / 100, 2) : 0;
-            decimal sgstAmount = (isIntraState) ? Math.Round(taxableAmount * tax.SGST / 100, 2) : 0;
-            decimal cessRate = hsn.Cess ?? 0;
-            decimal cessAmount = Math.Round(taxableAmount * cessRate / 100, 2);
+            decimal igstAmount = effIgstRate > 0 ? Math.Round(taxableAmount * effIgstRate / 100, 2) : 0;
+            decimal cgstAmount = effCgstRate > 0 ? Math.Round(taxableAmount * effCgstRate / 100, 2) : 0;
+            decimal sgstAmount = effSgstRate > 0 ? Math.Round(taxableAmount * effSgstRate / 100, 2) : 0;
+            decimal cessAmount = cessRate > 0 ? Math.Round(taxableAmount * cessRate / 100, 2) : 0;
             decimal lineTaxAmt = igstAmount + cgstAmount + sgstAmount + cessAmount;
 
             return new PurchaseOrderDetail
             {
                 ItemId = lineDto.ItemId,
-                HsnId = hsn.HsnId,
-                HsnCode = hsn.HsnName,
+                HsnId = hsnId,
+                HsnCode = hsnCode,
                 PriceType = lineDto.PriceType,
                 Qty = lineDto.Qty,
                 Rate = lineDto.Rate,
@@ -616,10 +676,10 @@ namespace FinVentoryAPI.Services.Implementations
                 {
                     new()
                     {
-                        TaxId          = tax.TaxId,
-                        IGSTRate       = isIntraState ? 0        : tax.IGST,
-                        CGSTRate       = isIntraState ? tax.CGST : 0,
-                        SGSTRate       = isIntraState ? tax.SGST : 0,
+                        TaxId          = taxId,
+                        IGSTRate       = effIgstRate,
+                        CGSTRate       = effCgstRate,
+                        SGSTRate       = effSgstRate,
                         TaxableAmount  = taxableAmount,
                         IGSTAmount     = igstAmount,
                         CGSTAmount     = cgstAmount,
@@ -638,7 +698,7 @@ namespace FinVentoryAPI.Services.Implementations
         private async Task ValidateHeaderAsync(
             int businessPartnerId, int locationId, int companyId,
             int? purchaseStateCode, int? billStateCode,
-            int? contactPersonId, 
+            int? contactPersonId,
             int? billAddressId, int? shipAddressId)
         {
             var bpExists = await _context.BusinessPartners
@@ -667,8 +727,6 @@ namespace FinVentoryAPI.Services.Implementations
                 if (!cpExists)
                     throw new Exception("Contact Person not found for this Business Partner.");
             }
-
-        
 
             if (billAddressId.HasValue)
             {
@@ -747,7 +805,7 @@ namespace FinVentoryAPI.Services.Implementations
                 ContactPersonId = main.ContactPersonId,
                 ContactPersonName = main.ContactPerson?.Name,
                 ContactPersonMobile = main.ContactPerson?.Mobile,
-              
+
                 BillAddressId = main.BillAddressId,
                 BillAddressLine = FormatAddress(main.BillAddress),
                 ShipAddressId = main.ShipAddressId,
