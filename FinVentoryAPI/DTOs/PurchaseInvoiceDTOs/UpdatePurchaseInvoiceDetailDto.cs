@@ -21,6 +21,9 @@ namespace FinVentoryAPI.DTOs.PurchaseInvoiceDTOs
         [Range(0, 100)] public decimal AddisDiscountRate { get; set; }
         public bool IsTaxIncluded { get; set; }
 
+        public int? GRNId { get; set; }
+        public int? GRNDetailId { get; set; }
+
         public List<PurchaseInvoiceBatchCreateDto>? Batches { get; set; }
         public List<PurchaseInvoiceSerialCreateDto>? Serials { get; set; }
     }
