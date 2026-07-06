@@ -68,5 +68,19 @@ namespace FinVentoryAPI.Controllers
             var result = await _service.GetPagedAsync(request);
             return Ok(result);
         }
+
+        [HttpGet("grns-for-supplier/{supplierId}")]
+        public async Task<IActionResult> GetGRNsForSupplier(int supplierId)
+        {
+            var result = await _service.GetGRNsForSupplierAsync(supplierId);
+            return Ok(result);
+        }
+
+        [HttpPost("prefill-from-grn")]
+        public async Task<IActionResult> GetInvoicePrefillFromGRN([FromBody] List<int> grnIds)
+        {
+            var result = await _service.GetInvoicePrefillFromGRNAsync(grnIds);
+            return Ok(result);
+        }
     }
 }

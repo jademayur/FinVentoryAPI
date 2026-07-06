@@ -620,6 +620,190 @@ namespace FinVentoryAPI.Services.Implementations
         }
 
         // ════════════════════════════════════════════════════
+        // GET GRNs FOR SUPPLIER  (picker dropdown)
+        // Returns only Confirmed GRNs with pending invoice qty.
+        // ════════════════════════════════════════════════════
+        public async Task<List<GRNPickerDto>> GetGRNsForSupplierAsync(int businessPartnerId)
+        {
+            var companyId = _common.GetCompanyId();
+
+            var grns = await _context.GRNMains
+                .Where(x =>
+                    x.CompanyId == companyId &&
+                    x.BusinessPartnerId == businessPartnerId &&
+                    x.Status == "Confirmed" &&
+                    !x.IsDeleted)
+                .Include(x => x.Details!).ThenInclude(d => d.Item)
+                .OrderByDescending(x => x.GRNDate)
+                .ToListAsync();
+
+            var invoicedQtyMap = await GetInvoicedQtyMapAsync(
+                grns.SelectMany(g => g.Details!.Select(d => d.GRNDetailId)).ToList(),
+                companyId);
+
+            var result = new List<GRNPickerDto>();
+
+            foreach (var grn in grns)
+            {
+                var detailDtos = new List<GRNPickerDetailDto>();
+
+                foreach (var d in grn.Details ?? Enumerable.Empty<GRNDetail>())
+                {
+                    var invoiced = invoicedQtyMap.GetValueOrDefault(d.GRNDetailId, 0m);
+                    var pending = d.ReceivedQty - invoiced;
+
+                    detailDtos.Add(new GRNPickerDetailDto
+                    {
+                        GRNDetailId = d.GRNDetailId,
+                        ItemId = d.ItemId,
+                        ItemName = d.Item?.ItemName ?? string.Empty,
+                        ItemCode = d.Item?.ItemCode,
+                        ReceivedQty = d.ReceivedQty,
+                        InvoicedQty = invoiced,
+                        PendingQty = pending
+                    });
+                }
+
+                if (detailDtos.Any(d => d.PendingQty > 0))
+                {
+                    result.Add(new GRNPickerDto
+                    {
+                        GRNId = grn.GRNId,
+                        GRNNo = grn.GRNNo,
+                        GRNDate = grn.GRNDate,
+                        SupplierInvoiceNo = grn.SupplierInvoiceNo,
+                        NetTotal = grn.NetTotal,
+                        Details = detailDtos
+                    });
+                }
+            }
+
+            return result;
+        }
+
+        // ════════════════════════════════════════════════════
+        // GET INVOICE PREFILL FROM GRN  (fills form from selected GRNs)
+        // ════════════════════════════════════════════════════
+        public async Task<InvoicePrefillDto> GetInvoicePrefillFromGRNAsync(List<int> grnIds)
+        {
+            var companyId = _common.GetCompanyId();
+
+            if (!grnIds.Any())
+                throw new Exception("At least one GRN must be selected.");
+
+            var grns = await _context.GRNMains
+                .AsNoTracking()
+                .Where(x =>
+                    grnIds.Contains(x.GRNId) &&
+                    x.CompanyId == companyId &&
+                    x.Status == "Confirmed" &&
+                    !x.IsDeleted)
+                .Include(x => x.Details!).ThenInclude(d => d.Item)
+                .Include(x => x.Details!).ThenInclude(d => d.Hsn).ThenInclude(h => h!.tax)
+                .ToListAsync();
+
+            if (grns.Count != grnIds.Count)
+                throw new Exception("One or more GRNs not found or not in Confirmed status.");
+
+            var bpIds = grns.Select(g => g.BusinessPartnerId).Distinct().ToList();
+            if (bpIds.Count > 1)
+                throw new Exception("All selected GRNs must belong to the same supplier.");
+
+            var firstGrn = grns[0];
+
+            var allDetailIds = grns.SelectMany(g => g.Details!.Select(d => d.GRNDetailId)).ToList();
+            var invoicedQtyMap = await GetInvoicedQtyMapAsync(allDetailIds, companyId);
+
+            var prefillDetails = new List<InvoicePrefillDetailDto>();
+
+            foreach (var grn in grns)
+            {
+                foreach (var d in grn.Details ?? Enumerable.Empty<GRNDetail>())
+                {
+                    var invoiced = invoicedQtyMap.GetValueOrDefault(d.GRNDetailId, 0m);
+                    var pending = d.ReceivedQty - invoiced;
+
+                    if (pending <= 0) continue;
+
+                    var hsnTax = d.Hsn?.tax;
+
+                    bool isIntra = (firstGrn.PurchaseStateCode.HasValue && firstGrn.BillStateCode.HasValue)
+                        ? firstGrn.PurchaseStateCode.Value == firstGrn.BillStateCode.Value
+                        : true;
+
+                    var raw = d.Item?.ItemManageBy.ToString() ?? "Regular";
+
+                    prefillDetails.Add(new InvoicePrefillDetailDto
+                    {
+                        GRNId = grn.GRNId,
+                        GRNNo = grn.GRNNo,
+                        GRNDetailId = d.GRNDetailId,
+                        ItemId = d.ItemId,
+                        ItemName = d.Item?.ItemName ?? string.Empty,
+                        ItemCode = d.Item?.ItemCode,
+                        HsnId = d.HsnId,
+                        HsnCode = d.HsnCode,
+                        PriceType = d.PriceType,
+                        ReceivedQty = d.ReceivedQty,
+                        PreviouslyInvoicedQty = invoiced,
+                        PendingQty = pending,
+                        SuggestedQty = pending,
+                        Rate = d.Rate,
+                        DiscountRate = d.DiscountRate,
+                        AddisDiscountRate = d.AddisDiscountRate,
+                        IsTaxIncluded = d.IsTaxIncluded,
+                        CgstRate = isIntra ? (hsnTax?.CGST ?? 0) : 0,
+                        SgstRate = isIntra ? (hsnTax?.SGST ?? 0) : 0,
+                        IgstRate = !isIntra ? (hsnTax?.IGST ?? 0) : 0,
+                        CessRate = d.Hsn?.Cess ?? 0,
+                        ItemManageBy = raw
+                    });
+                }
+            }
+
+            return new InvoicePrefillDto
+            {
+                BusinessPartnerId = firstGrn.BusinessPartnerId,
+                LocationId = firstGrn.LocationId,
+                ContactPersonId = firstGrn.ContactPersonId,
+                BillAddressId = firstGrn.BillAddressId,
+                ShipAddressId = firstGrn.ShipAddressId,
+                PurchaseStateCode = firstGrn.PurchaseStateCode,
+                BillStateCode = firstGrn.BillStateCode,
+                Details = prefillDetails
+            };
+        }
+
+        // ════════════════════════════════════════════════════
+        // PRIVATE — Get already-invoiced qty per GRN detail
+        // Mirrors GRNService.GetReceivedQtyMapAsync
+        // ════════════════════════════════════════════════════
+        private async Task<Dictionary<int, decimal>> GetInvoicedQtyMapAsync(
+            List<int> grnDetailIds,
+            int companyId,
+            int? excludeInvoiceId = null)
+        {
+            if (!grnDetailIds.Any())
+                return new Dictionary<int, decimal>();
+
+            var query = _context.PurchaseInvoiceDetails
+                .Where(d =>
+                    d.GRNDetailId.HasValue &&
+                    grnDetailIds.Contains(d.GRNDetailId!.Value) &&
+                    d.Invoice!.CompanyId == companyId &&
+                    d.Invoice!.Status != "Cancelled" &&
+                    !d.Invoice.IsDeleted);
+
+            if (excludeInvoiceId.HasValue)
+                query = query.Where(d => d.InvoiceId != excludeInvoiceId.Value);
+
+            return await query
+                .GroupBy(d => d.GRNDetailId!.Value)
+                .Select(g => new { GRNDetailId = g.Key, TotalInvoiced = g.Sum(x => x.Qty) })
+                .ToDictionaryAsync(x => x.GRNDetailId, x => x.TotalInvoiced);
+        }
+
+        // ════════════════════════════════════════════════════
         // PRIVATE HELPERS — Batch / Serial
         // ════════════════════════════════════════════════════
 

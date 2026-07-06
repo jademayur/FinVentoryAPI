@@ -11,5 +11,8 @@ namespace FinVentoryAPI.Services.Interfaces
         Task<bool> UpdateAsync(int id, UpdatePurchaseInvoiceMainDto dto);
         Task<bool> DeleteAsync(int id);
         Task<PagedResponseDto<PurchaseInvoiceResponseDto>> GetPagedAsync(PagedRequestDto request);
+
+        Task<List<GRNPickerDto>> GetGRNsForSupplierAsync(int businessPartnerId);
+        Task<InvoicePrefillDto> GetInvoicePrefillFromGRNAsync(List<int> grnIds);
     }
 }

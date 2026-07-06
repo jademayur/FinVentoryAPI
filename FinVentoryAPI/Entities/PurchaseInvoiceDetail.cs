@@ -30,6 +30,12 @@ namespace FinVentoryAPI.Entities
         public decimal LineTaxAmount { get; set; }
         public decimal LineTotal { get; set; }
 
+        public int? GRNId { get; set; }
+        public GRNMain? GRN { get; set; }
+
+        public int? GRNDetailId { get; set; }
+        public GRNDetail? GRNDetail { get; set; }
+
         // Navigation
         public PurchaseInvoiceMain? Invoice { get; set; }
         public Item? Item { get; set; }
