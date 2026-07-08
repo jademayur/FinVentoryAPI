@@ -54,6 +54,17 @@ builder.Services.AddScoped<ICashBankEntryService, CashBankEntryService>();
 builder.Services.AddScoped<IJournalEntryService, JournalEntryService>();
 builder.Services.AddScoped<IGSTReportsService, GSTReportsService>();
 builder.Services.AddScoped<IBankMasterService, BankMasterService>();
+builder.Services.AddScoped<IBomService, BomService>();
+builder.Services.AddScoped<ISalesReturnService, SalesReturnService>();
+builder.Services.AddScoped<IPurchaseReturnService, PurchaseReturnService>();
+builder.Services.AddScoped<ISalesQuotationService, SalesQuotationService>();
+builder.Services.AddScoped<ISalesOrderService, SalesOrderService>();
+builder.Services.AddScoped<IGoodsDeliveryService, GoodsDeliveryService>();
+builder.Services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
+builder.Services.AddScoped<IGRNService, GRNService>();
+builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+builder.Services.AddScoped<ICompanySeedService, CompanySeedService>();
+builder.Services.AddScoped<IProductionOrderService, ProductionOrderService>();
 
 
 builder.Services.AddHttpContextAccessor();

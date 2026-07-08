@@ -33,7 +33,12 @@ namespace FinVentoryAPI.Enums
         [Display(Name = "PURCHASE BOOK")]
         PRCH = 4,
         [Display(Name = "J.V BOOK")]
-        JV = 5
+        JV = 5,
+        [Display(Name = "CREDIT NOTE")]
+        CREDITNOTE = 6,
+        [Display(Name = "DEBIT NOTE")]
+        DEBITNOTE = 7
+
     }
 
     public enum AccountType
@@ -233,6 +238,43 @@ namespace FinVentoryAPI.Enums
         Sold = 1,
         Returned = 2,
         Scrapped = 3
+    }
+
+    public enum EntryType
+    {
+        Receipt = 1,
+        Payment = 2       
+    }
+
+    public enum DocumentType
+    {
+        Quotation = 1,
+        SalesOrder = 2,
+        SalesInvoice = 3,
+        SalesReturn = 4,
+        PurchaseOrder = 5,
+        PurchaseInvoice = 6,
+        PurchaseReturn = 7,
+        DeliveryNote = 8,
+        GoodsReceipt = 9,
+    }
+
+    public enum DocumentNature
+    {
+        TaxInvoice = 1,
+        BillOfSupply = 2,
+        CreditNote = 3,
+        DebitNote = 4,
+        AdvanceReceipt = 5,
+        AdvanceAdjustment = 6
+    }
+
+    public enum ProductionOrderStatus
+    {
+        Draft = 1,
+        InProgress = 2,
+        Completed = 3,
+        Cancelled = 4
     }
 
 

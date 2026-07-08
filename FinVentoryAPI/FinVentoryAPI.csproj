@@ -7,6 +7,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Controllers\CopyDocumentController.cs" />
+    <Compile Remove="Services\Implementations\CopyDocumentService.cs" />
+    <Compile Remove="Services\Interfaces\ICopyDocumentService.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.1.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.3" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.2" />
