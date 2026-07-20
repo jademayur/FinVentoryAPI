@@ -14,5 +14,5 @@ Stock Transactions
 Record stock movements such as stock-in, stock-out, and adjustments.
 Authentication & Security
 Secure endpoints using token-based authentication (e.g., JWT or API keys).
-
+Financila report show like Balance Sheet, P&L, Trading
 
