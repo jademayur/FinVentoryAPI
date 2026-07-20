@@ -7,7 +7,6 @@ namespace FinVentoryAPI.Entities
     {
         public int ItemId { get; set; }
         public int CompanyId { get; set; }
-
         // Basic Info
         public string? ItemCode { get; set; }
         public string ItemName { get; set; } = string.Empty;

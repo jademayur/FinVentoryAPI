@@ -8,7 +8,6 @@ namespace FinVentoryAPI.Entities
         public int CompanyId { get; set; }
         public int FinYearId { get; set; }
         public int ItemId { get; set; }
-
         public string BatchNo { get; set; } = string.Empty;      // e.g. "BATCH-2025-001"
         public DateTime? ManufactureDate { get; set; }
         public DateTime? ExpiryDate { get; set; }
@@ -21,7 +20,6 @@ namespace FinVentoryAPI.Entities
 
         /// <summary>ReceivedQty - UsedQty — kept denormalised for fast queries.</summary>
         public decimal AvailableQty { get; set; }
-
         public string? Remarks { get; set; }
 
         // ── Navigation ──────────────────────────────────────
