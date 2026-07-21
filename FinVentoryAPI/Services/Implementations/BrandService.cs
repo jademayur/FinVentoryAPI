@@ -21,7 +21,7 @@ namespace FinVentoryAPI.Services.Implementations
             _context = context;
             _common = common;
         }
-
+        //Create
         public async Task<BrandResponseDto> CreateAsync(CreateBrandDto dto)
         {
             var companyId = _common.GetCompanyId();
@@ -53,7 +53,7 @@ namespace FinVentoryAPI.Services.Implementations
                
             };           
         }
-
+        //Update
         public async Task<bool> UpdateAsync(int id, UpdateBrandDto dto)
         {
             var companyId = _common.GetCompanyId();
@@ -86,7 +86,7 @@ namespace FinVentoryAPI.Services.Implementations
 
             return true;
         }
-
+        //Get All
         public async Task<List<BrandResponseDto>> GetAllAsync()
         {
             var companyId = _common.GetCompanyId();
@@ -103,7 +103,7 @@ namespace FinVentoryAPI.Services.Implementations
 
             }).ToList();
         }
-
+        //Get By Id
         public async Task<BrandResponseDto> GetByIdAsync(int id)
         {
             var companyId = _common.GetCompanyId();
@@ -124,7 +124,7 @@ namespace FinVentoryAPI.Services.Implementations
                 IsActive = brand.IsActive,
             };
         }
-
+        //Delete
         public async Task<bool> DeleteAsync(int id)
         {
             var companyId = _common.GetCompanyId();
