@@ -37,6 +37,8 @@ namespace FinVentoryAPI.DTOs.ItemDTOs
         public ItemManageBy ItemManageBy { get; set; }
         public CostingMethod CostingMethod { get; set; }
 
+        public decimal ReorderLevel { get; set; }
+
         public int? InventoryAccountId { get; set; }
         public string? InventoryAccountName { get; set; }
 

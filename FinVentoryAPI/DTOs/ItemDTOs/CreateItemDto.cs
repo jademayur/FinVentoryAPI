@@ -62,6 +62,9 @@ namespace FinVentoryAPI.DTOs.ItemDTOs
         [Required(ErrorMessage = "Costing method is required.")]
         public Enums.CostingMethod CostingMethod { get; set; }
 
+        [Range(0, double.MaxValue, ErrorMessage = "Reorder level cannot be negative.")]
+        public decimal ReorderLevel { get; set; } = 0;
+
         // ── Accounting ────────────────────────────────────────────
 
         public int? InventoryAccountId { get; set; }
