@@ -59,6 +59,7 @@ namespace FinVentoryAPI.Services.Implementations
                 AllowNagativeStock = dto.AllowNagativeStock,
                 ItemManageBy = dto.ItemManageBy,
                 CostingMethod = dto.CostingMethod,
+                ReorderLevel = dto.ReorderLevel,
 
                 InventoryAccountId = dto.InventoryAccountId,
                 COGSAccountId = dto.COGSAccountId,
@@ -134,7 +135,7 @@ namespace FinVentoryAPI.Services.Implementations
             item.AllowNagativeStock = dto.AllowNagativeStock;
             item.ItemManageBy = dto.ItemManageBy;
             item.CostingMethod = dto.CostingMethod;
-
+            item.ReorderLevel = dto.ReorderLevel;
             item.InventoryAccountId = dto.InventoryAccountId;
             item.COGSAccountId = dto.COGSAccountId;
             item.SalesAccountId = dto.SalesAccountId;
@@ -237,7 +238,7 @@ namespace FinVentoryAPI.Services.Implementations
                 AllowNagativeStock = item.AllowNagativeStock,
                 ItemManageBy = item.ItemManageBy,
                 CostingMethod = item.CostingMethod,
-
+                ReorderLevel = item.ReorderLevel,
                 // ── Accounting ────────────────────────────────────────
                 InventoryAccountId = item.InventoryAccountId,
                 COGSAccountId = item.COGSAccountId,
@@ -409,6 +410,7 @@ namespace FinVentoryAPI.Services.Implementations
                     AllowNagativeStock = x.AllowNagativeStock,
                     ItemManageBy = x.ItemManageBy,
                     CostingMethod = x.CostingMethod,
+                    ReorderLevel = x.ReorderLevel,
 
                     InventoryAccountId = x.InventoryAccountId,
                     COGSAccountId = x.COGSAccountId,
