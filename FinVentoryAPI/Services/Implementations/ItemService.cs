@@ -335,6 +335,7 @@ namespace FinVentoryAPI.Services.Implementations
             {
                 var sort = request.Sorts.First();
 
+
                 switch (sort.Column.ToLower())
                 {
                     case "itemname":
