@@ -255,34 +255,32 @@ namespace FinVentoryAPI.Services.Implementations
         {
             var companyId = _common.GetCompanyId();
 
-            //var stockByItem = await _context.StockLedgers
-            //    .AsNoTracking()
-            //    .Where(x => x.CompanyId == companyId)
-            //    .GroupBy(x => x.ItemId)
-            //    .Select(g => new { ItemId = g.Key, Qty = g.Sum(x => x.InQty - x.OutQty) }) // ⚠ confirm column names
-            //    .ToListAsync();
+            var stockByItem = await _context.StockLedgers
+                .AsNoTracking()
+                .Where(x => x.CompanyId == companyId)
+                .GroupBy(x => x.ItemId)
+                .Select(g => new { ItemId = g.Key, Qty = g.Sum(x => x.Qty) }) // ✅ fixed: Qty is already signed
+                .ToListAsync();
 
-            //var items = await _context.Items
-            //    .AsNoTracking()
-            //    .Where(x => x.CompanyId == companyId && !x.IsDeleted && x.ReorderLevel > 0) // ⚠ confirm ReorderLevel exists
-            //    .Select(x => new { x.ItemId, x.ItemCode, x.ItemName, x.ReorderLevel, x.Unit }) // ⚠ confirm Unit property
-            //    .ToListAsync();
+            var items = await _context.Items
+                .AsNoTracking()
+                .Where(x => x.CompanyId == companyId && !x.IsDeleted && x.ReorderLevel > 0)
+                .Select(x => new { x.ItemId, x.ItemCode, x.ItemName, x.ReorderLevel }) // ⚠ still a guess
+                .ToListAsync();
 
-            //return items
-            //    .Join(stockByItem, i => i.ItemId, s => s.ItemId, (i, s) => new LowStockItemDto
-            //    {
-            //        ItemId = i.ItemId,
-            //        ItemCode = i.ItemCode,
-            //        ItemName = i.ItemName,
-            //        AvailableQty = s.Qty,
-            //        ReorderLevel = i.ReorderLevel,
-            //        Unit = i.Unit
-            //    })
-            //    .Where(x => x.AvailableQty <= x.ReorderLevel)
-            //    .OrderBy(x => x.AvailableQty)
-            //    .ToList();
-
-            return new List<LowStockItemDto>();
+            return items
+                .Join(stockByItem, i => i.ItemId, s => s.ItemId, (i, s) => new LowStockItemDto
+                {
+                    ItemId = i.ItemId,
+                    ItemCode = i.ItemCode,
+                    ItemName = i.ItemName,
+                    AvailableQty = s.Qty,
+                    ReorderLevel = i.ReorderLevel,
+                    //Unit = i.Unit
+                })
+                .Where(x => x.AvailableQty <= x.ReorderLevel)
+                .OrderBy(x => x.AvailableQty)
+                .ToList();
         }
 
         // ════════════════════════════════════════════════════
