@@ -741,7 +741,7 @@ namespace FinVentoryAPI.Services.Implementations
                         ItemId = d.ItemId,
                         ItemName = d.Item?.ItemName ?? string.Empty,
                         ItemCode = d.Item?.ItemCode,
-                        HsnId = d.HsnId,
+                        HsnId = (int)d.HsnId,
                         HsnCode = d.HsnCode,
                         PriceType = d.PriceType,
                         ReceivedQty = d.ReceivedQty,
