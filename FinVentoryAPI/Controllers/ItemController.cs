@@ -104,6 +104,20 @@ namespace FinVentoryAPI.Controllers
             });
         }
 
+        [HttpGet("purchase-return-items")]
+        public async Task<IActionResult> GetItemsForPurchaseReturn()
+        {
+            try
+            {
+                var result = await _service.GetItemsForSalesInvoiceAsync();
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
         [HttpGet("sales-invoice-items")]
         public async Task<IActionResult> GetItemsForSalesInvoice()
         {
@@ -132,6 +146,20 @@ namespace FinVentoryAPI.Controllers
             }
         }
                
+        [HttpGet("{itemId}/instock-serials")]
+        public async Task<IActionResult> GetInStockSerials(int itemId)
+        {
+            try
+            {
+                var result = await _service.GetAvailableSerialsAsync(itemId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
         [HttpGet("{itemId}/available-serials")]
         public async Task<IActionResult> GetAvailableSerials(int itemId)
         {

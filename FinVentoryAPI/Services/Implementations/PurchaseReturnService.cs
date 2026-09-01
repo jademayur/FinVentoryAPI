@@ -1173,6 +1173,213 @@ namespace FinVentoryAPI.Services.Implementations
                 TotalTaxAmount = td.TotalTaxAmount
             };
 
+        // ════════════════════════════════════════════════════
+        // GET INVOICES FOR SUPPLIER  (picker dropdown)
+        // Returns only posted invoices with pending return qty.
+        // ════════════════════════════════════════════════════
+        public async Task<List<InvoicePickerDto>> GetInvoicesForSupplierAsync(int businessPartnerId)
+        {
+            var companyId = _common.GetCompanyId();
+
+            var invoices = await _context.PurchaseInvoiceMains
+                .Where(x =>
+                    x.CompanyId == companyId &&
+                    x.BusinessPartnerId == businessPartnerId &&
+                    (x.Status == "Draft" || x.Status == "Confirmed") &&
+                    !x.IsDeleted)
+                .Include(x => x.Details!).ThenInclude(d => d.Item)
+                .OrderByDescending(x => x.InvoiceDate)
+                .ToListAsync();
+
+            var allDetailIds = invoices
+                .SelectMany(i => i.Details!.Select(d => d.DetailId))
+                .ToList();
+
+            var returnedQtyMap = await GetReturnedQtyMapAsync(allDetailIds, companyId);
+
+            var result = new List<InvoicePickerDto>();
+
+            foreach (var inv in invoices)
+            {
+                var detailDtos = new List<InvoicePickerDetailDto>();
+
+                foreach (var d in inv.Details ?? Enumerable.Empty<PurchaseInvoiceDetail>())
+                {
+                    var returned = returnedQtyMap.GetValueOrDefault(d.DetailId, 0m);
+                    var pending = d.Qty - returned;
+
+                    detailDtos.Add(new InvoicePickerDetailDto
+                    {
+                        DetailId = d.DetailId,
+                        ItemId = d.ItemId,
+                        ItemName = d.Item?.ItemName ?? string.Empty,
+                        ItemCode = d.Item?.ItemCode,
+                        InvoiceQty = d.Qty,
+                        AlreadyReturnedQty = returned,
+                        PendingReturnQty = pending
+                    });
+                }
+
+                result.Add(new InvoicePickerDto
+                {
+                    InvoiceId = inv.InvoiceId,
+                    InvoiceNo = inv.InvoiceNo,
+                    InvoiceDate = inv.InvoiceDate,
+                    SupplierInvoiceNo = inv.SupplierInvoiceNo,
+                    NetTotal = inv.NetTotal,
+                    Details = detailDtos
+                });
+            }
+
+            return result;
+        }
+
+        // ════════════════════════════════════════════════════
+        // GET RETURN PREFILL FROM INVOICE  (fills form from selected invoices)
+        // ════════════════════════════════════════════════════
+        public async Task<ReturnPrefillDto> GetReturnPrefillFromInvoiceAsync(List<int> invoiceIds)
+        {
+            var companyId = _common.GetCompanyId();
+
+            if (!invoiceIds.Any())
+                throw new Exception("At least one invoice must be selected.");
+
+            var invoices = await _context.PurchaseInvoiceMains
+                .AsNoTracking()
+                .Where(x =>
+                    invoiceIds.Contains(x.InvoiceId) &&
+                    x.CompanyId == companyId &&
+                    (x.Status == "Draft" || x.Status == "Confirmed") &&
+                    !x.IsDeleted)
+                .Include(x => x.Details!).ThenInclude(d => d.Item)
+                .Include(x => x.Details!).ThenInclude(d => d.Hsn).ThenInclude(h => h!.tax)
+                .ToListAsync();
+
+            if (invoices.Count != invoiceIds.Count)
+                throw new Exception("One or more invoices not found or not in Draft/Confirmed status.");
+
+            var bpIds = invoices.Select(g => g.BusinessPartnerId).Distinct().ToList();
+            if (bpIds.Count > 1)
+                throw new Exception("All selected invoices must belong to the same supplier.");
+
+            var firstInv = invoices[0];
+
+            var allDetailIds = invoices.SelectMany(i => i.Details!.Select(d => d.DetailId)).ToList();
+            var returnedQtyMap = await GetReturnedQtyMapAsync(allDetailIds, companyId);
+
+            var prefillDetails = new List<ReturnPrefillDetailDto>();
+
+            foreach (var inv in invoices)
+            {
+                foreach (var d in inv.Details ?? Enumerable.Empty<PurchaseInvoiceDetail>())
+                {
+                    var returned = returnedQtyMap.GetValueOrDefault(d.DetailId, 0m);
+                    var pending = d.Qty - returned;
+
+                    if (pending <= 0) continue;
+
+                    var hsnTax = d.Hsn?.tax;
+
+                    bool isIntra = (firstInv.PurchaseStateCode.HasValue && firstInv.BillStateCode.HasValue)
+                        ? firstInv.PurchaseStateCode.Value == firstInv.BillStateCode.Value
+                        : true;
+
+                    var raw = d.Item?.ItemManageBy.ToString() ?? "Regular";
+
+                    prefillDetails.Add(new ReturnPrefillDetailDto
+                    {
+                        InvoiceDetailId = d.DetailId,
+                        ItemId = d.ItemId,
+                        ItemName = d.Item?.ItemName ?? string.Empty,
+                        ItemCode = d.Item?.ItemCode,
+                        HsnId = d.HsnId,
+                        HsnCode = d.HsnCode,
+                        PriceType = d.PriceType,
+                        InvoiceQty = d.Qty,
+                        AlreadyReturnedQty = returned,
+                        PendingReturnQty = pending,
+                        SuggestedQty = pending,
+                        Rate = d.Rate,
+                        DiscountRate = d.DiscountRate,
+                        AddisDiscountRate = d.AddisDiscountRate,
+                        IsTaxIncluded = d.IsTaxIncluded,
+                        CgstRate = isIntra ? (hsnTax?.CGST ?? 0) : 0,
+                        SgstRate = isIntra ? (hsnTax?.SGST ?? 0) : 0,
+                        IgstRate = !isIntra ? (hsnTax?.IGST ?? 0) : 0,
+                        CessRate = d.Hsn?.Cess ?? 0,
+                        ItemManageBy = raw
+                    });
+                }
+            }
+
+            return new ReturnPrefillDto
+            {
+                BusinessPartnerId = firstInv.BusinessPartnerId,
+                LocationId = firstInv.LocationId,
+                BillAddressId = firstInv.BillAddressId,
+                PurchaseStateCode = firstInv.PurchaseStateCode,
+                BillStateCode = firstInv.BillStateCode,
+                PurchaseAccountId = firstInv.PurchaseAccountId,
+                OriginalInvoiceId = firstInv.InvoiceId,
+                OriginalInvoiceNo = firstInv.InvoiceNo,
+                OriginalInvoiceDate = firstInv.InvoiceDate,
+                Details = prefillDetails
+            };
+        }
+
+        // ════════════════════════════════════════════════════
+        // PRIVATE — Get already-returned qty per invoice detail
+        // Matches by (OriginalInvoiceId, ItemId) since
+        // PurchaseReturnDetail has no direct FK to InvoiceDetail.
+        // ════════════════════════════════════════════════════
+        private async Task<Dictionary<int, decimal>> GetReturnedQtyMapAsync(
+            List<int> invoiceDetailIds,
+            int companyId)
+        {
+            if (!invoiceDetailIds.Any())
+                return new Dictionary<int, decimal>();
+
+            // Build a lookup: InvoiceDetailId -> (InvoiceId, ItemId)
+            var detailLookup = await _context.PurchaseInvoiceDetails
+                .Where(d => invoiceDetailIds.Contains(d.DetailId))
+                .Select(d => new { d.DetailId, d.InvoiceId, d.ItemId })
+                .ToListAsync();
+
+            var invoiceItemPairs = detailLookup
+                .Select(d => new { d.InvoiceId, d.ItemId, d.DetailId })
+                .ToList();
+
+            if (!invoiceItemPairs.Any())
+                return new Dictionary<int, decimal>();
+
+            // Get all invoice IDs involved
+            var invoiceIds = invoiceItemPairs.Select(x => x.InvoiceId).Distinct().ToList();
+
+            // Sum returned qty per (InvoiceId, ItemId) from existing returns
+            var returnedData = await _context.PurchaseReturnMains
+                .Where(m =>
+                    invoiceIds.Contains(m.OriginalInvoiceId ?? 0) &&
+                    m.CompanyId == companyId &&
+                    !m.IsDeleted)
+                .Include(m => m.Details!)
+                .ToListAsync();
+
+            var returnedMap = new Dictionary<int, decimal>();
+
+            foreach (var pair in invoiceItemPairs)
+            {
+                var totalReturned = returnedData
+                    .Where(m => m.OriginalInvoiceId == pair.InvoiceId)
+                    .SelectMany(m => m.Details ?? Enumerable.Empty<PurchaseReturnDetail>())
+                    .Where(d => d.ItemId == pair.ItemId)
+                    .Sum(d => d.Qty);
+
+                returnedMap[pair.DetailId] = totalReturned;
+            }
+
+            return returnedMap;
+        }
+
         private async Task SaveChangesAsync()
         {
             try

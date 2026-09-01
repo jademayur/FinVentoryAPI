@@ -122,5 +122,33 @@ namespace FinVentoryAPI.Controllers
                 return StatusCode(500, new { message = ex.Message });
             }
         }
+
+        [HttpGet("invoices-for-supplier/{supplierId}")]
+        public async Task<IActionResult> GetInvoicesForSupplier(int supplierId)
+        {
+            try
+            {
+                var result = await _service.GetInvoicesForSupplierAsync(supplierId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("prefill-from-invoice")]
+        public async Task<IActionResult> GetReturnPrefillFromInvoice([FromBody] List<int> invoiceIds)
+        {
+            try
+            {
+                var result = await _service.GetReturnPrefillFromInvoiceAsync(invoiceIds);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
     }
 }

@@ -11,5 +11,8 @@ namespace FinVentoryAPI.Services.Interfaces
         Task<PurchaseReturnResponseDto?> GetByIdAsync(int id);
         Task<List<PurchaseReturnResponseDto>> GetAllAsync();
         Task<PagedResponseDto<PurchaseReturnResponseDto>> GetPagedAsync(PagedRequestDto request);
+
+        Task<List<InvoicePickerDto>> GetInvoicesForSupplierAsync(int businessPartnerId);
+        Task<ReturnPrefillDto> GetReturnPrefillFromInvoiceAsync(List<int> invoiceIds);
     }
 }
