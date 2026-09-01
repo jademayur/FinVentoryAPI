@@ -1201,6 +1201,8 @@ namespace FinVentoryAPI.Services.Implementations
                 CessAmount = cessAmount,
                 LineTaxAmount = lineTaxAmt,
                 LineTotal = taxableAmount + lineTaxAmt,
+                GRNId = lineDto.GRNId,
+                GRNDetailId = lineDto.GRNDetailId,
                 TaxDetails = new List<PurchaseInvoiceTaxDetail>
                 {
                     new()
@@ -1476,6 +1478,9 @@ namespace FinVentoryAPI.Services.Implementations
                     LineTaxAmount = d.LineTaxAmount,
                     LineTotal = d.LineTotal,
                     ItemManageBy = d.Item?.ItemManageBy.ToString(),
+                    GRNId = d.GRNId,
+                    GRNDetailId = d.GRNDetailId,
+                    GRNNo = d.GRN?.GRNNo,
 
                     Batches = d.Batches?.Select(b => new PurchaseInvoiceDetailBatchResponseDto
                     {

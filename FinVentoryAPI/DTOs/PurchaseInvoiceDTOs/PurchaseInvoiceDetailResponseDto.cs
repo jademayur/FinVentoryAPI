@@ -23,6 +23,9 @@
         public decimal LineTaxAmount { get; set; }
         public decimal LineTotal { get; set; }
         public string? ItemManageBy { get; set; }
+        public int? GRNId { get; set; }
+        public int? GRNDetailId { get; set; }
+        public string? GRNNo { get; set; }
 
         // Response uses BatchId/SerialId (these exist after creation)
         public List<PurchaseInvoiceDetailBatchResponseDto>? Batches { get; set; }

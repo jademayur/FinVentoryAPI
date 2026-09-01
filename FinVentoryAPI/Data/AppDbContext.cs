@@ -657,6 +657,16 @@ namespace FinVentoryAPI.Data
                       .HasForeignKey(s => s.DetailId)
                       .OnDelete(DeleteBehavior.Cascade);
 
+                entity.HasOne(e => e.GRN)
+                      .WithMany()
+                      .HasForeignKey(e => e.GRNId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.GRNDetail)
+                      .WithMany()
+                      .HasForeignKey(e => e.GRNDetailId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
                 entity.Property(e => e.Qty).HasColumnType("decimal(18,4)");
                 entity.Property(e => e.Rate).HasColumnType("decimal(18,4)");
                 entity.Property(e => e.DiscountRate).HasColumnType("decimal(18,4)");
