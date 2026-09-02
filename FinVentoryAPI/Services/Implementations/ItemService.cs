@@ -238,7 +238,7 @@ namespace FinVentoryAPI.Services.Implementations
                 AllowNagativeStock = item.AllowNagativeStock,
                 ItemManageBy = item.ItemManageBy,
                 CostingMethod = item.CostingMethod,
-                ReorderLevel = item.ReorderLevel,
+                ReorderLevel = item.ReorderLevel ?? 0,
                 // ── Accounting ────────────────────────────────────────
                 InventoryAccountId = item.InventoryAccountId,
                 COGSAccountId = item.COGSAccountId,
@@ -411,7 +411,7 @@ namespace FinVentoryAPI.Services.Implementations
                     AllowNagativeStock = x.AllowNagativeStock,
                     ItemManageBy = x.ItemManageBy,
                     CostingMethod = x.CostingMethod,
-                    ReorderLevel = x.ReorderLevel,
+                    ReorderLevel = x.ReorderLevel ?? 0,
 
                     InventoryAccountId = x.InventoryAccountId,
                     COGSAccountId = x.COGSAccountId,
@@ -474,51 +474,48 @@ namespace FinVentoryAPI.Services.Implementations
         {
             var companyId = _common.GetCompanyId();
 
-            var items = await _context.Items
+            return await _context.Items
                 .Where(x => x.CompanyId == companyId
                          && !x.IsDeleted
                          && x.IsActive)
-                .Include(x => x.Prices)
-                .Include(x => x.Hsn)
-                    .ThenInclude(h => h!.tax)
                 .OrderBy(x => x.ItemName)
-                .ToListAsync();
-
-            return items.Select(x => new SalesInvoiceItemDto
-            {
-                ItemId = x.ItemId,
-                ItemName = x.ItemName,
-                ItemCode = x.ItemCode,
-
-                // HSN
-                HsnId = x.Hsn?.HsnId ?? 0,
-                HsnCode = x.Hsn?.HsnName ?? string.Empty,
-
-                // Tax
-                TaxId = x.Hsn?.tax?.TaxId ?? 0,
-                TaxName = x.Hsn?.tax?.TaxName ?? string.Empty,
-                IGSTRate = x.Hsn?.tax?.IGST ?? 0,
-                CGSTRate = x.Hsn?.tax?.CGST ?? 0,
-                SGSTRate = x.Hsn?.tax?.SGST ?? 0,
-                CessRate = x.Hsn?.Cess ?? 0,
-
-                // Posting Accounts
-                IGSTPostingAccountId = x.Hsn?.tax?.IGSTPostingAccountId,
-                CGSTPostingAccountId = x.Hsn?.tax?.CGSTPostingAccountId,
-                SGSTPostingAccountId = x.Hsn?.tax?.SGSTPostingAccountId,
-                CessPostingAccountId = x.Hsn?.CessPostingAc,
-
-                ItemManageBy = x.ItemManageBy,
-
-                // Prices
-                Prices = x.Prices?.Select(p => new SalesInvoiceItemPriceDto
+                .Select(x => new SalesInvoiceItemDto
                 {
-                    PriceType = p.PriceType,
-                    Rate = p.Rate,
-                    IsTaxIncluded = p.IsTaxIncluded
-                }).ToList() ?? new List<SalesInvoiceItemPriceDto>()
+                    ItemId = x.ItemId,
+                    ItemName = x.ItemName,
+                    ItemCode = x.ItemCode,
 
-            }).ToList();
+                    // HSN
+                    HsnId = x.Hsn != null ? x.Hsn.HsnId : 0,
+                    HsnCode = x.Hsn != null ? x.Hsn.HsnName : string.Empty,
+
+                    // Tax
+                    TaxId = x.Hsn != null && x.Hsn.tax != null ? x.Hsn.tax.TaxId : 0,
+                    TaxName = x.Hsn != null && x.Hsn.tax != null ? x.Hsn.tax.TaxName : string.Empty,
+                    IGSTRate = x.Hsn != null && x.Hsn.tax != null ? x.Hsn.tax.IGST : 0,
+                    CGSTRate = x.Hsn != null && x.Hsn.tax != null ? x.Hsn.tax.CGST : 0,
+                    SGSTRate = x.Hsn != null && x.Hsn.tax != null ? x.Hsn.tax.SGST : 0,
+                    CessRate = x.Hsn != null && x.Hsn.Cess != null ? x.Hsn.Cess.Value : 0,
+
+                    // Posting Accounts
+                    IGSTPostingAccountId = x.Hsn != null && x.Hsn.tax != null ? x.Hsn.tax.IGSTPostingAccountId : null,
+                    CGSTPostingAccountId = x.Hsn != null && x.Hsn.tax != null ? x.Hsn.tax.CGSTPostingAccountId : null,
+                    SGSTPostingAccountId = x.Hsn != null && x.Hsn.tax != null ? x.Hsn.tax.SGSTPostingAccountId : null,
+                    CessPostingAccountId = x.Hsn != null ? x.Hsn.CessPostingAc : null,
+
+                    ItemManageBy = x.ItemManageBy,
+
+                    // Prices
+                    Prices = x.Prices != null
+                        ? x.Prices.Select(p => new SalesInvoiceItemPriceDto
+                        {
+                            PriceType = p.PriceType,
+                            Rate = p.Rate,
+                            IsTaxIncluded = p.IsTaxIncluded
+                        }).ToList()
+                        : new List<SalesInvoiceItemPriceDto>()
+                })
+                .ToListAsync();
         }
 
         public async Task<List<ItemBatchAvailabilityDto>> GetAvailableBatchesAsync(int itemId)

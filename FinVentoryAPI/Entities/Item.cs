@@ -40,7 +40,7 @@ namespace FinVentoryAPI.Entities
         public int? SalesAccountId { get; set; }
         public int? PurchaseAccountId { get; set; }
 
-        public decimal ReorderLevel { get; set; } = 0;
+        public decimal? ReorderLevel { get; set; }
 
 
         // 🔗 Navigation
