@@ -1,5 +1,6 @@
 ﻿using FinVentoryAPI.DTOs.PagedRequestDto;
 using FinVentoryAPI.DTOs.SalesQuotationDTOs;
+using FinVentoryAPI.Helpers;
 using FinVentoryAPI.Services.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -11,10 +12,14 @@ namespace FinVentoryAPI.Controllers
     public class SalesQuotationController : ControllerBase
     {
         private readonly ISalesQuotationService _service;
+        private readonly ICrystalReportService _crystalReport;
+        private readonly Common _common;
 
-        public SalesQuotationController(ISalesQuotationService service)
+        public SalesQuotationController(ISalesQuotationService service, ICrystalReportService crystalReport, Common common)
         {
             _service = service;
+            _crystalReport = crystalReport;
+            _common = common;
         }
 
         // ── GET /api/SalesQuotation ───────────────────────────
@@ -53,6 +58,41 @@ namespace FinVentoryAPI.Controllers
         {
             var result = await _service.GetByCustomerAsync(businessPartnerId);
             return Ok(result);
+        }
+
+        // ── GET /api/SalesQuotation/{id}/print ────────────────
+        [HttpGet("{id:int}/print")]
+        public async Task<IActionResult> PrintQuotation(int id)
+        {
+            var result = await _service.GetPrintDataAsync(id);
+            if (result == null)
+                return NotFound(new { message = $"Quotation with ID {id} not found." });
+
+            return Ok(result);
+        }
+
+        // ── GET /api/SalesQuotation/{id}/pdf ──────────────────
+        [HttpGet("{id:int}/pdf")]
+        public async Task<IActionResult> GetPdf(int id)
+        {
+            try
+            {
+                var companyId =  _common.GetCompanyId();
+                var pdfBytes = await _crystalReport.ExportReportToPdfAsync("SalesQuotation", new Dictionary<string, object>
+                {
+                    { "@QuotationId", id },
+                    { "@CompanyId", companyId }
+                });
+                return File(pdfBytes, "application/pdf", $"SalesQuotation_{id}.pdf");
+            }
+            catch (FileNotFoundException)
+            {
+                return NotFound(new { message = "Report file 'SalesQuotation.rpt' not found. Please create it in Crystal Reports Designer." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
         }
 
         // ── POST /api/SalesQuotation ──────────────────────────
@@ -121,7 +161,7 @@ namespace FinVentoryAPI.Controllers
             return CreatedAtAction(nameof(GetById), new { id = result.QuotationId }, result);
         }
 
-        
+       
         // POST api/salesquotation/{id}/revise
        
         [HttpPost("{id:int}/revise")]

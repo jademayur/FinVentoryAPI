@@ -1166,6 +1166,129 @@ namespace FinVentoryAPI.Services.Implementations
                 addr.Pincode
             }.Where(x => !string.IsNullOrWhiteSpace(x)));
 
+        // ════════════════════════════════════════════════════
+        // GET PRINT DATA
+        // ════════════════════════════════════════════════════
+        public async Task<SalesQuotationPrintDto?> GetPrintDataAsync(int id)
+        {
+            var companyId = _common.GetCompanyId();
+
+            var main = await _context.SalesQuotationMains
+                .AsNoTracking()
+                .AsSplitQuery()
+                .Include(x => x.BusinessPartner)
+                .Include(x => x.Location)
+                .Include(x => x.ContactPerson)
+                .Include(x => x.SalesPerson)
+                .Include(x => x.BillAddress)
+                .Include(x => x.ShipAddress)
+                .Include(x => x.Details!).ThenInclude(d => d.Item)
+                .Include(x => x.Details!).ThenInclude(d => d.Hsn)
+                .Include(x => x.Details!).ThenInclude(d => d.TaxDetails!).ThenInclude(td => td.Tax)
+                .Include(x => x.TaxDetails!).ThenInclude(td => td.Tax)
+                .FirstOrDefaultAsync(x =>
+                    x.QuotationId == id &&
+                    x.CompanyId == companyId &&
+                    !x.IsDeleted);
+
+            if (main == null) return null;
+
+            var company = await _context.Companies
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.CompanyId == companyId);
+
+            var isIntraState = main.BillStateCode.HasValue &&
+                               main.BillStateCode.Value == (int)(company?.State ?? 0);
+
+            var printDto = new SalesQuotationPrintDto
+            {
+                CompanyName = company?.CompanyName ?? string.Empty,
+                CompanyAddress = company?.Address,
+                CompanyCity = company?.City,
+                CompanyState = company?.StateName,
+                CompanyPinCode = company?.PinCode,
+                CompanyPhone = company?.Phone,
+                CompanyMobile = company?.Mobile,
+                CompanyEmail = company?.Email,
+                CompanyGstNumber = company?.GSTNumber,
+                CompanyPanNumber = company?.PANNumber,
+
+                QuotationId = main.QuotationId,
+                QuotationNo = main.QuotationNo,
+                QuotationDate = main.QuotationDate,
+                ValidUntilDate = main.ValidUntilDate,
+                Status = main.Status,
+                RevisionNo = main.RevisionNo > 0 ? main.RevisionNo : null,
+
+                CustomerName = main.BusinessPartner?.BusinessPartnerName ?? string.Empty,
+                CustomerCode = main.BusinessPartner?.BusinessPartnerCode,
+                CustomerGstNumber = main.BillAddress?.GSTNo,
+                BillAddress = FormatAddress(main.BillAddress),
+                ShipAddress = FormatAddress(main.ShipAddress),
+                ContactPersonName = main.ContactPerson?.Name,
+                ContactPersonMobile = main.ContactPerson?.Mobile,
+                SalesPersonName = main.SalesPerson?.SalesPersonName,
+
+                SalesStateName = main.SalesStateCode.HasValue
+                    ? ((GstState)main.SalesStateCode.Value).ToString() : null,
+                BillStateName = main.BillStateCode.HasValue
+                    ? ((GstState)main.BillStateCode.Value).ToString() : null,
+                IsIntraState = isIntraState,
+
+                SubTotal = main.SubTotal,
+                TaxAmount = main.TaxAmount,
+                CessAmount = main.CessAmount,
+                RoundOff = main.RoundOff,
+                NetTotal = main.NetTotal,
+                Remarks = main.Remarks,
+
+                Details = main.Details?.Select((d, idx) => new SalesQuotationPrintDetailDto
+                {
+                    SrNo = idx + 1,
+                    ItemName = d.Item?.ItemName ?? string.Empty,
+                    ItemCode = d.Item?.ItemCode,
+                    HsnCode = d.HsnCode,
+                    Qty = d.Qty,
+                    Rate = d.Rate,
+                    DiscountRate = d.DiscountRate,
+                    DiscountAmount = d.DiscountAmount,
+                    TaxableAmount = d.TaxableAmount,
+                    CessRate = d.CessRate,
+                    CessAmount = d.CessAmount,
+                    IgstRate = d.TaxDetails?.FirstOrDefault()?.IGSTRate ?? 0,
+                    IgstAmount = d.TaxDetails?.FirstOrDefault()?.IGSTAmount ?? 0,
+                    CgstRate = d.TaxDetails?.FirstOrDefault()?.CGSTRate ?? 0,
+                    CgstAmount = d.TaxDetails?.FirstOrDefault()?.CGSTAmount ?? 0,
+                    SgstRate = d.TaxDetails?.FirstOrDefault()?.SGSTRate ?? 0,
+                    SgstAmount = d.TaxDetails?.FirstOrDefault()?.SGSTAmount ?? 0,
+                    LineTaxAmount = d.LineTaxAmount,
+                    LineTotal = d.LineTotal,
+                    IsTaxIncluded = d.IsTaxIncluded
+                }).ToList() ?? new(),
+
+                TaxSummary = main.Details?
+                    .Where(d => d.TaxDetails != null)
+                    .SelectMany(d => d.TaxDetails!)
+                    .GroupBy(td => td.TaxId)
+                    .Select(g => new SalesQuotationPrintTaxSummaryDto
+                    {
+                        TaxName = g.First().Tax?.TaxName ?? string.Empty,
+                        TaxableAmount = g.Sum(x => x.TaxableAmount),
+                        IgstRate = g.First().IGSTRate,
+                        IgstAmount = g.Sum(x => x.IGSTAmount),
+                        CgstRate = g.First().CGSTRate,
+                        CgstAmount = g.Sum(x => x.CGSTAmount),
+                        SgstRate = g.First().SGSTRate,
+                        SgstAmount = g.Sum(x => x.SGSTAmount),
+                        CessRate = g.First().CessRate,
+                        CessAmount = g.Sum(x => x.CessAmount),
+                        TotalTaxAmount = g.Sum(x => x.TotalTaxAmount)
+                    }).ToList() ?? new()
+            };
+
+            return printDto;
+        }
+
         private static List<SalesQuotationTaxDetailResponseDto> MapTaxDetails(
             IEnumerable<SalesQuotationTaxDetail>? rows) =>
             rows?.Select(MapTaxDetailDto).ToList() ?? new();

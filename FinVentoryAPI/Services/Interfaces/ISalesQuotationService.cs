@@ -17,5 +17,7 @@ namespace FinVentoryAPI.Services.Interfaces
         Task<SalesQuotationResponseDto> CopyAsync(int id, CopySalesQuotationDto? dto = null);
 
         Task<SalesQuotationResponseDto> ReviseAsync(int id, ReviseSalesQuotationDto dto);
+
+        Task<SalesQuotationPrintDto?> GetPrintDataAsync(int id);
     }
 }
