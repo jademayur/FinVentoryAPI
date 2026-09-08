@@ -38,6 +38,9 @@ namespace FinVentoryAPI.Entities
         [MaxLength(15)]
         public string Mobile { get; set; }
 
+        [MaxLength(500)]
+        public string? Logo { get; set; }
+
         [MaxLength(150)]
         public string Email { get; set; }
 

@@ -12,10 +12,12 @@ namespace FinVentoryAPI.Controllers
     public class CompanyController : ControllerBase
     {
         private readonly ICompanyService _companyService;
+        private readonly IWebHostEnvironment _env;
 
-        public CompanyController(ICompanyService companyService)
+        public CompanyController(ICompanyService companyService, IWebHostEnvironment env)
         {
             _companyService = companyService;
+            _env = env;
         }
 
 
@@ -95,6 +97,56 @@ namespace FinVentoryAPI.Controllers
             {
                 return BadRequest(new { message = ex.Message });
             }
+        }
+
+        [HttpPost("{id}/logo")]
+        public async Task<IActionResult> UploadLogo(int id, IFormFile file)
+        {
+            var company = await _companyService.GetByIdAsync(id);
+            if (company == null)
+                return NotFound(new { message = "Company not found" });
+
+            if (file == null || file.Length == 0)
+                return BadRequest(new { message = "No file uploaded" });
+
+            var ext = Path.GetExtension(file.FileName).ToLower();
+            var allowed = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg" };
+            if (!allowed.Contains(ext))
+                return BadRequest(new { message = "Only image files are allowed (jpg, png, gif, webp, svg)" });
+
+            var logosDir = Path.Combine(_env.WebRootPath, "uploads", "logos");
+            Directory.CreateDirectory(logosDir);
+
+            var fileName = $"{id}_{Guid.NewGuid():N}{ext}";
+            var filePath = Path.Combine(logosDir, fileName);
+
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            // Delete old logo if exists
+            await _companyService.UpdateLogoAsync(id, $"/uploads/logos/{fileName}");
+
+            return Ok(new { logo = $"/uploads/logos/{fileName}" });
+        }
+
+        [HttpDelete("{id}/logo")]
+        public async Task<IActionResult> DeleteLogo(int id)
+        {
+            var company = await _companyService.GetByIdAsync(id);
+            if (company == null)
+                return NotFound(new { message = "Company not found" });
+
+            if (!string.IsNullOrEmpty(company.Logo))
+            {
+                var oldPath = Path.Combine(_env.WebRootPath, company.Logo.TrimStart('/'));
+                if (System.IO.File.Exists(oldPath))
+                    System.IO.File.Delete(oldPath);
+            }
+
+            await _companyService.UpdateLogoAsync(id, null);
+            return Ok(new { message = "Logo deleted" });
         }
     }
 }

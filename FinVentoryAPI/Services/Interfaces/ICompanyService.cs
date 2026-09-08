@@ -15,5 +15,7 @@ namespace FinVentoryAPI.Services.Interfaces
         Task<bool> DeleteCompanyAsync(int id, int userId);
 
         Task<CompanyStateDto> GetCompanyStateAsync();
+
+        Task<bool> UpdateLogoAsync(int companyId, string? logoPath);
     }
 }

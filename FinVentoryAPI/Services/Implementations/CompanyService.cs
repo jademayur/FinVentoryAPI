@@ -158,17 +158,32 @@ namespace FinVentoryAPI.Services.Implementations
                 CompanyName = c.CompanyName,
                 GSTNumber = c.GSTNumber,
                 PANNumber = c.PANNumber,
-                Address = c.Address,     
+                Address = c.Address,
                 City = c.City,
                 State = c.State,
                 StateName = c.State.HasValue ? EnumHelper.GetStateName((int)c.State.Value) : null,
                 StateCode = c.State.HasValue ? ((int)c.State.Value).ToString("D2") : null,
-                PinCode = c.PinCode,      
-                Phone = c.Phone,     
-                Mobile = c.Mobile,       
+                PinCode = c.PinCode,
+                Phone = c.Phone,
+                Mobile = c.Mobile,
                 Email = c.Email,
+                Logo = c.Logo,
                 IsActive = c.IsActive
             };
+        }
+
+        public async Task<bool> UpdateLogoAsync(int companyId, string? logoPath)
+        {
+            var company = await appDbContext.Companies
+                .FirstOrDefaultAsync(c => c.CompanyId == companyId && !c.IsDeleted);
+
+            if (company == null)
+                return false;
+
+            company.Logo = logoPath;
+            company.UpdatedDate = DateTime.UtcNow;
+            await appDbContext.SaveChangesAsync();
+            return true;
         }
     }
 }
