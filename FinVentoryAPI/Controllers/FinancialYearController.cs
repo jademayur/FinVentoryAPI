@@ -21,11 +21,7 @@ namespace FinVentoryAPI.Controllers
         public async Task<IActionResult> GetByCompany(int companyId)
         {
             var result = await _service.GetByCompanyAsync(companyId);
-
-            if (result == null || !result.Any())
-                return NotFound(new { message = "No financial years found" });
-
-            return Ok(result);
+            return Ok(result ?? Enumerable.Empty<object>());
         }
 
         [HttpPost]
