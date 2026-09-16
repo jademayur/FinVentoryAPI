@@ -1,4 +1,7 @@
-﻿namespace FinVentoryAPI.Services.Interfaces
+﻿using FinVentoryAPI.DTOs.AuditLogDTOs;
+using FinVentoryAPI.DTOs.PagedRequestDto;
+
+namespace FinVentoryAPI.Services.Interfaces
 {
     public interface IAuditLogService
     {
@@ -10,5 +13,7 @@
             object? oldValues = null,
             object? newValues = null,
             string? remarks = null);
+
+        Task<PagedResponseDto<AuditLogResponseDto>> GetPagedAsync(PagedRequestDto request);
     }
 }

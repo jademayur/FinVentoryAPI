@@ -1,6 +1,6 @@
-﻿namespace FinVentoryAPI.Entities
+namespace FinVentoryAPI.DTOs.AuditLogDTOs
 {
-    public class AuditLog
+    public class AuditLogResponseDto
     {
         public long AuditLogId { get; set; }
         public int CompanyId { get; set; }
@@ -14,6 +14,6 @@
         public string? NewValues { get; set; }
         public string? Remarks { get; set; }
         public string? IpAddress { get; set; }
-        public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+        public DateTime CreatedDate { get; set; }
     }
 }
