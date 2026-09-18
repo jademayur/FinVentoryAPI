@@ -1,5 +1,6 @@
 ﻿using FinVentoryAPI.Enums;
 using FinVentoryAPI.Helpers;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using FinVentoryAPI.Helpers;
@@ -8,6 +9,7 @@ namespace FinVentoryAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class EnumController : ControllerBase
     {
         [HttpGet("group-types")]

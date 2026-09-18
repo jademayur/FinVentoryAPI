@@ -1,11 +1,13 @@
 ﻿// FinVentoryAPI/Controllers/DashboardController.cs
 using FinVentoryAPI.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FinVentoryAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class DashboardController : ControllerBase
     {
         private readonly IDashboardService _service;
@@ -13,6 +15,14 @@ namespace FinVentoryAPI.Controllers
         public DashboardController(IDashboardService service)
         {
             _service = service;
+        }
+
+        // ── SINGLE ENDPOINT: Returns ALL dashboard data in one call ──
+        [HttpGet("all")]
+        public async Task<IActionResult> GetAll([FromQuery] int months = 6)
+        {
+            var result = await _service.GetDashboardDataAsync(months);
+            return Ok(result);
         }
 
         [HttpGet("today-summary")]

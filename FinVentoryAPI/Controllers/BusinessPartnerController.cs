@@ -3,6 +3,7 @@ using FinVentoryAPI.DTOs.ItemDTOs;
 using FinVentoryAPI.DTOs.PagedRequestDto;
 using FinVentoryAPI.Services.Implementations;
 using FinVentoryAPI.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,6 +11,7 @@ namespace FinVentoryAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class BusinessPartnerController : ControllerBase
     {
         private readonly IBusinessPartnerService _service;
@@ -42,19 +44,6 @@ namespace FinVentoryAPI.Controllers
             {
                 return BadRequest(new { message = ex.Message });
             }
-            //if (!ModelState.IsValid)
-            //    return BadRequest(ModelState);
-
-            //try
-            //{
-            //    var result = await _service.CreateAsync(dto);
-            //    return Ok(result);
-            //}
-            //catch (Exception ex)
-            //{
-            //    // Return structured error so Angular can read err?.error?.message
-            //    return BadRequest(new { message = ex.Message });
-            //}
         }
 
         [HttpPut("{id}")]

@@ -1,12 +1,14 @@
 using FinVentoryAPI.DTOs.CompanyConfigDTOs;
 using FinVentoryAPI.Helpers;
 using FinVentoryAPI.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FinVentoryAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class CompanyConfigController : ControllerBase
     {
         private readonly ICompanyConfigService _service;

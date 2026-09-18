@@ -1,12 +1,14 @@
 ﻿using FinVentoryAPI.DTOs.SeriesDTOs;
 using FinVentoryAPI.DTOs.PagedRequestDto;
 using FinVentoryAPI.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FinVentoryAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class DocumentSeriesController : ControllerBase
     {
         private readonly IDocumentSeriesService _service;

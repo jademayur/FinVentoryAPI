@@ -20,6 +20,14 @@ namespace FinVentoryAPI.Controllers
             _env = env;
         }
 
+        private int GetUserId()
+        {
+            var userIdClaim = User.FindFirst("UserId")?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+                throw new UnauthorizedAccessException("User not authenticated.");
+            return Convert.ToInt32(userIdClaim);
+        }
+
 
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CompanyCreateDto dto)
@@ -27,8 +35,7 @@ namespace FinVentoryAPI.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            int userId = 1; // Later get from JWT claim
-
+            var userId = GetUserId();
             var result = await _companyService.CreateCompanyAsync(dto, userId);
 
             return CreatedAtAction(nameof(GetById), new { id = result.CompanyId }, result);
@@ -61,8 +68,7 @@ namespace FinVentoryAPI.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            int userId = 1; // Later get from JWT
-
+            var userId = GetUserId();
             var updated = await _companyService.UpdateCompanyAsync(id, dto, userId);
 
             if (!updated)
@@ -75,8 +81,7 @@ namespace FinVentoryAPI.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            int userId = 1; // Later get from JWT
-
+            var userId = GetUserId();
             var deleted = await _companyService.DeleteCompanyAsync(id, userId);
 
             if (!deleted)
