@@ -277,5 +277,13 @@ namespace FinVentoryAPI.Enums
         Cancelled = 4
     }
 
-
+    public enum AdjustmentReason
+    {
+        Damage = 1,
+        Expiry = 2,
+        Correction = 3,
+        WriteOff = 4,
+        Found = 5,
+        PhysicalCount = 6
+    }
 }

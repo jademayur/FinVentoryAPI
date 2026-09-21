@@ -138,6 +138,7 @@ namespace FinVentoryAPI.Controllers
             return Ok(EnumHelper.GetEnumList<BalanceType>());
         }
 
+        [AllowAnonymous]
         [HttpGet("gst-states")]
         public IActionResult GetGstStates()
         {
