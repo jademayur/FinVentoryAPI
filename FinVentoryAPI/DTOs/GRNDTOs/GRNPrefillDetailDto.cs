@@ -29,5 +29,8 @@
         public decimal SgstRate { get; set; }
         public decimal IgstRate { get; set; }
         public decimal CessRate { get; set; }
+
+        public bool IsManualTax { get; set; }
+        public int? ManualTaxId { get; set; }
     }
 }
