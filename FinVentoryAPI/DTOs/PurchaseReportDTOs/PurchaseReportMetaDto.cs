@@ -1,6 +1,6 @@
-﻿namespace FinVentoryAPI.DTOs.SalesReportDTOs
+namespace FinVentoryAPI.DTOs.PurchaseReportDTOs
 {
-    public class SalesReportMetaDto
+    public class PurchaseReportMetaDto
     {
         public decimal TotalSubTotal { get; set; }
         public decimal TotalDiscount { get; set; }

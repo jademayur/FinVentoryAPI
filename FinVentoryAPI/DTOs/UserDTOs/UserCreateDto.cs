@@ -6,7 +6,6 @@
         public string Email { get; set; }
         public string Password { get; set; }
         public string? Mobile { get; set; }
-        public bool IsPlatformAdmin { get; set; }
         public int roleId { get; set; }
     }
 }

@@ -21,6 +21,8 @@ namespace FinVentoryAPI.DTOs.PurchaseReturnDTOs
         public decimal CgstRate { get; set; }
         public decimal SgstRate { get; set; }
         public decimal CessRate { get; set; }
+        public bool IsManualTax { get; set; }
+        public int? ManualTaxId { get; set; }
         public string ItemManageBy { get; set; } = "Regular";
     }
 }

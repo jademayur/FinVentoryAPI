@@ -10,8 +10,6 @@
 
         public string? Mobile { get; set; }
 
-        public bool IsPlatformAdmin { get; set; }
-
         public int RoleId { get; set; } 
         public string? RoleName { get; set; }
 
