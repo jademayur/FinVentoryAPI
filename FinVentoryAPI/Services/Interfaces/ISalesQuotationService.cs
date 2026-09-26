@@ -14,6 +14,8 @@ namespace FinVentoryAPI.Services.Interfaces
         Task<PagedResponseDto<SalesQuotationResponseDto>> GetPagedAsync(PagedRequestDto request);
         Task<List<SalesQuotationListDto>> GetByCustomerAsync(int businessPartnerId);
                      
+        Task<bool> ConfirmAsync(int id);
+
         Task<SalesQuotationResponseDto> CopyAsync(int id, CopySalesQuotationDto? dto = null);
 
         Task<SalesQuotationResponseDto> ReviseAsync(int id, ReviseSalesQuotationDto dto);

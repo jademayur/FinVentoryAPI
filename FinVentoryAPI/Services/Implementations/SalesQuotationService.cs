@@ -15,12 +15,16 @@ namespace FinVentoryAPI.Services.Implementations
         private readonly AppDbContext _context;
         private readonly Common _common;
         private readonly IAuditLogService _auditLog;
+        private readonly IApprovalService _approvalService;
+        private readonly ICompanyConfigService _companyConfigService;
 
-        public SalesQuotationService(AppDbContext context, Common common, IAuditLogService auditLog)
+        public SalesQuotationService(AppDbContext context, Common common, IAuditLogService auditLog, IApprovalService approvalService, ICompanyConfigService companyConfigService)
         {
             _context = context;
             _common = common;
             _auditLog = auditLog;
+            _approvalService = approvalService;
+            _companyConfigService = companyConfigService;
         }
 
         // ════════════════════════════════════════════════════
@@ -38,7 +42,7 @@ namespace FinVentoryAPI.Services.Implementations
                 dto.ContactPersonId, dto.SalesPersonId,
                 dto.BillAddressId, dto.ShipAddressId);
 
-            var quotationNo = await GenerateQuotationNoAsync(companyId, finYearId);
+            var quotationNo = await _common.GenerateDocumentNumber(_context, "Sales Quotation");
 
             var main = new SalesQuotationMain
             {
@@ -138,6 +142,8 @@ namespace FinVentoryAPI.Services.Implementations
             if (main.Status != "Draft")
                 throw new Exception("Only Draft quotations can be updated.");
 
+            var oldValues = new { main.QuotationNo, main.BusinessPartnerId, main.NetTotal, main.Status };
+
             await ValidateHeaderAsync(
                 dto.BusinessPartnerId, dto.LocationId, companyId,
                 dto.SalesStateCode, dto.BillStateCode,
@@ -153,6 +159,9 @@ namespace FinVentoryAPI.Services.Implementations
                     PriceType = lineDto.PriceType,
                     Qty = lineDto.Qty,
                     Rate = lineDto.Rate,
+                    Pack = lineDto.Pack,
+                    PackQty = lineDto.PackQty,
+                    RateUnit = lineDto.RateUnit,
                     DiscountRate = lineDto.DiscountRate,
                     AddisDiscountRate = lineDto.AddisDiscountRate,
                     IsTaxIncluded = lineDto.IsTaxIncluded,
@@ -204,6 +213,9 @@ namespace FinVentoryAPI.Services.Implementations
                         existing.PriceType = incoming.PriceType;
                         existing.Qty = incoming.Qty;
                         existing.Rate = incoming.Rate;
+                        existing.Pack = incoming.Pack;
+                        existing.PackQty = incoming.PackQty;
+                        existing.RateUnit = incoming.RateUnit;
                         existing.DiscountRate = incoming.DiscountRate;
                         existing.AddisDiscountRate = incoming.AddisDiscountRate;
                         existing.DiscountAmount = incoming.DiscountAmount;
@@ -294,6 +306,7 @@ namespace FinVentoryAPI.Services.Implementations
                      action: "Update",
                      entityId: main.QuotationId,
                      entityNo: main.QuotationNo,
+                     oldValues: oldValues,
                      newValues: new { main.QuotationNo, main.BusinessPartnerId, main.NetTotal, main.Status });
             }
             catch
@@ -326,6 +339,8 @@ namespace FinVentoryAPI.Services.Implementations
             if (main.Status != "Draft")
                 throw new Exception("Only Draft quotations can be deleted.");
 
+            var oldValues = new { main.QuotationNo, main.BusinessPartnerId, main.NetTotal, main.Status };
+
             await using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
@@ -341,7 +356,52 @@ namespace FinVentoryAPI.Services.Implementations
                      action: "Delete",
                      entityId: main.QuotationId,
                      entityNo: main.QuotationNo,
+                     oldValues: oldValues,
                      remarks: "Soft deleted");
+                return true;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        // ════════════════════════════════════════════════════
+        // CONFIRM  (Draft → Confirmed)
+        // ════════════════════════════════════════════════════
+        public async Task<bool> ConfirmAsync(int id)
+        {
+            var companyId = _common.GetCompanyId();
+            var userId = _common.GetUserId();
+
+            var main = await _context.SalesQuotationMains
+                .FirstOrDefaultAsync(x =>
+                    x.QuotationId == id &&
+                    x.CompanyId == companyId &&
+                    !x.IsDeleted)
+                ?? throw new Exception("Sales Quotation not found.");
+
+            if (main.Status != "Draft")
+                throw new Exception("Only Draft quotations can be confirmed.");
+
+            // Check if approval is required
+            var approvalRequired = await _companyConfigService.GetValueAsync(companyId, "ApprovalRequired_SalesQuotation");
+            if (approvalRequired?.ToLower() == "true")
+            {
+                await _approvalService.SubmitForApprovalAsync("SalesQuotation", id);
+                return true;
+            }
+
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                main.Status = "Confirmed";
+                main.ModifiedBy = userId;
+                main.ModifiedDate = DateTime.UtcNow;
+
+                await SaveChangesAsync();
+                await transaction.CommitAsync();
                 return true;
             }
             catch
@@ -390,7 +450,7 @@ namespace FinVentoryAPI.Services.Implementations
             }
 
             // Fresh quotation number — no revision suffix
-            var newQuotationNo = await GenerateQuotationNoAsync(companyId, finYearId);
+            var newQuotationNo = await _common.GenerateDocumentNumber(_context, "Sales Quotation");
 
             var copied = new SalesQuotationMain
             {
@@ -439,6 +499,9 @@ namespace FinVentoryAPI.Services.Implementations
                     PriceType = d.PriceType,
                     Qty = d.Qty,
                     Rate = d.Rate,
+                    Pack = d.Pack,
+                    PackQty = d.PackQty,
+                    RateUnit = d.RateUnit,
                     DiscountRate = d.DiscountRate,
                     AddisDiscountRate = d.AddisDiscountRate,
                     DiscountAmount = d.DiscountAmount,
@@ -912,7 +975,15 @@ namespace FinVentoryAPI.Services.Implementations
             decimal effectiveSgst = isIntraState ? sgstRate : 0;
 
             // ── Amount calculation ────────────────────────────────────────────────
-            decimal grossAmount = lineDto.Rate * lineDto.Qty;
+            // Rate Unit mode:  Gross = (Qty / RateUnit) × Rate
+            //   e.g. Base Qty 25 KG / Rate Unit 100 = 0.25 → 0.25 × ₹5000 = ₹1250
+            // Normal mode:     Gross = Rate × Qty
+            decimal grossAmount;
+            if (lineDto.RateUnit.HasValue && lineDto.RateUnit.Value > 0)
+                grossAmount = (lineDto.Qty / lineDto.RateUnit.Value) * lineDto.Rate;
+            else
+                grossAmount = lineDto.Rate * lineDto.Qty;
+
             decimal discountAmt = Math.Round(grossAmount * lineDto.DiscountRate / 100, 2);
             decimal afterFirst = grossAmount - discountAmt;
             decimal addisDiscAmt = Math.Round(afterFirst * lineDto.AddisDiscountRate / 100, 2);
@@ -960,6 +1031,9 @@ namespace FinVentoryAPI.Services.Implementations
                 PriceType = lineDto.PriceType,
                 Qty = lineDto.Qty,
                 Rate = lineDto.Rate,
+                Pack = lineDto.Pack,
+                PackQty = lineDto.PackQty,
+                RateUnit = lineDto.RateUnit,
                 DiscountRate = lineDto.DiscountRate,
                 AddisDiscountRate = lineDto.AddisDiscountRate,
                 DiscountAmount = discountAmt,
@@ -1042,28 +1116,6 @@ namespace FinVentoryAPI.Services.Implementations
         }
 
         // ════════════════════════════════════════════════════
-        // PRIVATE — Generate quotation number
-        // ════════════════════════════════════════════════════
-        private async Task<string> GenerateQuotationNoAsync(int companyId, int finYearId)
-        {
-            var financialYear = await _context.FinancialYears
-                .FirstOrDefaultAsync(x => x.FinancialYearId == finYearId);
-
-            var yearLabel = financialYear != null
-                ? $"{financialYear.StartDate.Year % 100}{financialYear.EndDate.Year % 100}"
-                : finYearId.ToString();
-
-            // Count only root quotations (no parent) for sequential numbering
-            var count = await _context.SalesQuotationMains
-                .CountAsync(x =>
-                    x.CompanyId == companyId &&
-                    x.FinYearId == finYearId &&
-                    x.ParentQuotationId == null);
-
-            return $"QT-{yearLabel}-{(count + 1):D4}";
-        }
-
-        // ════════════════════════════════════════════════════
         // PRIVATE — Map to response DTO
         // ════════════════════════════════════════════════════
         private SalesQuotationResponseDto MapToResponseDto(SalesQuotationMain main)
@@ -1137,6 +1189,9 @@ namespace FinVentoryAPI.Services.Implementations
                     PriceType = d.PriceType,
                     Qty = d.Qty,
                     Rate = d.Rate,
+                    Pack = d.Pack,
+                    PackQty = d.PackQty,
+                    RateUnit = d.RateUnit,
                     DiscountRate = d.DiscountRate,
                     AddisDiscountRate = d.AddisDiscountRate,
                     DiscountAmount = d.DiscountAmount,

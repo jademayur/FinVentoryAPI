@@ -2,6 +2,7 @@
 using FinVentoryAPI.DTOs.SalesQuotationDTOs;
 using FinVentoryAPI.Helpers;
 using FinVentoryAPI.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,6 +10,7 @@ namespace FinVentoryAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class SalesQuotationController : ControllerBase
     {
         private readonly ISalesQuotationService _service;
@@ -159,6 +161,14 @@ namespace FinVentoryAPI.Controllers
         {
             var result = await _service.CopyAsync(id, dto);
             return CreatedAtAction(nameof(GetById), new { id = result.QuotationId }, result);
+        }
+
+        // PATCH api/salesquotation/{id}/confirm
+        [HttpPatch("{id:int}/confirm")]
+        public async Task<IActionResult> Confirm(int id)
+        {
+            var result = await _service.ConfirmAsync(id);
+            return Ok(result);
         }
 
        
