@@ -24,6 +24,13 @@ namespace FinVentoryAPI.Entities
         public decimal Qty { get; set; }
         public decimal Rate { get; set; }
 
+        // ── Packing (visible only for Pack / Pack & Rate Unit inventory methods) ──
+        public decimal? Pack { get; set; }                 // Number of packs e.g. 3
+
+        public decimal? PackQty { get; set; }             // Quantity per pack e.g. 15 / packing size e.g. 25
+
+        public decimal? RateUnit { get; set; }            // Rate unit divisor e.g. 100
+
         // ── Discounts ─────────────────────────────────────────
         public decimal DiscountRate { get; set; }
         public decimal DiscountAmount { get; set; }
