@@ -1,6 +1,7 @@
 ﻿using FinVentoryAPI.DTOs.PagedRequestDto;
 using FinVentoryAPI.DTOs.SalesOrderDTOs;
 using FinVentoryAPI.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -8,6 +9,7 @@ namespace FinVentoryAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class SalesOrderController : ControllerBase
     {
         private readonly ISalesOrderService _service;

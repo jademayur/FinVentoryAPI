@@ -14,11 +14,13 @@ namespace FinVentoryAPI.Services.Implementations
     {
         private readonly AppDbContext _context;
         private readonly Common _common;
+        private readonly IAuditLogService _auditLog;
 
-        public SalesOrderService(AppDbContext context, Common common)
+        public SalesOrderService(AppDbContext context, Common common, IAuditLogService auditLog)
         {
             _context = context;
             _common = common;
+            _auditLog = auditLog;
         }
 
         // ════════════════════════════════════════════════════
@@ -56,7 +58,7 @@ namespace FinVentoryAPI.Services.Implementations
                 quotationNo = quotation.QuotationNo;
             }
 
-            var orderNo = await GenerateOrderNoAsync(companyId, finYearId);
+            var orderNo = await _common.GenerateDocumentNumber(_context, "Sales Order");
 
             var main = new SalesOrderMain
             {
@@ -120,7 +122,28 @@ namespace FinVentoryAPI.Services.Implementations
             {
                 _context.SalesOrderMains.Add(main);
                 await SaveChangesAsync();
+
+                // Mark quotation as Accepted so it no longer appears in the picker
+                if (dto.QuotationId.HasValue)
+                {
+                    var quotation = await _context.SalesQuotationMains
+                        .FirstOrDefaultAsync(x => x.QuotationId == dto.QuotationId.Value);
+                    if (quotation != null && quotation.Status != "Accepted")
+                    {
+                        quotation.Status = "Accepted";
+                        quotation.ModifiedBy = userId;
+                        quotation.ModifiedDate = DateTime.UtcNow;
+                    }
+                }
+
+                await SaveChangesAsync();
                 await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "SalesOrder",
+                    action: "Create",
+                    entityId: main.OrderId,
+                    entityNo: main.OrderNo,
+                    newValues: new { main.OrderNo, main.BusinessPartnerId, main.NetTotal, main.Status });
             }
             catch
             {
@@ -152,6 +175,8 @@ namespace FinVentoryAPI.Services.Implementations
             if (main.Status != "Draft")
                 throw new Exception("Only Draft orders can be updated.");
 
+            var oldValues = new { main.OrderNo, main.BusinessPartnerId, main.NetTotal, main.Status };
+
             await ValidateHeaderAsync(
                 dto.BusinessPartnerId, dto.LocationId, companyId,
                 dto.SalesStateCode, dto.BillStateCode,
@@ -168,6 +193,9 @@ namespace FinVentoryAPI.Services.Implementations
                     PriceType = lineDto.PriceType,
                     Qty = lineDto.Qty,
                     Rate = lineDto.Rate,
+                    Pack = lineDto.Pack,
+                    PackQty = lineDto.PackQty,
+                    RateUnit = lineDto.RateUnit,
                     DiscountRate = lineDto.DiscountRate,
                     AddisDiscountRate = lineDto.AddisDiscountRate,
                     IsTaxIncluded = lineDto.IsTaxIncluded,
@@ -222,6 +250,9 @@ namespace FinVentoryAPI.Services.Implementations
                         existing.PriceType = incoming.PriceType;
                         existing.Qty = incoming.Qty;
                         existing.Rate = incoming.Rate;
+                        existing.Pack = incoming.Pack;
+                        existing.PackQty = incoming.PackQty;
+                        existing.RateUnit = incoming.RateUnit;
                         existing.DiscountRate = incoming.DiscountRate;
                         existing.AddisDiscountRate = incoming.AddisDiscountRate;
                         existing.DiscountAmount = incoming.DiscountAmount;
@@ -307,6 +338,13 @@ namespace FinVentoryAPI.Services.Implementations
 
                 await SaveChangesAsync();
                 await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "SalesOrder",
+                    action: "Update",
+                    entityId: main.OrderId,
+                    entityNo: main.OrderNo,
+                    oldValues: oldValues,
+                    newValues: new { main.OrderNo, main.BusinessPartnerId, main.NetTotal, main.Status });
             }
             catch
             {
@@ -336,6 +374,8 @@ namespace FinVentoryAPI.Services.Implementations
             if (main.Status != "Draft")
                 throw new Exception("Only Draft orders can be deleted.");
 
+            var oldValues = new { main.OrderNo, main.BusinessPartnerId, main.NetTotal, main.Status };
+
             await using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
@@ -344,8 +384,28 @@ namespace FinVentoryAPI.Services.Implementations
                 main.ModifiedBy = userId;
                 main.ModifiedDate = DateTime.UtcNow;
 
+                // Revert quotation status so it reappears in the picker
+                if (main.QuotationId.HasValue)
+                {
+                    var quotation = await _context.SalesQuotationMains
+                        .FirstOrDefaultAsync(x => x.QuotationId == main.QuotationId.Value);
+                    if (quotation != null && quotation.Status == "Accepted")
+                    {
+                        quotation.Status = "Draft";
+                        quotation.ModifiedBy = userId;
+                        quotation.ModifiedDate = DateTime.UtcNow;
+                    }
+                }
+
                 await SaveChangesAsync();
                 await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "SalesOrder",
+                    action: "Delete",
+                    entityId: main.OrderId,
+                    entityNo: main.OrderNo,
+                    oldValues: oldValues,
+                    remarks: "Soft deleted");
                 return true;
             }
             catch
@@ -415,6 +475,19 @@ namespace FinVentoryAPI.Services.Implementations
                 main.Status = "Cancelled";
                 main.ModifiedBy = userId;
                 main.ModifiedDate = DateTime.UtcNow;
+
+                // Revert quotation status so it reappears in the picker
+                if (main.QuotationId.HasValue)
+                {
+                    var quotation = await _context.SalesQuotationMains
+                        .FirstOrDefaultAsync(x => x.QuotationId == main.QuotationId.Value);
+                    if (quotation != null && quotation.Status == "Accepted")
+                    {
+                        quotation.Status = "Draft";
+                        quotation.ModifiedBy = userId;
+                        quotation.ModifiedDate = DateTime.UtcNow;
+                    }
+                }
 
                 await SaveChangesAsync();
                 await transaction.CommitAsync();
@@ -643,12 +716,18 @@ namespace FinVentoryAPI.Services.Implementations
             var q = await _context.SalesQuotationMains
                 .AsNoTracking()
                 .Include(x => x.Details!).ThenInclude(d => d.Item)
-                .Include(x => x.Details!).ThenInclude(d => d.Hsn)
+                .Include(x => x.Details!).ThenInclude(d => d.Hsn).ThenInclude(h => h!.tax)
+                .Include(x => x.Details!).ThenInclude(d => d.TaxDetails!).ThenInclude(td => td.Tax)
+                .Include(x => x.SalesPerson)
                 .FirstOrDefaultAsync(x =>
                     x.QuotationId == quotationId &&
                     x.CompanyId == companyId &&
                     !x.IsDeleted)
                 ?? throw new Exception("Quotation not found.");
+
+            bool isIntra = (q.SalesStateCode.HasValue && q.BillStateCode.HasValue)
+                ? q.SalesStateCode.Value == q.BillStateCode.Value
+                : true;
 
             return new QuotationPrefillDto
             {
@@ -660,6 +739,7 @@ namespace FinVentoryAPI.Services.Implementations
                 LocationId = q.LocationId,
                 ContactPersonId = q.ContactPersonId,
                 SalesPersonId = q.SalesPersonId,
+                SalesPersonName = q.SalesPerson?.SalesPersonName,
                 BillAddressId = q.BillAddressId,
                 ShipAddressId = q.ShipAddressId,
                 SalesStateCode = q.SalesStateCode,
@@ -670,22 +750,62 @@ namespace FinVentoryAPI.Services.Implementations
                 RoundOff = q.RoundOff,
                 NetTotal = q.NetTotal,
                 Remarks = q.Remarks,
-                Details = q.Details?.Select(d => new QuotationPrefillDetailDto
+                Details = q.Details?.Select(d =>
                 {
-                    ItemId = d.ItemId,
-                    ItemName = d.Item?.ItemName ?? string.Empty,
-                    ItemCode = d.Item?.ItemCode,
-                    HsnId = d.HsnId,
-                    HsnCode = d.HsnCode,
-                    PriceType = d.PriceType,
-                    Qty = d.Qty,
-                    Rate = d.Rate,
-                    DiscountRate = d.DiscountRate,
-                    AddisDiscountRate = d.AddisDiscountRate,
-                    IsTaxIncluded = d.IsTaxIncluded,
-                    TaxableAmount = d.TaxableAmount,
-                    LineTaxAmount = d.LineTaxAmount,
-                    LineTotal = d.LineTotal
+                    var orderTax = d.TaxDetails?.FirstOrDefault();
+                    bool hasHsn = d.HsnId != 0;
+                    var hsnTax = d.Hsn?.tax;
+
+                    decimal hsnIgst = isIntra ? 0 : (hsnTax?.IGST ?? 0);
+                    decimal hsnCgst = isIntra ? (hsnTax?.CGST ?? 0) : 0;
+                    decimal hsnSgst = isIntra ? (hsnTax?.SGST ?? 0) : 0;
+                    decimal hsnCess = d.Hsn?.Cess ?? 0;
+
+                    bool isManualTax = !hasHsn;
+                    int? manualTaxId = null;
+
+                    if (orderTax != null)
+                    {
+                        bool ratesDiffer =
+                            orderTax.IGSTRate != hsnIgst ||
+                            orderTax.CGSTRate != hsnCgst ||
+                            orderTax.SGSTRate != hsnSgst ||
+                            orderTax.CessRate != hsnCess ||
+                            orderTax.TaxId != (hsnTax?.TaxId ?? 0);
+
+                        if (!hasHsn || ratesDiffer)
+                        {
+                            isManualTax = true;
+                            manualTaxId = orderTax.TaxId;
+                        }
+                    }
+
+                    return new QuotationPrefillDetailDto
+                    {
+                        ItemId = d.ItemId,
+                        ItemName = d.Item?.ItemName ?? string.Empty,
+                        ItemCode = d.Item?.ItemCode,
+                        HsnId = d.HsnId,
+                        HsnCode = d.HsnCode,
+                        PriceType = d.PriceType,
+                        Qty = d.Qty,
+                        Rate = d.Rate,
+                        Pack = d.Pack,
+                        PackQty = d.PackQty,
+                        RateUnit = d.RateUnit,
+                        DiscountRate = d.DiscountRate,
+                        AddisDiscountRate = d.AddisDiscountRate,
+                        IsTaxIncluded = d.IsTaxIncluded,
+                        TaxableAmount = d.TaxableAmount,
+                        LineTaxAmount = d.LineTaxAmount,
+                        LineTotal = d.LineTotal,
+                        CgstRate = isManualTax ? (orderTax?.CGSTRate ?? 0) : hsnCgst,
+                        SgstRate = isManualTax ? (orderTax?.SGSTRate ?? 0) : hsnSgst,
+                        IgstRate = isManualTax ? (orderTax?.IGSTRate ?? 0) : hsnIgst,
+                        CessRate = isManualTax ? (orderTax?.CessRate ?? 0) : hsnCess,
+                        IsManualTax = isManualTax,
+                        ManualTaxId = manualTaxId,
+                    };
                 }).ToList() ?? new()
             };
         }
@@ -754,7 +874,15 @@ namespace FinVentoryAPI.Services.Implementations
             decimal effectiveCgst = isIntraState ? cgstRate : 0;
             decimal effectiveSgst = isIntraState ? sgstRate : 0;
 
-            decimal grossAmount = lineDto.Rate * lineDto.Qty;
+            // ── Amount calculation ────────────────────────────────────────────────
+            // Rate Unit mode:  Gross = (Qty / RateUnit) × Rate
+            // Normal mode:     Gross = Rate × Qty
+            decimal grossAmount;
+            if (lineDto.RateUnit.HasValue && lineDto.RateUnit.Value > 0)
+                grossAmount = (lineDto.Qty / lineDto.RateUnit.Value) * lineDto.Rate;
+            else
+                grossAmount = lineDto.Rate * lineDto.Qty;
+
             decimal discountAmt = Math.Round(grossAmount * lineDto.DiscountRate / 100, 2);
             decimal afterFirst = grossAmount - discountAmt;
             decimal addisDiscAmt = Math.Round(afterFirst * lineDto.AddisDiscountRate / 100, 2);
@@ -784,6 +912,9 @@ namespace FinVentoryAPI.Services.Implementations
                 PriceType = lineDto.PriceType,
                 Qty = lineDto.Qty,
                 Rate = lineDto.Rate,
+                Pack = lineDto.Pack,
+                PackQty = lineDto.PackQty,
+                RateUnit = lineDto.RateUnit,
                 DiscountRate = lineDto.DiscountRate,
                 AddisDiscountRate = lineDto.AddisDiscountRate,
                 DiscountAmount = discountAmt,
@@ -881,26 +1012,7 @@ namespace FinVentoryAPI.Services.Implementations
             }
         }
 
-        // ════════════════════════════════════════════════════
-        // PRIVATE — Generate order number
-        // ════════════════════════════════════════════════════
-        private async Task<string> GenerateOrderNoAsync(int companyId, int finYearId)
-        {
-            var financialYear = await _context.FinancialYears
-                .FirstOrDefaultAsync(x => x.FinancialYearId == finYearId);
 
-            var yearLabel = financialYear != null
-                ? $"{financialYear.StartDate.Year % 100}{financialYear.EndDate.Year % 100}"
-                : finYearId.ToString();
-
-            var count = await _context.SalesOrderMains
-                .CountAsync(x =>
-                    x.CompanyId == companyId &&
-                    x.FinYearId == finYearId &&
-                    !x.IsDeleted);
-
-            return $"SO-{yearLabel}-{(count + 1):D4}";
-        }
 
         // ════════════════════════════════════════════════════
         // PRIVATE — Map to response DTO
@@ -974,6 +1086,9 @@ namespace FinVentoryAPI.Services.Implementations
                     PriceType = d.PriceType,
                     Qty = d.Qty,
                     Rate = d.Rate,
+                    Pack = d.Pack,
+                    PackQty = d.PackQty,
+                    RateUnit = d.RateUnit,
                     DiscountRate = d.DiscountRate,
                     AddisDiscountRate = d.AddisDiscountRate,
                     DiscountAmount = d.DiscountAmount,
