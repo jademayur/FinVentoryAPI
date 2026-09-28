@@ -25,22 +25,19 @@ namespace FinVentoryAPI.Services.Implementations
         public async Task<ItemGroupResponseDto> CreateAsync(CreateItemGroupDto dto)
         {
             var companyId = _common.GetCompanyId();
+            var name = (dto.ItemGroupName ?? string.Empty).Trim();
 
-            var duplicate = await _context.ItemGroups
-                .AnyAsync(x =>
-                    x.CompanyId == companyId &&
-                    x.ItemGroupName.ToLower() == dto.ItemGroupName.ToLower() &&
-                    !x.IsDeleted);
+            if (string.IsNullOrWhiteSpace(name))
+                throw new Exception("Item group name is required.");
 
-            if (duplicate)
-                throw new Exception("Item group already exists.");
+            await EnsureUniqueAsync(companyId, name, dto.GroupCode, null);
 
             var itemGroup = new ItemGroup
             {
                 CompanyId = companyId,
-                ItemGroupName = dto.ItemGroupName,
+                ItemGroupName = name,
                 ParentGroupId = dto.ParentGroupId,
-                GroupCode = dto.GroupCode,
+                GroupCode = string.IsNullOrWhiteSpace(dto.GroupCode) ? null : dto.GroupCode.Trim(),
                 CreatedBy = _common.GetUserId()
             };
 
@@ -60,6 +57,10 @@ namespace FinVentoryAPI.Services.Implementations
         public async Task<bool> UpdateAsync(int id, UpdateItemGroupDto dto)
         {
             var companyId = _common.GetCompanyId();
+            var name = (dto.ItemGroupName ?? string.Empty).Trim();
+
+            if (string.IsNullOrWhiteSpace(name))
+                throw new Exception("Item group name is required.");
 
             var itemGroup = await _context.ItemGroups
                 .FirstOrDefaultAsync(x =>
@@ -70,19 +71,11 @@ namespace FinVentoryAPI.Services.Implementations
             if (itemGroup == null)
                 return false;
 
-            var duplicate = await _context.ItemGroups
-                .AnyAsync(x =>
-                    x.CompanyId == companyId &&
-                    x.ItemGroupName.ToLower() == dto.ItemGroupName.ToLower() &&
-                    x.ItemGroupId != id &&
-                    !x.IsDeleted);
+            await EnsureUniqueAsync(companyId, name, dto.GroupCode, id);
 
-            if (duplicate)
-                throw new Exception("Item Group Name with same name already exists.");
-
-            itemGroup.ItemGroupName = dto.ItemGroupName;
+            itemGroup.ItemGroupName = name;
             itemGroup.ParentGroupId = dto.ParentGroupId;
-            itemGroup.GroupCode = dto.GroupCode;
+            itemGroup.GroupCode = string.IsNullOrWhiteSpace(dto.GroupCode) ? null : dto.GroupCode.Trim();
             itemGroup.IsActive = dto.IsActive;
             itemGroup.ModifiedBy = _common.GetUserId();
             itemGroup.ModifiedDate = DateTime.UtcNow;
@@ -90,6 +83,31 @@ namespace FinVentoryAPI.Services.Implementations
             await _context.SaveChangesAsync();
 
             return true;
+        }
+
+        private async Task EnsureUniqueAsync(int companyId, string name, string? groupCode, int? excludeId)
+        {
+            var duplicateName = await _context.ItemGroups.AnyAsync(x =>
+                x.CompanyId == companyId &&
+                x.ItemGroupName.Trim().ToLower() == name.ToLower() &&
+                !x.IsDeleted &&
+                (excludeId == null || x.ItemGroupId != excludeId));
+
+            if (duplicateName)
+                throw new Exception($"Duplicate entry: item group '{name}' already exists.");
+
+            var code = string.IsNullOrWhiteSpace(groupCode) ? null : groupCode.Trim();
+            if (code == null) return;
+
+            var duplicateCode = await _context.ItemGroups.AnyAsync(x =>
+                x.CompanyId == companyId &&
+                x.GroupCode != null &&
+                x.GroupCode.Trim().ToLower() == code.ToLower() &&
+                !x.IsDeleted &&
+                (excludeId == null || x.ItemGroupId != excludeId));
+
+            if (duplicateCode)
+                throw new Exception($"Duplicate entry: group code '{code}' already exists.");
         }
 
         public async Task<List<ItemGroupResponseDto>> GetAllAsync()
