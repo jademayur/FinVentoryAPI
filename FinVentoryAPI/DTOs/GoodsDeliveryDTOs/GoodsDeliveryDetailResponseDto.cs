@@ -21,6 +21,9 @@
         public decimal DeliveryQty { get; set; }
 
         public decimal Rate { get; set; }
+        public decimal? Pack { get; set; }
+        public decimal? PackQty { get; set; }
+        public decimal? RateUnit { get; set; }
         public decimal DiscountRate { get; set; }
         public decimal AddisDiscountRate { get; set; }
         public decimal DiscountAmount { get; set; }

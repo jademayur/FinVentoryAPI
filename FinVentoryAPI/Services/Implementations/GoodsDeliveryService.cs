@@ -15,11 +15,17 @@ namespace FinVentoryAPI.Services.Implementations
     {
         private readonly AppDbContext _context;
         private readonly Common _common;
+        private readonly IAuditLogService _auditLog;
+        private readonly IApprovalService _approvalService;
+        private readonly ICompanyConfigService _companyConfigService;
 
-        public GoodsDeliveryService(AppDbContext context, Common common)
+        public GoodsDeliveryService(AppDbContext context, Common common, IAuditLogService auditLog, IApprovalService approvalService, ICompanyConfigService companyConfigService)
         {
             _context = context;
             _common = common;
+            _auditLog = auditLog;
+            _approvalService = approvalService;
+            _companyConfigService = companyConfigService;
         }
 
         // ════════════════════════════════════════════════════
@@ -44,7 +50,7 @@ namespace FinVentoryAPI.Services.Implementations
             // ── Validate each line: delivery qty must not exceed pending qty ───────
             await ValidateDeliveryQtysAsync(dto.Details, companyId);
 
-            var deliveryNo = await GenerateDeliveryNoAsync(companyId, finYearId);
+            var deliveryNo = await _common.GenerateDocumentNumber(_context, "Delivery Note");
 
             var main = new GoodsDeliveryMain
             {
@@ -108,6 +114,12 @@ namespace FinVentoryAPI.Services.Implementations
                 _context.GoodsDeliveryMains.Add(main);
                 await SaveChangesAsync();
                 await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "GoodsDelivery",
+                    action: "Create",
+                    entityId: main.DeliveryId,
+                    entityNo: main.DeliveryNo,
+                    newValues: new { main.DeliveryNo, main.BusinessPartnerId, main.NetTotal, main.Status });
             }
             catch
             {
@@ -140,6 +152,8 @@ namespace FinVentoryAPI.Services.Implementations
             if (main.Status != "Draft")
                 throw new Exception("Only Draft deliveries can be updated.");
 
+            var oldValues = new { main.DeliveryNo, main.BusinessPartnerId, main.NetTotal, main.Status };
+
             await ValidateHeaderAsync(
                 dto.BusinessPartnerId, dto.LocationId, companyId,
                 dto.SalesStateCode, dto.BillStateCode,
@@ -159,6 +173,9 @@ namespace FinVentoryAPI.Services.Implementations
                     PriceType = d.PriceType,
                     DeliveryQty = d.DeliveryQty,
                     Rate = d.Rate,
+                    Pack = d.Pack,
+                    PackQty = d.PackQty,
+                    RateUnit = d.RateUnit,
                     DiscountRate = d.DiscountRate,
                     AddisDiscountRate = d.AddisDiscountRate,
                     IsTaxIncluded = d.IsTaxIncluded,
@@ -183,6 +200,9 @@ namespace FinVentoryAPI.Services.Implementations
                     PriceType = lineDto.PriceType,
                     DeliveryQty = lineDto.DeliveryQty,
                     Rate = lineDto.Rate,
+                    Pack = lineDto.Pack,
+                    PackQty = lineDto.PackQty,
+                    RateUnit = lineDto.RateUnit,
                     DiscountRate = lineDto.DiscountRate,
                     AddisDiscountRate = lineDto.AddisDiscountRate,
                     IsTaxIncluded = lineDto.IsTaxIncluded,
@@ -248,6 +268,9 @@ namespace FinVentoryAPI.Services.Implementations
                         existing.PreviouslyDeliveredQty = incoming.PreviouslyDeliveredQty;
                         existing.DeliveryQty = incoming.DeliveryQty;
                         existing.Rate = incoming.Rate;
+                        existing.Pack = incoming.Pack;
+                        existing.PackQty = incoming.PackQty;
+                        existing.RateUnit = incoming.RateUnit;
                         existing.DiscountRate = incoming.DiscountRate;
                         existing.AddisDiscountRate = incoming.AddisDiscountRate;
                         existing.DiscountAmount = incoming.DiscountAmount;
@@ -336,6 +359,13 @@ namespace FinVentoryAPI.Services.Implementations
 
                 await SaveChangesAsync();
                 await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "GoodsDelivery",
+                    action: "Update",
+                    entityId: main.DeliveryId,
+                    entityNo: main.DeliveryNo,
+                    oldValues: oldValues,
+                    newValues: new { main.DeliveryNo, main.BusinessPartnerId, main.NetTotal, main.Status });
             }
             catch
             {
@@ -365,6 +395,8 @@ namespace FinVentoryAPI.Services.Implementations
             if (main.Status != "Draft")
                 throw new Exception("Only Draft deliveries can be deleted.");
 
+            var oldValues = new { main.DeliveryNo, main.BusinessPartnerId, main.NetTotal, main.Status };
+
             await using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
@@ -375,6 +407,13 @@ namespace FinVentoryAPI.Services.Implementations
 
                 await SaveChangesAsync();
                 await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "GoodsDelivery",
+                    action: "Delete",
+                    entityId: main.DeliveryId,
+                    entityNo: main.DeliveryNo,
+                    oldValues: oldValues,
+                    remarks: "Soft deleted");
                 return true;
             }
             catch
@@ -401,6 +440,14 @@ namespace FinVentoryAPI.Services.Implementations
 
             if (main.Status != "Draft")
                 throw new Exception("Only Draft deliveries can be confirmed.");
+
+            // Check if approval is required
+            var approvalRequired = await _companyConfigService.GetValueAsync(companyId, "ApprovalRequired_GoodsDelivery");
+            if (approvalRequired?.ToLower() == "true")
+            {
+                await _approvalService.SubmitForApprovalAsync("GoodsDelivery", id);
+                return true;
+            }
 
             await using var transaction = await _context.Database.BeginTransactionAsync();
             try
@@ -805,6 +852,9 @@ namespace FinVentoryAPI.Services.Implementations
                         PendingQty = pending,
                         SuggestedDeliveryQty = pending,
                         Rate = d.Rate,
+                        Pack = d.Pack,
+                        PackQty = d.PackQty,
+                        RateUnit = d.RateUnit,
                         DiscountRate = d.DiscountRate,
                         AddisDiscountRate = d.AddisDiscountRate,
                         IsTaxIncluded = d.IsTaxIncluded,
@@ -1008,7 +1058,14 @@ namespace FinVentoryAPI.Services.Implementations
             var previouslyDelivered = deliveredQtyMap.GetValueOrDefault(lineDto.OrderDetailId, 0m);
 
             // ── Tax calculation (same pattern as SalesOrderService) ──
-            decimal grossAmount = lineDto.Rate * lineDto.DeliveryQty;
+            // Rate Unit mode:  Gross = (DeliveryQty / RateUnit) × Rate
+            // Normal mode:     Gross = Rate × DeliveryQty
+            decimal grossAmount;
+            if (lineDto.RateUnit.HasValue && lineDto.RateUnit.Value > 0)
+                grossAmount = (lineDto.DeliveryQty / lineDto.RateUnit.Value) * lineDto.Rate;
+            else
+                grossAmount = lineDto.Rate * lineDto.DeliveryQty;
+
             decimal discountAmt = Math.Round(grossAmount * lineDto.DiscountRate / 100, 2);
             decimal afterFirst = grossAmount - discountAmt;
             decimal addisDiscAmt = Math.Round(afterFirst * lineDto.AddisDiscountRate / 100, 2);
@@ -1045,6 +1102,9 @@ namespace FinVentoryAPI.Services.Implementations
                 PreviouslyDeliveredQty = previouslyDelivered,
                 DeliveryQty = lineDto.DeliveryQty,
                 Rate = lineDto.Rate,
+                Pack = lineDto.Pack,
+                PackQty = lineDto.PackQty,
+                RateUnit = lineDto.RateUnit,
                 DiscountRate = lineDto.DiscountRate,
                 AddisDiscountRate = lineDto.AddisDiscountRate,
                 DiscountAmount = discountAmt,
@@ -1231,26 +1291,7 @@ namespace FinVentoryAPI.Services.Implementations
             }
         }
 
-        // ════════════════════════════════════════════════════
-        // PRIVATE — Generate delivery number
-        // ════════════════════════════════════════════════════
-        private async Task<string> GenerateDeliveryNoAsync(int companyId, int finYearId)
-        {
-            var financialYear = await _context.FinancialYears
-                .FirstOrDefaultAsync(x => x.FinancialYearId == finYearId);
 
-            var yearLabel = financialYear != null
-                ? $"{financialYear.StartDate.Year % 100}{financialYear.EndDate.Year % 100}"
-                : finYearId.ToString();
-
-            var count = await _context.GoodsDeliveryMains
-                .CountAsync(x =>
-                    x.CompanyId == companyId &&
-                    x.FinYearId == finYearId &&
-                    !x.IsDeleted);
-
-            return $"GD-{yearLabel}-{(count + 1):D4}";
-        }
 
         // ════════════════════════════════════════════════════
         // PRIVATE — Map to response DTO
@@ -1331,6 +1372,9 @@ namespace FinVentoryAPI.Services.Implementations
                     PreviouslyDeliveredQty = d.PreviouslyDeliveredQty,
                     DeliveryQty = d.DeliveryQty,
                     Rate = d.Rate,
+                    Pack = d.Pack,
+                    PackQty = d.PackQty,
+                    RateUnit = d.RateUnit,
                     DiscountRate = d.DiscountRate,
                     AddisDiscountRate = d.AddisDiscountRate,
                     DiscountAmount = d.DiscountAmount,
