@@ -27,7 +27,6 @@ namespace FinVentoryAPI.Services.Implementations
                 Email = dto.Email,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
                 Mobile = dto.Mobile,
-                IsPlatformAdmin = dto.IsPlatformAdmin,
                 RoleId = dto.roleId
             };
 
@@ -48,7 +47,6 @@ namespace FinVentoryAPI.Services.Implementations
                     FullName = x.FullName,
                     Email = x.Email,
                     Mobile = x.Mobile,
-                    IsPlatformAdmin = x.IsPlatformAdmin,
                     IsActive = x.IsActive,
                     RoleId = x.RoleId,
                     RoleName = x.Role != null ? x.Role.RoleName : null,
@@ -78,7 +76,6 @@ namespace FinVentoryAPI.Services.Implementations
 
             user.FullName = dto.FullName;
             user.Mobile = dto.Mobile;
-            user.IsPlatformAdmin = dto.IsPlatformAdmin;
             user.ModifiedDate = DateTime.UtcNow;
             user.RoleId = dto.roleId;
 
@@ -111,12 +108,9 @@ namespace FinVentoryAPI.Services.Implementations
                 FullName = user.FullName,
                 Email = user.Email,
                 Mobile = user.Mobile,
-                IsPlatformAdmin = user.IsPlatformAdmin,
                 IsActive = user.IsActive,
                 RoleId = user.RoleId,
                 RoleName = user.Role?.RoleName
-                
-               
             };
         }
     }

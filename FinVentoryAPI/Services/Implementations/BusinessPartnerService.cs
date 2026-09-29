@@ -27,42 +27,36 @@ namespace FinVentoryAPI.Services.Implementations
         public async Task<BusinessPartnerResponseDto> CreateAsync(CreateBusinessPartnerDto dto)
         {
             var companyId = _common.GetCompanyId();
+            var bpName = (dto.BPName ?? string.Empty).Trim();
+            var bpCode = (dto.BPCode ?? string.Empty).Trim();
+
+            if (string.IsNullOrWhiteSpace(bpName))
+                throw new Exception("Business Partner Name is required.");
 
             var duplicate = await _context.BusinessPartners
                 .AnyAsync(x =>
                     x.CompanyId == companyId &&
-                    x.BusinessPartnerName.ToLower() == dto.BPName.ToLower() &&
+                    x.BusinessPartnerName.Trim().ToLower() == bpName.ToLower() &&
                     !x.IsDeleted);
 
             if (duplicate)
-                throw new Exception("Business Partner already exists.");
+                throw new Exception("Duplicate entry: business partner '" + bpName + "' already exists.");
 
-            var account = new Account
-            {
-                AccountName = dto.BPName,
-                AccountCode = dto.BPCode,
-                AccountGroupId = dto.AccountGroupId,
-                AccountType = AccountType.General,
-                BookType = null,
-                BookSubType = null,
-                CompanyId = companyId,
-                CreatedBy = _common.GetUserId(),
-            };
+            await using var tx = await _context.Database.BeginTransactionAsync();
 
-            _context.Accounts.Add(account);
-            await _context.SaveChangesAsync();
+            var account = await GetOrCreateAccountAsync(companyId, bpName, bpCode, dto.AccountGroupId);
 
             var bp = new BusinessPartner
             {
                 CompanyId = companyId,
-                BusinessPartnerCode = dto.BPCode,
-                BusinessPartnerName = dto.BPName,
-                PrintName = dto.PrintName,
+                BusinessPartnerCode = bpCode,
+                BusinessPartnerName = bpName,
+                PrintName = string.IsNullOrWhiteSpace(dto.PrintName) ? bpName : dto.PrintName.Trim(),
                 Type = dto.BPType,
-                Mobile = dto.Mobile,
-                Email = dto.Email,
-                CreditLimit = (decimal)dto.CreditLimit,
-                CreditDays = (int)dto.CreditDays,
+                Mobile = dto.Mobile ?? string.Empty,
+                Email = dto.Email ?? string.Empty,
+                CreditLimit = dto.CreditLimit ?? 0,
+                CreditDays = dto.CreditDays ?? 0,
                 AccountGroupId = dto.AccountGroupId,
                 AccountId = account.AccountId,
                 CreatedBy = _common.GetUserId(),
@@ -109,7 +103,37 @@ namespace FinVentoryAPI.Services.Implementations
                 await _context.SaveChangesAsync();
             }
 
+            await tx.CommitAsync();
+
             return await GetByIdAsync(bp.BusinessPartnerId);
+        }
+
+        // Account is server-owned: reuse an existing row for the same company+name,
+        // otherwise create one. Never inserts a second Account for the same partner.
+        private async Task<Account> GetOrCreateAccountAsync(int companyId, string name, string code, int accountGroupId)
+        {
+            var existing = await _context.Accounts
+                .Where(x => x.CompanyId == companyId && !x.IsDeleted)
+                .FirstOrDefaultAsync(x => x.AccountName.Trim().ToLower() == name.ToLower());
+
+            if (existing != null)
+                return existing;
+
+            var account = new Account
+            {
+                AccountName = name,
+                AccountCode = code,
+                AccountGroupId = accountGroupId,
+                AccountType = AccountType.General,
+                BookType = null,
+                BookSubType = null,
+                CompanyId = companyId,
+                CreatedBy = _common.GetUserId(),
+            };
+
+            _context.Accounts.Add(account);
+            await _context.SaveChangesAsync();
+            return account;
         }
 
         // ────────────────────────────────────────────────────
@@ -118,6 +142,11 @@ namespace FinVentoryAPI.Services.Implementations
         public async Task<bool> UpdateAsync(int id, UpdateBusinessPartnerDto dto)
         {
             var companyId = _common.GetCompanyId();
+            var bpName = (dto.BPName ?? string.Empty).Trim();
+            var bpCode = (dto.BPCode ?? string.Empty).Trim();
+
+            if (string.IsNullOrWhiteSpace(bpName))
+                throw new Exception("Business Partner Name is required.");
 
             var bp = await _context.BusinessPartners
                 .Include(x => x.BPAddresses)
@@ -133,27 +162,36 @@ namespace FinVentoryAPI.Services.Implementations
             var duplicate = await _context.BusinessPartners
                 .AnyAsync(x =>
                     x.CompanyId == companyId &&
-                    x.BusinessPartnerName.ToLower() == dto.BPName.ToLower() &&
+                    x.BusinessPartnerName.Trim().ToLower() == bpName.ToLower() &&
                     x.BusinessPartnerId != id &&
                     !x.IsDeleted);
 
             if (duplicate)
-                throw new Exception("Business Partner with the same name already exists.");
+                throw new Exception("Duplicate entry: business partner '" + bpName + "' already exists.");
 
-            bp.BusinessPartnerCode = dto.BPCode;
-            bp.BusinessPartnerName = dto.BPName;
-            bp.PrintName = dto.PrintName;
+            await using var tx = await _context.Database.BeginTransactionAsync();
+
+            bp.BusinessPartnerCode = bpCode;
+            bp.BusinessPartnerName = bpName;
+            bp.PrintName = string.IsNullOrWhiteSpace(dto.PrintName) ? bpName : dto.PrintName.Trim();
             bp.Type = dto.BPType;
-            bp.Mobile = dto.Mobile;
-            bp.Email = dto.Email;
-            bp.CreditLimit = (decimal)dto.CreditLimit;
-            bp.CreditDays = (int)dto.CreditDays;
+            bp.Mobile = dto.Mobile ?? string.Empty;
+            bp.Email = dto.Email ?? string.Empty;
+            bp.CreditLimit = dto.CreditLimit ?? 0;
+            bp.CreditDays = dto.CreditDays ?? 0;
             bp.AccountGroupId = dto.AccountGroupId;
-            bp.AccountId = dto.AccountId;
             bp.IsActive = dto.IsActive;
             bp.ModifiedBy = _common.GetUserId();
             bp.ModifiedDate = DateTime.UtcNow;
             bp.DefaultPriceType = dto.DefaultPriceType;
+
+            // AccountId is never taken from the client. Repair rows saved as 0
+            // by the old flow so every partner points at a real account.
+            if (bp.AccountId == 0)
+            {
+                var account = await GetOrCreateAccountAsync(companyId, bpName, bpCode, dto.AccountGroupId);
+                bp.AccountId = account.AccountId;
+            }
 
             if (dto.BPAddresses != null)
             {
@@ -195,6 +233,7 @@ namespace FinVentoryAPI.Services.Implementations
             }
 
             await _context.SaveChangesAsync();
+            await tx.CommitAsync();
             return true;
         }
 

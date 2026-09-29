@@ -18,17 +18,26 @@ namespace FinVentoryAPI.Services.Implementations
         private readonly Common _common;
         private readonly IStockLedgerService _stockLedger;
         private readonly IAccountLedgerPostingService _accountLedger;
+        private readonly IAuditLogService _auditLog;
+        private readonly IApprovalService _approvalService;
+        private readonly ICompanyConfigService _companyConfigService;
 
         public SalesReturnService(
             AppDbContext context,
             Common common,
             IStockLedgerService stockLedger,
-            IAccountLedgerPostingService accountLedger)
+            IAccountLedgerPostingService accountLedger,
+            IAuditLogService auditLog,
+            IApprovalService approvalService,
+            ICompanyConfigService companyConfigService)
         {
             _context = context;
             _common = common;
             _stockLedger = stockLedger;
             _accountLedger = accountLedger;
+            _auditLog = auditLog;
+            _approvalService = approvalService;
+            _companyConfigService = companyConfigService;
         }
 
         // ════════════════════════════════════════════════════
@@ -46,7 +55,7 @@ namespace FinVentoryAPI.Services.Implementations
                 dto.SalesStateCode, dto.BillStateCode,
                 dto.BillAddressId);
 
-            var returnNo = await GenerateReturnNoAsync(companyId, finYearId);
+            var returnNo = await _common.GenerateDocumentNumber(_context, "Sales Return");
 
             var main = new SalesReturnMain
             {
@@ -128,6 +137,9 @@ namespace FinVentoryAPI.Services.Implementations
                         PriceType = lineDto.PriceType,
                         Qty = lineDto.Qty,
                         Rate = lineDto.Rate,
+                        Pack = lineDto.Pack,
+                        PackQty = lineDto.PackQty,
+                        RateUnit = lineDto.RateUnit,
                         DiscountRate = lineDto.DiscountRate,
                         AddisDiscountRate = lineDto.AddisDiscountRate,
                         IsTaxIncluded = lineDto.IsTaxIncluded,
@@ -159,6 +171,12 @@ namespace FinVentoryAPI.Services.Implementations
                 await PostAccountLedgerAsync(mainForPosting, isReversal: false);
 
                 await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "SalesReturn",
+                    action: "Create",
+                    entityId: main.ReturnId,
+                    entityNo: main.ReturnNo,
+                    newValues: new { main.ReturnNo, main.BusinessPartnerId, main.NetTotal, main.Status });
             }
             catch
             {
@@ -193,6 +211,8 @@ namespace FinVentoryAPI.Services.Implementations
             if (main.Status != "Draft")
                 throw new Exception("Only Draft returns can be updated.");
 
+            var oldValues = new { main.ReturnNo, main.BusinessPartnerId, main.NetTotal, main.Status };
+
             await ValidateHeaderAsync(
                 dto.BusinessPartnerId, dto.LocationId,
                 dto.SalesAccountId, companyId,
@@ -209,6 +229,9 @@ namespace FinVentoryAPI.Services.Implementations
                     PriceType = lineDto.PriceType,
                     Qty = lineDto.Qty,
                     Rate = lineDto.Rate,
+                    Pack = lineDto.Pack,
+                    PackQty = lineDto.PackQty,
+                    RateUnit = lineDto.RateUnit,
                     DiscountRate = lineDto.DiscountRate,
                     AddisDiscountRate = lineDto.AddisDiscountRate,
                     IsTaxIncluded = lineDto.IsTaxIncluded,
@@ -265,6 +288,9 @@ namespace FinVentoryAPI.Services.Implementations
                         existing.PriceType = incoming.PriceType;
                         existing.Qty = incoming.Qty;
                         existing.Rate = incoming.Rate;
+                        existing.Pack = incoming.Pack;
+                        existing.PackQty = incoming.PackQty;
+                        existing.RateUnit = incoming.RateUnit;
                         existing.DiscountRate = incoming.DiscountRate;
                         existing.AddisDiscountRate = incoming.AddisDiscountRate;
                         existing.DiscountAmount = incoming.DiscountAmount;
@@ -368,6 +394,13 @@ namespace FinVentoryAPI.Services.Implementations
                 await UpdateAccountLedgerAsync(main);
 
                 await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "SalesReturn",
+                    action: "Update",
+                    entityId: main.ReturnId,
+                    entityNo: main.ReturnNo,
+                    oldValues: oldValues,
+                    newValues: new { main.ReturnNo, main.BusinessPartnerId, main.NetTotal, main.Status });
             }
             catch
             {
@@ -403,6 +436,8 @@ namespace FinVentoryAPI.Services.Implementations
             if (main.Status != "Draft")
                 throw new Exception("Only Draft returns can be deleted.");
 
+            var oldValues = new { main.ReturnNo, main.BusinessPartnerId, main.NetTotal, main.Status };
+
             await using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
@@ -418,6 +453,57 @@ namespace FinVentoryAPI.Services.Implementations
                 await _stockLedger.SoftDeleteByVoucherAsync(companyId, main.ReturnNo, userId);
                 await _accountLedger.SoftDeleteByVoucherAsync(
                     companyId, main.FinYearId, main.ReturnNo, userId);
+
+                await SaveChangesAsync();
+                await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "SalesReturn",
+                    action: "Delete",
+                    entityId: main.ReturnId,
+                    entityNo: main.ReturnNo,
+                    oldValues: oldValues,
+                    remarks: "Soft deleted");
+                return true;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        // ════════════════════════════════════════════════════
+        // CONFIRM  (Draft → Confirmed)
+        // ════════════════════════════════════════════════════
+        public async Task<bool> ConfirmAsync(int id)
+        {
+            var companyId = _common.GetCompanyId();
+            var userId = _common.GetUserId();
+
+            var main = await _context.SalesReturnMains
+                .FirstOrDefaultAsync(x =>
+                    x.ReturnId == id &&
+                    x.CompanyId == companyId &&
+                    !x.IsDeleted)
+                ?? throw new Exception("Sales Return not found.");
+
+            if (main.Status != "Draft")
+                throw new Exception("Only Draft returns can be confirmed.");
+
+            // Check if approval is required
+            var approvalRequired = await _companyConfigService.GetValueAsync(companyId, "ApprovalRequired_SalesReturn");
+            if (approvalRequired?.ToLower() == "true")
+            {
+                await _approvalService.SubmitForApprovalAsync("SalesReturn", id);
+                return true;
+            }
+
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                main.Status = "Confirmed";
+                main.ModifiedBy = userId;
+                main.ModifiedDate = DateTime.UtcNow;
 
                 await SaveChangesAsync();
                 await transaction.CommitAsync();
@@ -669,7 +755,14 @@ namespace FinVentoryAPI.Services.Implementations
             }
 
             // ── Calculation ───────────────────────────────────────────────────
-            decimal grossAmount = lineDto.Rate * lineDto.Qty;
+            // Rate Unit mode:  Gross = (Qty / RateUnit) × Rate
+            // Normal mode:     Gross = Rate × Qty
+            decimal grossAmount;
+            if (lineDto.RateUnit.HasValue && lineDto.RateUnit.Value > 0)
+                grossAmount = (lineDto.Qty / lineDto.RateUnit.Value) * lineDto.Rate;
+            else
+                grossAmount = lineDto.Rate * lineDto.Qty;
+
             decimal discountAmt = Math.Round(grossAmount * lineDto.DiscountRate / 100, 2);
             decimal afterFirst = grossAmount - discountAmt;
             decimal addisDiscAmt = Math.Round(afterFirst * lineDto.AddisDiscountRate / 100, 2);
@@ -703,6 +796,9 @@ namespace FinVentoryAPI.Services.Implementations
                 PriceType = lineDto.PriceType,
                 Qty = lineDto.Qty,
                 Rate = lineDto.Rate,
+                Pack = lineDto.Pack,
+                PackQty = lineDto.PackQty,
+                RateUnit = lineDto.RateUnit,
                 DiscountRate = lineDto.DiscountRate,
                 AddisDiscountRate = lineDto.AddisDiscountRate,
                 DiscountAmount = discountAmt,
@@ -902,22 +998,7 @@ namespace FinVentoryAPI.Services.Implementations
             }
         }
 
-        // ════════════════════════════════════════════════════
-        // PRIVATE — Generate return number
-        // ════════════════════════════════════════════════════
-        private async Task<string> GenerateReturnNoAsync(int companyId, int finYearId)
-        {
-            var financialYear = await _context.FinancialYears
-                .FirstOrDefaultAsync(x => x.FinancialYearId == finYearId);
-            var yearLabel = financialYear != null
-                ? $"{financialYear.StartDate.Year % 100}{financialYear.EndDate.Year % 100}"
-                : finYearId.ToString();
-            var count = await _context.SalesReturnMains
-                .CountAsync(x => x.CompanyId == companyId &&
-                                 x.FinYearId == finYearId &&
-                                 !x.IsDeleted);
-            return $"SR-{yearLabel}-{(count + 1):D4}";
-        }
+
 
         // ════════════════════════════════════════════════════
         // PRIVATE — Stock Ledger
@@ -1085,6 +1166,9 @@ namespace FinVentoryAPI.Services.Implementations
                     PriceType = d.PriceType,
                     Qty = d.Qty,
                     Rate = d.Rate,
+                    Pack = d.Pack,
+                    PackQty = d.PackQty,
+                    RateUnit = d.RateUnit,
                     DiscountRate = d.DiscountRate,
                     AddisDiscountRate = d.AddisDiscountRate,
                     DiscountAmount = d.DiscountAmount,

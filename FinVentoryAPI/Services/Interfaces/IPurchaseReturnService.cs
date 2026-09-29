@@ -7,6 +7,7 @@ namespace FinVentoryAPI.Services.Interfaces
     {
         Task<PurchaseReturnResponseDto> CreateAsync(CreatePurchaseReturnMainDto dto);
         Task<bool> UpdateAsync(int id, UpdatePurchaseReturnMainDto dto);
+        Task<bool> ConfirmAsync(int id);
         Task<bool> DeleteAsync(int id);
         Task<PurchaseReturnResponseDto?> GetByIdAsync(int id);
         Task<List<PurchaseReturnResponseDto>> GetAllAsync();

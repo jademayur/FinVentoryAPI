@@ -24,20 +24,17 @@ namespace FinVentoryAPI.Services.Implementations
         public async Task<HsnResponseDto> CreateAsync(CreateHsnDto dto)
         {
             var CompanyId = _common.GetCompanyId();
+            var name = (dto.HsnName ?? string.Empty).Trim();
 
-            var duplicate = await _context.Hsns
-                .AnyAsync(x =>
-                x.CompanyId == CompanyId &&
-                x.HsnName.ToLower() == dto.HsnName.ToLower() &&
-                !x.IsDeleted);
+            if (string.IsNullOrWhiteSpace(name))
+                throw new Exception("HSN / SAC code is required.");
 
-            if (duplicate)
-                throw new Exception("HSN already exists. ");
+            await EnsureUniqueNameAsync(CompanyId, name, null);
 
-            var hsn = new Hsn
+            var hsn = new Hsn   
             {
                 CompanyId = CompanyId,
-                HsnName = dto.HsnName,
+                HsnName = name,
                 HSNType = dto.HsnType,
                 Description = dto.Description,
                 TaxId = dto.TaxId,
@@ -64,6 +61,10 @@ namespace FinVentoryAPI.Services.Implementations
         public async Task<bool> UpdateAsync(int id, UpdateHsnDto dto)
         {
             var CompanyId = _common.GetCompanyId();
+            var name = (dto.HsnName ?? string.Empty).Trim();
+
+            if (string.IsNullOrWhiteSpace(name))
+                throw new Exception("HSN / SAC code is required.");
 
             var hsn = await _context.Hsns
                 .FirstOrDefaultAsync(x =>
@@ -74,18 +75,10 @@ namespace FinVentoryAPI.Services.Implementations
             if (hsn == null)
                 return false;
 
-            var duplicate = await _context.Hsns
-               .AnyAsync(x =>
-                   x.CompanyId == CompanyId &&
-                   x.HsnName.ToLower() == dto.HsnName.ToLower() &&
-                   x.HsnId != id &&
-                   !x.IsDeleted);
-
-            if (duplicate)
-                throw new Exception("Another HSN with same name already exists.");
+            await EnsureUniqueNameAsync(CompanyId, name, id);
 
             hsn.HsnId = dto.HsnId;
-            hsn.HsnName = dto.HsnName;
+            hsn.HsnName = name;
             hsn.HSNType = dto.HsnType;
             hsn.Description = dto.Description;
             hsn.TaxId = dto.TaxId;
@@ -98,6 +91,18 @@ namespace FinVentoryAPI.Services.Implementations
             await _context.SaveChangesAsync();
 
             return true;
+        }
+
+        private async Task EnsureUniqueNameAsync(int companyId, string name, int? excludeId)
+        {
+            var duplicate = await _context.Hsns.AnyAsync(x =>
+                x.CompanyId == companyId &&
+                x.HsnName.Trim().ToLower() == name.ToLower() &&
+                !x.IsDeleted &&
+                (excludeId == null || x.HsnId != excludeId));
+
+            if (duplicate)
+                throw new Exception($"Duplicate entry: HSN/SAC code '{name}' already exists.");
         }
 
         public async Task<List<HsnResponseDto>> GetAllAsync()

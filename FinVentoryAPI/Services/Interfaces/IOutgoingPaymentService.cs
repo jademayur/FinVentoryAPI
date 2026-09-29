@@ -11,6 +11,8 @@ namespace FinVentoryAPI.Services.Interfaces
         Task<OutgoingPaymentResponseDto> CreateAsync(CreateOutgoingPaymentDto dto);
         Task<bool> UpdateAsync(int id, UpdateOutgoingPaymentDto dto);
         Task<bool> DeleteAsync(int id);
+        Task<bool> ConfirmAsync(int id);
+        Task<bool> CancelAsync(int id);
 
         Task<OutgoingPaymentResponseDto?> GetByIdAsync(int id);
         Task<List<OutgoingPaymentResponseDto>> GetAllAsync();

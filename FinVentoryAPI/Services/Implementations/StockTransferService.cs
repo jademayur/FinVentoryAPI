@@ -16,13 +16,17 @@ namespace FinVentoryAPI.Services.Implementations
         private readonly Common _common;
         private readonly IStockLedgerService _stockLedger;
         private readonly IAuditLogService _auditLog;
+        private readonly IApprovalService _approvalService;
+        private readonly ICompanyConfigService _companyConfigService;
 
-        public StockTransferService(AppDbContext context, Common common, IStockLedgerService stockLedger, IAuditLogService auditLog)
+        public StockTransferService(AppDbContext context, Common common, IStockLedgerService stockLedger, IAuditLogService auditLog, IApprovalService approvalService, ICompanyConfigService companyConfigService)
         {
             _context = context;
             _common = common;
             _stockLedger = stockLedger;
             _auditLog = auditLog;
+            _approvalService = approvalService;
+            _companyConfigService = companyConfigService;
         }
 
         public async Task<StockTransferResponseDto> CreateAsync(CreateStockTransferMainDto dto)
@@ -324,6 +328,14 @@ namespace FinVentoryAPI.Services.Implementations
 
             if (!main.Details.Any())
                 throw new Exception("Transfer must have at least one detail line.");
+
+            // Check if approval is required
+            var approvalRequired = await _companyConfigService.GetValueAsync(companyId, "ApprovalRequired_StockTransfer");
+            if (approvalRequired?.ToLower() == "true")
+            {
+                await _approvalService.SubmitForApprovalAsync("StockTransfer", id);
+                return await GetByIdAsync(id) ?? throw new Exception("Failed to retrieve transfer.");
+            }
 
             // Post stock ledger entries
             var lines = main.Details.Select(d => new StockLedgerLineDto

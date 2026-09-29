@@ -3,13 +3,16 @@ using FinVentoryAPI.DTOs.RoleRightsDTOs;
 using FinVentoryAPI.Entities;
 using FinVentoryAPI.Services.Implementations;
 using FinVentoryAPI.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace FinVentoryAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class RoleRightController : ControllerBase
     {
         private readonly IRoleRightService _roleRightService;
@@ -20,12 +23,11 @@ namespace FinVentoryAPI.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "applAdmin")]
         public async Task<IActionResult> Create([FromBody] RoleRightCreateDto dto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
-
-            //int userId = 1; // Later get from JWT claim
 
             var result = await _roleRightService.CreateAsync(dto);
 
@@ -50,12 +52,11 @@ namespace FinVentoryAPI.Controllers
             return Ok(List);
         }
         [HttpPut("{id}")]
+        [Authorize(Roles = "applAdmin")]
         public async Task<IActionResult> Update(int id, [FromBody] RoleRightUpdateDto dto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
-
-            //  int userId = 1; // Later get from JWT
 
             var updated = await _roleRightService.UpdateAsync(id, dto);
 
@@ -66,9 +67,14 @@ namespace FinVentoryAPI.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = "applAdmin")]
         public async Task<IActionResult> Delete(int id)
         {
-            int userId = 1; // Later get from JWT
+            var userIdClaim = User.FindFirst("UserId")?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+                return Unauthorized();
+
+            int userId = Convert.ToInt32(userIdClaim);
 
             var deleted = await _roleRightService.DeleteAsync(id, userId);
 
@@ -81,6 +87,12 @@ namespace FinVentoryAPI.Controllers
         [HttpGet("GetMenuByRole/{roleId}")]
         public async Task<IActionResult> GetMenuByRole(int roleId)
         {
+            var callerRoleId = int.Parse(User.FindFirst("RoleId")?.Value ?? "0");
+            var callerRoleName = User.FindFirst(ClaimTypes.Role)?.Value;
+
+            if (callerRoleId != roleId && callerRoleName != "applAdmin")
+                return Forbid();
+
             var data = await _roleRightService.GetMenuByRoleAsync(roleId);
             return Ok(data);
         }

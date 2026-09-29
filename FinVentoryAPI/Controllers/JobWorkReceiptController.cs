@@ -1,12 +1,14 @@
 using FinVentoryAPI.DTOs.PagedRequestDto;
 using FinVentoryAPI.DTOs.JobWorkReceiptDTOs;
 using FinVentoryAPI.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FinVentoryAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class JobWorkReceiptController : ControllerBase
     {
         private readonly IJobWorkReceiptService _service;

@@ -20,6 +20,10 @@ namespace FinVentoryAPI.DTOs.SalesInvoiceDTOs
         [Range(0, double.MaxValue, ErrorMessage = "Rate cannot be negative.")]
         public decimal Rate { get; set; }
 
+        public decimal? Pack { get; set; }
+        public decimal? PackQty { get; set; }
+        public decimal? RateUnit { get; set; }
+
         [Range(0, 100, ErrorMessage = "Discount Rate must be between 0 and 100.")]
         public decimal DiscountRate { get; set; } = 0;
 

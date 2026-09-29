@@ -20,13 +20,12 @@ namespace FinVentoryAPI.Services.Implementations
             _common = common;
         }
 
-       
         public async Task<IEnumerable<SeriesResponseDto>> GetAllAsync()
         {
             var companyId = _common.GetCompanyId();
 
             return await _context.DocumentSeries
-                .Where(s => s.CompanyId == companyId)
+                .Where(s => s.CompanyId == companyId && !s.IsDeleted)
                 .Select(s => MapToResponseDto(s))
                 .ToListAsync();
         }
@@ -36,15 +35,14 @@ namespace FinVentoryAPI.Services.Implementations
             var companyId = _common.GetCompanyId();
 
             var series = await _context.DocumentSeries
-                .FirstOrDefaultAsync(s => s.SeriesId == seriesId && s.CompanyId == companyId);
+                .FirstOrDefaultAsync(s => s.SeriesId == seriesId && s.CompanyId == companyId && !s.IsDeleted);
 
             return series is null ? null : MapToResponseDto(series);
         }
 
         public async Task<SeriesResponseDto> CreateAsync(CreateSeriesDto dto)
         {
-            var companyId = _common.GetCompanyId();
-
+            var companyId = dto.CompanyId ?? _common.GetCompanyId();
 
             if (dto.IsDefault)
                 await ClearDefaultAsync(companyId, dto.DocumentType);
@@ -52,14 +50,21 @@ namespace FinVentoryAPI.Services.Implementations
             var series = new DocumentSeries
             {
                 CompanyId = companyId,
+                FinancialYearId = dto.FinancialYearId,
+                ModuleId = dto.ModuleId,
                 DocumentType = dto.DocumentType,
+                SeriesCode = dto.SeriesCode,
                 SeriesName = dto.SeriesName,
                 Prefix = dto.Prefix,
+                Suffix = dto.Suffix,
+                Format = dto.Format,
+                DocumentLength = dto.DocumentLength,
                 StartDate = dto.StartDate,
                 EndDate = dto.EndDate,
-                IsDefault = dto.IsDefault,
-                IsManual = dto.IsManual,                
                 StartFromNumber = dto.StartFromNumber,
+                NextNumber = dto.StartFromNumber,
+                IsDefault = dto.IsDefault,
+                IsManual = dto.IsManual,
                 CreatedBy = _common.GetUserId()
             };
 
@@ -84,15 +89,19 @@ namespace FinVentoryAPI.Services.Implementations
             if (dto.IsDefault && !series.IsDefault)
                 await ClearDefaultAsync(companyId, dto.DocumentType);
 
+            series.FinancialYearId = dto.FinancialYearId;
+            series.ModuleId = dto.ModuleId;
             series.DocumentType = dto.DocumentType;
+            series.SeriesCode = dto.SeriesCode;
             series.SeriesName = dto.SeriesName;
             series.Prefix = dto.Prefix;
-            series.StartDate = dto.StartDate;
-            series.EndDate = dto.EndDate;
+            series.Suffix = dto.Suffix;
+            series.Format = dto.Format;
+            series.DocumentLength = dto.DocumentLength;
+            series.StartFromNumber = dto.StartFromNumber;
             series.IsDefault = dto.IsDefault;
             series.IsManual = dto.IsManual;
             series.IsActive = dto.IsActive;
-            series.StartFromNumber = dto.StartFromNumber;
             series.ModifiedBy = _common.GetUserId();
             series.ModifiedDate = DateTime.UtcNow;
 
@@ -103,7 +112,7 @@ namespace FinVentoryAPI.Services.Implementations
 
         public async Task<bool> DeleteAsync(int seriesId)
         {
-            var companyId = _common.GetCompanyId(); 
+            var companyId = _common.GetCompanyId();
 
             var series = await _context.DocumentSeries
                 .FirstOrDefaultAsync(s => s.SeriesId == seriesId && s.CompanyId == companyId);
@@ -113,7 +122,8 @@ namespace FinVentoryAPI.Services.Implementations
             if (series.IsLocked)
                 throw new InvalidOperationException("Cannot delete a locked series.");
 
-            _context.DocumentSeries.Remove(series);
+            series.IsDeleted = true;
+            series.ModifiedDate = DateTime.UtcNow;
             await _context.SaveChangesAsync();
             return true;
         }
@@ -127,7 +137,8 @@ namespace FinVentoryAPI.Services.Implementations
                     s.CompanyId == companyId &&
                     s.DocumentType == documentType &&
                     s.IsDefault &&
-                    s.IsActive);
+                    s.IsActive &&
+                    !s.IsDeleted);
 
             return series is null ? null : MapToResponseDto(series);
         }
@@ -164,7 +175,7 @@ namespace FinVentoryAPI.Services.Implementations
             if (series.IsLocked)
                 throw new InvalidOperationException("Series is locked.");
 
-            var docNumber = $"{series.Prefix}{series.NextNumber:D5}";
+            var docNumber = FormatDocumentNumber(series);
 
             series.NextNumber++;
             await _context.SaveChangesAsync();
@@ -177,20 +188,19 @@ namespace FinVentoryAPI.Services.Implementations
             var companyId = _common.GetCompanyId();
 
             var query = _context.DocumentSeries
-                .Where(x => x.CompanyId == companyId)
+                .Where(x => x.CompanyId == companyId && !x.IsDeleted)
                 .AsQueryable();
 
-            // SEARCH
             if (!string.IsNullOrWhiteSpace(request.Search))
             {
                 var search = request.Search.ToLower();
                 query = query.Where(x =>
                     x.SeriesName!.ToLower().Contains(search) ||
+                    x.SeriesCode!.ToLower().Contains(search) ||
                     x.Prefix.ToLower().Contains(search) ||
                     x.DocumentType.ToLower().Contains(search));
             }
 
-            // FILTERS
             if (request.Filters != null)
             {
                 if (request.Filters.ContainsKey("isActive"))
@@ -205,82 +215,44 @@ namespace FinVentoryAPI.Services.Implementations
                     if (!string.IsNullOrWhiteSpace(docType))
                         query = query.Where(x => x.DocumentType == docType);
                 }
+
+                if (request.Filters.ContainsKey("financialYearId"))
+                {
+                    var fyId = ((JsonElement)request.Filters["financialYearId"]).GetInt32();
+                    query = query.Where(x => x.FinancialYearId == fyId);
+                }
+
+                if (request.Filters.ContainsKey("moduleId"))
+                {
+                    var modId = ((JsonElement)request.Filters["moduleId"]).GetInt32();
+                    query = query.Where(x => x.ModuleId == modId);
+                }
             }
 
-            // SORTING
             if (request.Sorts != null && request.Sorts.Any())
             {
                 var sort = request.Sorts.First();
-
-                switch (sort.Column.ToLower())
+                query = sort.Column.ToLower() switch
                 {
-                    case "seriesname":
-                        query = sort.Direction == "desc"
-                            ? query.OrderByDescending(x => x.SeriesName)
-                            : query.OrderBy(x => x.SeriesName);
-                        break;
-
-                    case "documenttype":
-                        query = sort.Direction == "desc"
-                            ? query.OrderByDescending(x => x.DocumentType)
-                            : query.OrderBy(x => x.DocumentType);
-                        break;
-
-                    case "prefix":
-                        query = sort.Direction == "desc"
-                            ? query.OrderByDescending(x => x.Prefix)
-                            : query.OrderBy(x => x.Prefix);
-                        break;
-
-                    case "startdate":
-                        query = sort.Direction == "desc"
-                            ? query.OrderByDescending(x => x.StartDate)
-                            : query.OrderBy(x => x.StartDate);
-                        break;
-
-                    case "nextnumber":
-                        query = sort.Direction == "desc"
-                            ? query.OrderByDescending(x => x.NextNumber)
-                            : query.OrderBy(x => x.NextNumber);
-                        break;
-
-                    case "isactive":
-                        query = sort.Direction == "desc"
-                            ? query.OrderByDescending(x => x.IsActive)
-                            : query.OrderBy(x => x.IsActive);
-                        break;
-
-                    default:
-                        query = query.OrderBy(x => x.SeriesName);
-                        break;
-                }
+                    "seriesname" => sort.Direction == "desc" ? query.OrderByDescending(x => x.SeriesName) : query.OrderBy(x => x.SeriesName),
+                    "documenttype" => sort.Direction == "desc" ? query.OrderByDescending(x => x.DocumentType) : query.OrderBy(x => x.DocumentType),
+                    "seriescode" => sort.Direction == "desc" ? query.OrderByDescending(x => x.SeriesCode) : query.OrderBy(x => x.SeriesCode),
+                    "prefix" => sort.Direction == "desc" ? query.OrderByDescending(x => x.Prefix) : query.OrderBy(x => x.Prefix),
+                    "nextnumber" => sort.Direction == "desc" ? query.OrderByDescending(x => x.NextNumber) : query.OrderBy(x => x.NextNumber),
+                    _ => query.OrderBy(x => x.SeriesName)
+                };
             }
             else
             {
-                query = query.OrderBy(x => x.SeriesName);
+                query = query.OrderBy(x => x.DocumentType).ThenBy(x => x.SeriesName);
             }
 
-            // TOTAL RECORD COUNT
             var totalRecords = await query.CountAsync();
 
-            // PAGINATION + DATA
             var data = await query
                 .Skip((request.PageNumber - 1) * request.PageSize)
                 .Take(request.PageSize)
-                .Select(x => new SeriesResponseDto
-                {
-                    SeriesId = x.SeriesId,
-                    SeriesName = x.SeriesName ?? string.Empty,
-                    Prefix = x.Prefix,
-                    DocumentType = x.DocumentType,
-                    StartDate = x.StartDate,
-                    EndDate = x.EndDate,
-                    NextNumber = x.NextNumber,
-                    IsDefault = x.IsDefault,
-                    IsLocked = x.IsLocked,
-                    IsActive = x.IsActive,
-                    StartFromNumber = x.StartFromNumber,
-                })
+                .Select(x => MapToResponseDto(x))
                 .ToListAsync();
 
             return new PagedResponseDto<SeriesResponseDto>
@@ -306,17 +278,47 @@ namespace FinVentoryAPI.Services.Implementations
                 s.IsDefault = false;
         }
 
+        private static string FormatDocumentNumber(DocumentSeries s)
+        {
+            var numStr = s.NextNumber.ToString().PadLeft(s.DocumentLength, '0');
+            var prefix = s.Prefix ?? "";
+            var suffix = s.Suffix ?? "";
+
+            if (!string.IsNullOrEmpty(s.Format))
+            {
+                var fy = s.FinancialYearId?.ToString() ?? "";
+                var result = s.Format
+                    .Replace("{PREFIX}", prefix)
+                    .Replace("{SUFFIX}", suffix)
+                    .Replace("{NUMBER}", numStr)
+                    .Replace("{FY}", fy);
+                return result;
+            }
+
+            return $"{prefix}{numStr}{suffix}";
+        }
+
         private static SeriesResponseDto MapToResponseDto(DocumentSeries s) => new()
         {
             SeriesId = s.SeriesId,
+            CompanyId = s.CompanyId,
+            FinancialYearId = s.FinancialYearId,
+            ModuleId = s.ModuleId,
+            DocumentType = s.DocumentType,
+            SeriesCode = s.SeriesCode,
             SeriesName = s.SeriesName ?? string.Empty,
             Prefix = s.Prefix,
+            Suffix = s.Suffix,
+            Format = s.Format,
+            DocumentLength = s.DocumentLength,
+            StartFromNumber = s.StartFromNumber,
             StartDate = s.StartDate,
             EndDate = s.EndDate,
             NextNumber = s.NextNumber,
             IsDefault = s.IsDefault,
+            IsManual = s.IsManual,
+            IsActive = s.IsActive,
             IsLocked = s.IsLocked,
-            StartFromNumber = s.StartFromNumber,
         };
     }
 }

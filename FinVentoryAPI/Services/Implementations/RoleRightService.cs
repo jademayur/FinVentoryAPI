@@ -122,6 +122,40 @@ namespace FinVentoryAPI.Services.Implementations
 
         public async Task<List<MenuItemResponseDto>> GetMenuByRoleAsync(int roleId)
         {
+            // Check if this role is "applAdmin" — applAdmin gets all menus without RoleRights
+            var role = await _context.Roles.FirstOrDefaultAsync(r => r.RoleId == roleId);
+            bool isApplAdmin = role != null && role.RoleName == "applAdmin";
+
+            if (isApplAdmin)
+            {
+                return await _context.MenuItems
+                    .Where(mi => mi.IsActive && mi.MenuGroup.IsActive && mi.Module.IsActive)
+                    .Select(mi => new MenuItemResponseDto
+                    {
+                        MenuItemId = mi.MenuItemId,
+                        MenuName = mi.MenuName,
+                        MenuItemIcon = mi.Icon,
+                        MenuItemSortOrder = mi.SortOrder,
+                        MenuItemIsActive = mi.IsActive,
+                        ModuleId = mi.ModuleId,
+                        ModuleName = mi.Module.ModuleName,
+                        ModuleIcon = mi.Module.Icon,
+                        ModuleSortOrder = mi.Module.SortOrder,
+                        ModuleIsActive = mi.Module.IsActive,
+                        MenuGroupId = mi.MenuGroupId,
+                        MenuGroupName = mi.MenuGroup.MenuGroupName,
+                        MenuGroupIcon = mi.MenuGroup.Icon,
+                        MenuGroupSortOrder = mi.MenuGroup.SortOrder,
+                        MenuGroupIsActive = mi.MenuGroup.IsActive,
+                        ControllerName = mi.ControllerName,
+                        ActionName = mi.ActionName
+                    })
+                    .OrderBy(x => x.ModuleSortOrder)
+                    .ThenBy(x => x.MenuGroupSortOrder)
+                    .ThenBy(x => x.MenuItemSortOrder)
+                    .ToListAsync();
+            }
+
             return await _context.RoleRights
                 .Where(r => r.RoleId == roleId
                             && r.CanView
@@ -184,6 +218,22 @@ namespace FinVentoryAPI.Services.Implementations
 
         public async Task<FormPermissionDto> GetFormPermissionsAsync(int menuItemId, int roleId)
         {
+            var role = await _context.Roles.FirstOrDefaultAsync(r => r.RoleId == roleId);
+            if (role != null && role.RoleName == "applAdmin")
+            {
+                return new FormPermissionDto
+                {
+                    MenuItemId = menuItemId,
+                    CanView = true,
+                    CanAdd = true,
+                    CanDelete = true,
+                    CanEdit = true,
+                    CanExport = true,
+                    CanPrint = true,
+                    CanApprove = true
+                };
+            }
+
             var rights = await _context.RoleRights
                 .FirstOrDefaultAsync(x => x.MenuItemId == menuItemId && x.RoleId == roleId);
 

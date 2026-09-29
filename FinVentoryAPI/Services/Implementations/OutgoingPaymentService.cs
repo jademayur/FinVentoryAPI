@@ -15,15 +15,24 @@ namespace FinVentoryAPI.Services.Implementations
         private readonly AppDbContext _context;
         private readonly Common _common;
         private readonly IAccountLedgerPostingService _accountLedger;
+        private readonly IAuditLogService _auditLog;
+        private readonly IApprovalService _approvalService;
+        private readonly ICompanyConfigService _companyConfigService;
 
         public OutgoingPaymentService(
             AppDbContext context,
             Common common,
-            IAccountLedgerPostingService accountLedger)
+            IAccountLedgerPostingService accountLedger,
+            IAuditLogService auditLog,
+            IApprovalService approvalService,
+            ICompanyConfigService companyConfigService)
         {
             _context = context;
             _common = common;
             _accountLedger = accountLedger;
+            _auditLog = auditLog;
+            _approvalService = approvalService;
+            _companyConfigService = companyConfigService;
         }
 
         // ════════════════════════════════════════════════════
@@ -112,7 +121,7 @@ namespace FinVentoryAPI.Services.Implementations
             var pendingBills = await GetPendingBillsAsync(dto.BusinessPartnerId);
             await ValidateAllocationsAsync(dto.Allocations, pendingBills, companyId);
 
-            var paymentNo = await GeneratePaymentNoAsync(companyId, finYearId);
+            var paymentNo = await _common.GenerateDocumentNumber(_context, "Payment Voucher");
 
             var main = new OutgoingPaymentMain
             {
@@ -162,6 +171,12 @@ namespace FinVentoryAPI.Services.Implementations
                 await PostAccountLedgerAsync(mainForPosting, isReversal: false);
 
                 await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "OutgoingPayment",
+                    action: "Create",
+                    entityId: main.PaymentId,
+                    entityNo: main.PaymentNo,
+                    newValues: new { main.PaymentNo, main.BusinessPartnerId, main.TotalAmount, main.Status });
             }
             catch
             {
@@ -185,6 +200,8 @@ namespace FinVentoryAPI.Services.Implementations
             if (main == null) return false;
             if (main.Status != "Draft")
                 throw new Exception("Only Draft payments can be updated.");
+
+            var oldValues = new { main.PaymentNo, main.BusinessPartnerId, main.TotalAmount, main.Status };
 
             await ValidatePaymentAsync(dto.BusinessPartnerId, dto.PaymentAccountId, companyId);
             ValidateAmounts(dto.TotalAmount, dto.OnAccountAmount, dto.Allocations);
@@ -233,6 +250,13 @@ namespace FinVentoryAPI.Services.Implementations
                 await UpdateAccountLedgerAsync(main);
 
                 await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "OutgoingPayment",
+                    action: "Update",
+                    entityId: main.PaymentId,
+                    entityNo: main.PaymentNo,
+                    oldValues: oldValues,
+                    newValues: new { main.PaymentNo, main.BusinessPartnerId, main.TotalAmount, main.Status });
                 return true;
             }
             catch
@@ -255,6 +279,8 @@ namespace FinVentoryAPI.Services.Implementations
             if (main.Status != "Draft")
                 throw new Exception("Only Draft payments can be deleted.");
 
+            var oldValues = new { main.PaymentNo, main.BusinessPartnerId, main.TotalAmount, main.Status };
+
             await using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
@@ -268,6 +294,102 @@ namespace FinVentoryAPI.Services.Implementations
 
                 await SaveChangesAsync();
                 await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "OutgoingPayment",
+                    action: "Delete",
+                    entityId: main.PaymentId,
+                    entityNo: main.PaymentNo,
+                    oldValues: oldValues,
+                    remarks: "Soft deleted");
+                return true;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        // ════════════════════════════════════════════════════
+        // CONFIRM
+        // ════════════════════════════════════════════════════
+        public async Task<bool> ConfirmAsync(int id)
+        {
+            var companyId = _common.GetCompanyId();
+            var userId = _common.GetUserId();
+
+            var main = await LoadMainAsync(id, companyId);
+            if (main == null) return false;
+            if (main.Status != "Draft")
+                throw new Exception("Only Draft payments can be confirmed.");
+
+            // Check if approval is required
+            var approvalRequired = await _companyConfigService.GetValueAsync(companyId, "ApprovalRequired_OutgoingPayment");
+            if (approvalRequired?.ToLower() == "true")
+            {
+                await _approvalService.SubmitForApprovalAsync("OutgoingPayment", id);
+                return true;
+            }
+
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                main.Status = "Confirmed";
+                main.ModifiedBy = userId;
+                main.ModifiedDate = DateTime.UtcNow;
+
+                await SaveChangesAsync();
+                await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "OutgoingPayment",
+                    action: "Confirm",
+                    entityId: main.PaymentId,
+                    entityNo: main.PaymentNo,
+                    oldValues: new { main.Status },
+                    newValues: new { Status = "Confirmed" });
+                return true;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        // ════════════════════════════════════════════════════
+        // CANCEL
+        // ════════════════════════════════════════════════════
+        public async Task<bool> CancelAsync(int id)
+        {
+            var companyId = _common.GetCompanyId();
+            var userId = _common.GetUserId();
+
+            var main = await LoadMainAsync(id, companyId);
+            if (main == null) return false;
+            if (main.Status == "Cancelled" || main.Status == "Deleted")
+                throw new Exception("Payment is already cancelled or deleted.");
+
+            var oldValues = new { main.Status };
+
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                main.Status = "Cancelled";
+                main.ModifiedBy = userId;
+                main.ModifiedDate = DateTime.UtcNow;
+
+                await _accountLedger.SoftDeleteByVoucherAsync(
+                    companyId, main.FinYearId, main.PaymentNo, userId);
+
+                await SaveChangesAsync();
+                await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "OutgoingPayment",
+                    action: "Cancel",
+                    entityId: main.PaymentId,
+                    entityNo: main.PaymentNo,
+                    oldValues: oldValues,
+                    newValues: new { Status = "Cancelled" });
                 return true;
             }
             catch
@@ -604,24 +726,7 @@ namespace FinVentoryAPI.Services.Implementations
                     x.CompanyId == companyId &&
                     !x.IsDeleted);
 
-        private async Task<string> GeneratePaymentNoAsync(int companyId, int finYearId)
-        {
-            var financialYear = await _context.FinancialYears
-                .FirstOrDefaultAsync(x => x.FinancialYearId == finYearId);
 
-            var yearLabel = financialYear != null
-                ? $"{financialYear.StartDate.Year % 100}{financialYear.EndDate.Year % 100}"
-                : finYearId.ToString();
-
-            var count = await _context.OutgoingPaymentMains
-                .CountAsync(x =>
-                    x.CompanyId == companyId &&
-                    x.FinYearId == finYearId &&
-                    !x.IsDeleted);
-
-            // PAY = outgoing payment voucher prefix
-            return $"PAY-{yearLabel}-{(count + 1):D4}";
-        }
 
         private OutgoingPaymentResponseDto MapToResponseDto(OutgoingPaymentMain main) =>
             new()

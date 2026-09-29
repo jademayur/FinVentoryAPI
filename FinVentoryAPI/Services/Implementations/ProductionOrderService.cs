@@ -16,15 +16,18 @@ namespace FinVentoryAPI.Services.Implementations
         private readonly AppDbContext _context;
         private readonly Common _common;
         private readonly IStockLedgerService _stockLedger;
+        private readonly IAuditLogService _auditLog;
 
         public ProductionOrderService(
             AppDbContext context,
             Common common,
-            IStockLedgerService stockLedger)
+            IStockLedgerService stockLedger,
+            IAuditLogService auditLog)
         {
             _context = context;
             _common = common;
             _stockLedger = stockLedger;
+            _auditLog = auditLog;
         }
 
         // ─────────────────────────────────────────────────────
@@ -36,7 +39,7 @@ namespace FinVentoryAPI.Services.Implementations
             var userId = _common.GetUserId();
             var fyId = _common.GetFinancialYearId();
 
-            var orderNo = await GenerateOrderNoAsync(companyId, fyId);
+            var orderNo = await _common.GenerateDocumentNumber(_context, "Production Order");
 
             var order = new ProductionOrder
             {
@@ -67,6 +70,13 @@ namespace FinVentoryAPI.Services.Implementations
                 await _context.SaveChangesAsync();
             }
 
+            await _auditLog.LogAsync(
+                module: "ProductionOrder",
+                action: "Create",
+                entityId: order.ProductionOrderId,
+                entityNo: order.OrderNo,
+                newValues: new { order.OrderNo, order.ItemId, order.PlannedQuantity, Status = order.Status.ToString() });
+
             return (await GetByIdAsync(order.ProductionOrderId))!;
         }
 
@@ -89,6 +99,8 @@ namespace FinVentoryAPI.Services.Implementations
             if (order.Status == ProductionOrderStatus.Completed ||
                 order.Status == ProductionOrderStatus.Cancelled)
                 throw new Exception("Completed or Cancelled orders cannot be edited.");
+
+            var oldValues = new { order.OrderNo, order.ItemId, order.PlannedQuantity, Status = order.Status.ToString() };
 
             //order.OrderDate = dto.OrderDate;
             order.ItemId = dto.ItemId;
@@ -113,6 +125,13 @@ namespace FinVentoryAPI.Services.Implementations
             }
 
             await _context.SaveChangesAsync();
+            await _auditLog.LogAsync(
+                module: "ProductionOrder",
+                action: "Update",
+                entityId: order.ProductionOrderId,
+                entityNo: order.OrderNo,
+                oldValues: oldValues,
+                newValues: new { order.OrderNo, order.ItemId, order.PlannedQuantity, Status = order.Status.ToString() });
             return true;
         }
 
@@ -134,12 +153,21 @@ namespace FinVentoryAPI.Services.Implementations
             if (order.Status != ProductionOrderStatus.Draft)
                 throw new Exception("Only Draft orders can be deleted.");
 
+            var oldValues = new { order.OrderNo, order.ItemId, order.PlannedQuantity, Status = order.Status.ToString() };
+
             order.IsDeleted = true;
             order.IsActive = false;
             order.ModifiedBy = _common.GetUserId();
             order.ModifiedDate = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
+            await _auditLog.LogAsync(
+                module: "ProductionOrder",
+                action: "Delete",
+                entityId: order.ProductionOrderId,
+                entityNo: order.OrderNo,
+                oldValues: oldValues,
+                remarks: "Soft deleted");
             return true;
         }
 
@@ -400,35 +428,7 @@ namespace FinVentoryAPI.Services.Implementations
             };
         }
 
-        // ─────────────────────────────────────────────────────
-        // PRIVATE HELPERS
-        // ─────────────────────────────────────────────────────
-        private async Task<string> GenerateOrderNoAsync(int companyId, int fyId)
-        {
-            // Get financial year short code e.g. 2425
-            var fy = await _context.FinancialYears
-                .FirstOrDefaultAsync(f => f.FinancialYearId == fyId);
 
-            var fyCode = fy != null
-                ? $"{fy.StartDate.Year % 100}{fy.EndDate.Year % 100}"
-                : DateTime.UtcNow.Year.ToString();
-
-            var last = await _context.ProductionOrders
-                .Where(x => x.CompanyId == companyId && x.FinancialYearId == fyId)
-                .OrderByDescending(x => x.ProductionOrderId)
-                .Select(x => x.OrderNo)
-                .FirstOrDefaultAsync();
-
-            int next = 1;
-            if (last != null)
-            {
-                var parts = last.Split('-');
-                if (parts.Length == 3 && int.TryParse(parts[2], out var lastNum))
-                    next = lastNum + 1;
-            }
-
-            return $"PRD-{fyCode}-{next:D4}";
-        }
 
         private static List<ProductionOrderLine> MapLineDtos(
             int orderId, List<CreateProductionOrderLineDto> dtos) =>

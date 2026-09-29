@@ -14,11 +14,17 @@ namespace FinVentoryAPI.Services.Implementations
     {
         private readonly AppDbContext _context;
         private readonly Common _common;
+        private readonly IAuditLogService _auditLog;
+        private readonly IApprovalService _approvalService;
+        private readonly ICompanyConfigService _companyConfigService;
 
-        public GRNService(AppDbContext context, Common common)
+        public GRNService(AppDbContext context, Common common, IAuditLogService auditLog, IApprovalService approvalService, ICompanyConfigService companyConfigService)
         {
             _context = context;
             _common = common;
+            _auditLog = auditLog;
+            _approvalService = approvalService;
+            _companyConfigService = companyConfigService;
         }
 
         // ════════════════════════════════════════════════════
@@ -49,7 +55,7 @@ namespace FinVentoryAPI.Services.Implementations
             // ── Validate received qtys (no over-receiving) ────────────────────
             await ValidateReceivedQtysAsync(dto.Details, companyId);
 
-            var grnNo = await GenerateGRNNoAsync(companyId, finYearId);
+            var grnNo = await _common.GenerateDocumentNumber(_context, "Goods Receipt Note");
 
             var main = new GRNMain
             {
@@ -110,6 +116,12 @@ namespace FinVentoryAPI.Services.Implementations
                 _context.GRNMains.Add(main);
                 await SaveChangesAsync();
                 await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "GRN",
+                    action: "Create",
+                    entityId: main.GRNId,
+                    entityNo: main.GRNNo,
+                    newValues: new { main.GRNNo, main.BusinessPartnerId, main.NetTotal, main.Status });
             }
             catch
             {
@@ -140,6 +152,8 @@ namespace FinVentoryAPI.Services.Implementations
 
             if (main.Status != "Draft")
                 throw new Exception("Only Draft GRNs can be updated.");
+
+            var oldValues = new { main.GRNNo, main.BusinessPartnerId, main.NetTotal, main.Status };
 
             await ValidateHeaderAsync(
                 dto.BusinessPartnerId, dto.LocationId, companyId,
@@ -185,6 +199,9 @@ namespace FinVentoryAPI.Services.Implementations
                     PriceType = lineDto.PriceType,
                     ReceivedQty = lineDto.ReceivedQty,
                     Rate = lineDto.Rate,
+                    Pack = lineDto.Pack,
+                    PackQty = lineDto.PackQty,
+                    RateUnit = lineDto.RateUnit,
                     DiscountRate = lineDto.DiscountRate,
                     AddisDiscountRate = lineDto.AddisDiscountRate,
                     IsTaxIncluded = lineDto.IsTaxIncluded
@@ -236,6 +253,9 @@ namespace FinVentoryAPI.Services.Implementations
                         existing.PreviouslyReceivedQty = incoming.PreviouslyReceivedQty;
                         existing.ReceivedQty = incoming.ReceivedQty;
                         existing.Rate = incoming.Rate;
+                        existing.Pack = incoming.Pack;
+                        existing.PackQty = incoming.PackQty;
+                        existing.RateUnit = incoming.RateUnit;
                         existing.DiscountRate = incoming.DiscountRate;
                         existing.AddisDiscountRate = incoming.AddisDiscountRate;
                         existing.DiscountAmount = incoming.DiscountAmount;
@@ -326,6 +346,13 @@ namespace FinVentoryAPI.Services.Implementations
 
                 await SaveChangesAsync();
                 await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "GRN",
+                    action: "Update",
+                    entityId: main.GRNId,
+                    entityNo: main.GRNNo,
+                    oldValues: oldValues,
+                    newValues: new { main.GRNNo, main.BusinessPartnerId, main.NetTotal, main.Status });
             }
             catch
             {
@@ -355,6 +382,8 @@ namespace FinVentoryAPI.Services.Implementations
             if (main.Status != "Draft")
                 throw new Exception("Only Draft GRNs can be deleted.");
 
+            var oldValues = new { main.GRNNo, main.BusinessPartnerId, main.NetTotal, main.Status };
+
             await using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
@@ -365,6 +394,13 @@ namespace FinVentoryAPI.Services.Implementations
 
                 await SaveChangesAsync();
                 await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "GRN",
+                    action: "Delete",
+                    entityId: main.GRNId,
+                    entityNo: main.GRNNo,
+                    oldValues: oldValues,
+                    remarks: "Soft deleted");
                 return true;
             }
             catch
@@ -391,6 +427,14 @@ namespace FinVentoryAPI.Services.Implementations
 
             if (main.Status != "Draft")
                 throw new Exception("Only Draft GRNs can be confirmed.");
+
+            // Check if approval is required
+            var approvalRequired = await _companyConfigService.GetValueAsync(companyId, "ApprovalRequired_GRN");
+            if (approvalRequired?.ToLower() == "true")
+            {
+                await _approvalService.SubmitForApprovalAsync("GRN", id);
+                return true;
+            }
 
             await using var transaction = await _context.Database.BeginTransactionAsync();
             try
@@ -653,6 +697,9 @@ namespace FinVentoryAPI.Services.Implementations
                         ReceivedQty = received,
                         PendingQty = pending,
                         Rate = d.Rate,
+                        Pack = d.Pack,
+                        PackQty = d.PackQty,
+                        RateUnit = d.RateUnit,
                         DiscountRate = d.DiscountRate,
                         AddisDiscountRate = d.AddisDiscountRate,
                         IsTaxIncluded = d.IsTaxIncluded
@@ -696,6 +743,7 @@ namespace FinVentoryAPI.Services.Implementations
                     !x.IsDeleted)
                 .Include(x => x.Details!).ThenInclude(d => d.Item)
                 .Include(x => x.Details!).ThenInclude(d => d.Hsn).ThenInclude(h => h!.tax)
+                .Include(x => x.Details!).ThenInclude(d => d.TaxDetails!).ThenInclude(td => td.Tax)
                 .ToListAsync();
 
             if (orders.Count != purchaseOrderIds.Count)
@@ -725,12 +773,38 @@ namespace FinVentoryAPI.Services.Implementations
 
                     if (pending <= 0) continue;
 
+                    bool hasHsn = d.HsnId != 0;
                     var hsnTax = d.Hsn?.tax;
 
                     // For purchase (inbound): our state vs supplier state
                     bool isIntra = (firstOrder.PurchaseStateCode.HasValue && firstOrder.BillStateCode.HasValue)
                         ? firstOrder.PurchaseStateCode.Value == firstOrder.BillStateCode.Value
                         : true;
+
+                    decimal hsnIgst = isIntra ? 0 : (hsnTax?.IGST ?? 0);
+                    decimal hsnCgst = isIntra ? (hsnTax?.CGST ?? 0) : 0;
+                    decimal hsnSgst = isIntra ? (hsnTax?.SGST ?? 0) : 0;
+                    decimal hsnCess = d.Hsn?.Cess ?? 0;
+
+                    var orderTax = d.TaxDetails?.FirstOrDefault();
+                    bool isManualTax = !hasHsn;
+                    int? manualTaxId = null;
+
+                    if (orderTax != null)
+                    {
+                        bool ratesDiffer =
+                            orderTax.IGSTRate != hsnIgst ||
+                            orderTax.CGSTRate != hsnCgst ||
+                            orderTax.SGSTRate != hsnSgst ||
+                            orderTax.CessRate != hsnCess ||
+                            orderTax.TaxId != (hsnTax?.TaxId ?? 0);
+
+                        if (!hasHsn || ratesDiffer)
+                        {
+                            isManualTax = true;
+                            manualTaxId = orderTax.TaxId;
+                        }
+                    }
 
                     prefillDetails.Add(new GRNPrefillDetailDto
                     {
@@ -748,13 +822,18 @@ namespace FinVentoryAPI.Services.Implementations
                         PendingQty = pending,
                         SuggestedReceivedQty = pending,
                         Rate = d.Rate,
+                        Pack = d.Pack,
+                        PackQty = d.PackQty,
+                        RateUnit = d.RateUnit,
                         DiscountRate = d.DiscountRate,
                         AddisDiscountRate = d.AddisDiscountRate,
                         IsTaxIncluded = d.IsTaxIncluded,
-                        CgstRate = isIntra ? (hsnTax?.CGST ?? 0) : 0,
-                        SgstRate = isIntra ? (hsnTax?.SGST ?? 0) : 0,
-                        IgstRate = !isIntra ? (hsnTax?.IGST ?? 0) : 0,
-                        CessRate = d.Hsn?.Cess ?? 0
+                        CgstRate = isManualTax ? (orderTax?.CGSTRate ?? 0) : hsnCgst,
+                        SgstRate = isManualTax ? (orderTax?.SGSTRate ?? 0) : hsnSgst,
+                        IgstRate = isManualTax ? (orderTax?.IGSTRate ?? 0) : hsnIgst,
+                        CessRate = isManualTax ? (orderTax?.CessRate ?? 0) : hsnCess,
+                        IsManualTax = isManualTax,
+                        ManualTaxId = manualTaxId,
                     });
                 }
             }
@@ -809,7 +888,12 @@ namespace FinVentoryAPI.Services.Implementations
             }
 
             // Tax calculation — identical logic to GoodsDeliveryService
-            decimal grossAmount = lineDto.Rate * lineDto.ReceivedQty;
+            // Rate Unit mode: Gross = (ReceivedQty / RateUnit) × Rate ; else Gross = Rate × ReceivedQty
+            decimal grossAmount;
+            if (lineDto.RateUnit.HasValue && lineDto.RateUnit.Value > 0)
+                grossAmount = (lineDto.ReceivedQty / lineDto.RateUnit.Value) * lineDto.Rate;
+            else
+                grossAmount = lineDto.Rate * lineDto.ReceivedQty;
             decimal discountAmt = Math.Round(grossAmount * lineDto.DiscountRate / 100, 2);
             decimal afterFirst = grossAmount - discountAmt;
             decimal addisDiscAmt = Math.Round(afterFirst * lineDto.AddisDiscountRate / 100, 2);
@@ -847,6 +931,9 @@ namespace FinVentoryAPI.Services.Implementations
                 PreviouslyReceivedQty = previouslyReceived,
                 ReceivedQty = lineDto.ReceivedQty,
                 Rate = lineDto.Rate,
+                Pack = lineDto.Pack,
+                PackQty = lineDto.PackQty,
+                RateUnit = lineDto.RateUnit,
                 DiscountRate = lineDto.DiscountRate,
                 AddisDiscountRate = lineDto.AddisDiscountRate,
                 DiscountAmount = discountAmt,
@@ -1040,26 +1127,7 @@ namespace FinVentoryAPI.Services.Implementations
             }
         }
 
-        // ════════════════════════════════════════════════════
-        // PRIVATE — Generate GRN number
-        // ════════════════════════════════════════════════════
-        private async Task<string> GenerateGRNNoAsync(int companyId, int finYearId)
-        {
-            var financialYear = await _context.FinancialYears
-                .FirstOrDefaultAsync(x => x.FinancialYearId == finYearId);
 
-            var yearLabel = financialYear != null
-                ? $"{financialYear.StartDate.Year % 100}{financialYear.EndDate.Year % 100}"
-                : finYearId.ToString();
-
-            var count = await _context.GRNMains
-                .CountAsync(x =>
-                    x.CompanyId == companyId &&
-                    x.FinYearId == finYearId &&
-                    !x.IsDeleted);
-
-            return $"GRN-{yearLabel}-{(count + 1):D4}";
-        }
 
         // ════════════════════════════════════════════════════
         // PRIVATE — Map to response DTO
@@ -1133,6 +1201,9 @@ namespace FinVentoryAPI.Services.Implementations
                     PreviouslyReceivedQty = d.PreviouslyReceivedQty,
                     ReceivedQty = d.ReceivedQty,
                     Rate = d.Rate,
+                    Pack = d.Pack,
+                    PackQty = d.PackQty,
+                    RateUnit = d.RateUnit,
                     DiscountRate = d.DiscountRate,
                     AddisDiscountRate = d.AddisDiscountRate,
                     DiscountAmount = d.DiscountAmount,

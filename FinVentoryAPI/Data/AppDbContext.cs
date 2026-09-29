@@ -40,6 +40,7 @@ namespace FinVentoryAPI.Data
         public DbSet<SalesPerson> SalesPersons { get; set; }
         public DbSet<DocumentSeries> DocumentSeries { get; set; }
         public DbSet<DocumentSeriesMapping> DocumentSeriesMappings { get; set; }
+        public DbSet<DocType> DocumentTypes { get; set; }
         public DbSet<StockLedger> StockLedgers { get; set; }
         public DbSet<AccountLedgerPosting> AccountLedgerPostings { get; set; }
         public DbSet<ItemBatch> ItemBatches { get; set; }
@@ -98,6 +99,37 @@ namespace FinVentoryAPI.Data
 
         public DbSet<ProductionOrder> ProductionOrders { get; set; }
         public DbSet<ProductionOrderLine> ProductionOrderLines { get; set; }
+        public DbSet<CompanyConfig> CompanyConfigs { get; set; }
+
+        public DbSet<StockTransferMain> StockTransferMains { get; set; }
+        public DbSet<StockTransferDetail> StockTransferDetails { get; set; }
+        public DbSet<StockTransferDetailBatch> StockTransferDetailBatches { get; set; }
+        public DbSet<StockTransferDetailSerial> StockTransferDetailSerials { get; set; }
+        public DbSet<StockAdjustmentMain> StockAdjustmentMains { get; set; }
+        public DbSet<StockAdjustmentDetail> StockAdjustmentDetails { get; set; }
+        public DbSet<StockAdjustmentDetailBatch> StockAdjustmentDetailBatches { get; set; }
+        public DbSet<StockAdjustmentDetailSerial> StockAdjustmentDetailSerials { get; set; }
+
+        public DbSet<ProductionIssueMain> ProductionIssueMains { get; set; }
+        public DbSet<ProductionIssueDetail> ProductionIssueDetails { get; set; }
+        public DbSet<ProductionIssueDetailBatch> ProductionIssueDetailBatches { get; set; }
+        public DbSet<ProductionIssueDetailSerial> ProductionIssueDetailSerials { get; set; }
+        public DbSet<ProductionReceiptMain> ProductionReceiptMains { get; set; }
+        public DbSet<ProductionReceiptDetail> ProductionReceiptDetails { get; set; }
+        public DbSet<ProductionReceiptDetailBatch> ProductionReceiptDetailBatches { get; set; }
+        public DbSet<ProductionReceiptDetailSerial> ProductionReceiptDetailSerials { get; set; }
+
+        public DbSet<JobWorkIssueMain> JobWorkIssueMains { get; set; }
+        public DbSet<JobWorkIssueDetail> JobWorkIssueDetails { get; set; }
+        public DbSet<JobWorkIssueDetailBatch> JobWorkIssueDetailBatches { get; set; }
+        public DbSet<JobWorkIssueDetailSerial> JobWorkIssueDetailSerials { get; set; }
+        public DbSet<JobWorkReceiptMain> JobWorkReceiptMains { get; set; }
+        public DbSet<JobWorkReceiptDetail> JobWorkReceiptDetails { get; set; }
+        public DbSet<JobWorkReceiptDetailBatch> JobWorkReceiptDetailBatches { get; set; }
+        public DbSet<JobWorkReceiptDetailSerial> JobWorkReceiptDetailSerials { get; set; }
+
+        public DbSet<ApprovalLevel> ApprovalLevels { get; set; }
+        public DbSet<ApprovalLog> ApprovalLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -1004,6 +1036,14 @@ namespace FinVentoryAPI.Data
           
             base.OnModelCreating(modelBuilder);
 
+            // ── CompanyConfig ──────────────────────────────────────
+            modelBuilder.Entity<CompanyConfig>()
+                .HasKey(c => c.ConfigId);
+
+            modelBuilder.Entity<CompanyConfig>()
+                .HasIndex(c => new { c.CompanyId, c.ConfigKey })
+                .IsUnique();
+
             // ── GoodsDeliveryDetail ──────────────────────────────────────
             modelBuilder.Entity<GoodsDeliveryDetail>()
                 .HasOne(d => d.Delivery)
@@ -1155,6 +1195,280 @@ namespace FinVentoryAPI.Data
                  .WithMany()
                  .HasForeignKey(x => x.ItemId)
                  .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // ── StockTransferMain ──────────────────────────────────
+            modelBuilder.Entity<StockTransferMain>(e =>
+            {
+                e.HasKey(x => x.TransferId);
+                e.Property(x => x.TransferNo).IsRequired().HasMaxLength(30);
+                e.Property(x => x.Status).HasMaxLength(20).HasDefaultValue("Draft");
+
+                e.HasOne(x => x.FromWarehouse).WithMany().HasForeignKey(x => x.FromWarehouseId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.ToWarehouse).WithMany().HasForeignKey(x => x.ToWarehouseId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Location).WithMany().HasForeignKey(x => x.LocationId).OnDelete(DeleteBehavior.Restrict);
+
+                e.HasMany(x => x.Details).WithOne(d => d.Transfer).HasForeignKey(d => d.TransferId).OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // ── StockTransferDetail ────────────────────────────────
+            modelBuilder.Entity<StockTransferDetail>(e =>
+            {
+                e.HasKey(x => x.TransferDetailId);
+                e.Property(x => x.Qty).HasColumnType("decimal(18,4)");
+
+                e.HasOne(x => x.Item).WithMany().HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.Restrict);
+
+                e.HasMany(x => x.Batches).WithOne(b => b.Detail).HasForeignKey(b => b.TransferDetailId).OnDelete(DeleteBehavior.Cascade);
+                e.HasMany(x => x.Serials).WithOne(s => s.Detail).HasForeignKey(s => s.TransferDetailId).OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // ── StockTransferDetailBatch ───────────────────────────
+            modelBuilder.Entity<StockTransferDetailBatch>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Qty).HasColumnType("decimal(18,4)");
+                e.HasOne(x => x.Batch).WithMany().HasForeignKey(x => x.ItemBatchId).OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // ── StockTransferDetailSerial ──────────────────────────
+            modelBuilder.Entity<StockTransferDetailSerial>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.HasOne(x => x.Serial).WithMany().HasForeignKey(x => x.ItemSerialId).OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // ── StockAdjustmentMain ────────────────────────────────
+            modelBuilder.Entity<StockAdjustmentMain>(e =>
+            {
+                e.HasKey(x => x.AdjustmentId);
+                e.Property(x => x.AdjustmentNo).IsRequired().HasMaxLength(30);
+                e.Property(x => x.Status).HasMaxLength(20).HasDefaultValue("Draft");
+                e.Property(x => x.AdjustmentType).HasMaxLength(20);
+                e.Property(x => x.Reason).HasMaxLength(50);
+
+                e.HasOne(x => x.Warehouse).WithMany().HasForeignKey(x => x.WarehouseId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Location).WithMany().HasForeignKey(x => x.LocationId).OnDelete(DeleteBehavior.Restrict);
+
+                e.HasMany(x => x.Details).WithOne(d => d.Adjustment).HasForeignKey(d => d.AdjustmentId).OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // ── StockAdjustmentDetail ──────────────────────────────
+            modelBuilder.Entity<StockAdjustmentDetail>(e =>
+            {
+                e.HasKey(x => x.AdjustmentDetailId);
+                e.Property(x => x.Qty).HasColumnType("decimal(18,4)");
+
+                e.HasOne(x => x.Item).WithMany().HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.Restrict);
+
+                e.HasMany(x => x.Batches).WithOne(b => b.Detail).HasForeignKey(b => b.AdjustmentDetailId).OnDelete(DeleteBehavior.Cascade);
+                e.HasMany(x => x.Serials).WithOne(s => s.Detail).HasForeignKey(s => s.AdjustmentDetailId).OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // ── StockAdjustmentDetailBatch ─────────────────────────
+            modelBuilder.Entity<StockAdjustmentDetailBatch>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Qty).HasColumnType("decimal(18,4)");
+                e.HasOne(x => x.Batch).WithMany().HasForeignKey(x => x.ItemBatchId).OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // ── StockAdjustmentDetailSerial ────────────────────────
+            modelBuilder.Entity<StockAdjustmentDetailSerial>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.HasOne(x => x.Serial).WithMany().HasForeignKey(x => x.ItemSerialId).OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // ── ProductionIssueMain ──────────────────────────────
+            modelBuilder.Entity<ProductionIssueMain>(e =>
+            {
+                e.HasKey(x => x.ProductionIssueId);
+                e.Property(x => x.IssueNo).IsRequired().HasMaxLength(30);
+                e.Property(x => x.Status).HasMaxLength(20).HasDefaultValue("Draft");
+
+                e.HasOne(x => x.Warehouse).WithMany().HasForeignKey(x => x.WarehouseId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Location).WithMany().HasForeignKey(x => x.LocationId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.ProductionOrder).WithMany().HasForeignKey(x => x.ProductionOrderId).OnDelete(DeleteBehavior.Restrict);
+
+                e.HasMany(x => x.Details).WithOne(d => d.ProductionIssue).HasForeignKey(d => d.ProductionIssueId).OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // ── ProductionIssueDetail ────────────────────────────
+            modelBuilder.Entity<ProductionIssueDetail>(e =>
+            {
+                e.HasKey(x => x.ProductionIssueDetailId);
+                e.Property(x => x.Qty).HasColumnType("decimal(18,4)");
+
+                e.HasOne(x => x.Item).WithMany().HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.Restrict);
+
+                e.HasMany(x => x.Batches).WithOne(b => b.ProductionIssueDetail).HasForeignKey(b => b.ProductionIssueDetailId).OnDelete(DeleteBehavior.Cascade);
+                e.HasMany(x => x.Serials).WithOne(s => s.ProductionIssueDetail).HasForeignKey(s => s.ProductionIssueDetailId).OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // ── ProductionIssueDetailBatch ───────────────────────
+            modelBuilder.Entity<ProductionIssueDetailBatch>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Qty).HasColumnType("decimal(18,4)");
+                e.HasOne(x => x.Batch).WithMany().HasForeignKey(x => x.ItemBatchId).OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // ── ProductionIssueDetailSerial ──────────────────────
+            modelBuilder.Entity<ProductionIssueDetailSerial>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.HasOne(x => x.Serial).WithMany().HasForeignKey(x => x.ItemSerialId).OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // ── ProductionReceiptMain ────────────────────────────
+            modelBuilder.Entity<ProductionReceiptMain>(e =>
+            {
+                e.HasKey(x => x.ProductionReceiptId);
+                e.Property(x => x.ReceiptNo).IsRequired().HasMaxLength(30);
+                e.Property(x => x.Status).HasMaxLength(20).HasDefaultValue("Draft");
+
+                e.HasOne(x => x.Warehouse).WithMany().HasForeignKey(x => x.WarehouseId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Location).WithMany().HasForeignKey(x => x.LocationId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.ProductionOrder).WithMany().HasForeignKey(x => x.ProductionOrderId).OnDelete(DeleteBehavior.Restrict);
+
+                e.HasMany(x => x.Details).WithOne(d => d.ProductionReceipt).HasForeignKey(d => d.ProductionReceiptId).OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // ── ProductionReceiptDetail ──────────────────────────
+            modelBuilder.Entity<ProductionReceiptDetail>(e =>
+            {
+                e.HasKey(x => x.ProductionReceiptDetailId);
+                e.Property(x => x.Qty).HasColumnType("decimal(18,4)");
+
+                e.HasOne(x => x.Item).WithMany().HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.Restrict);
+
+                e.HasMany(x => x.Batches).WithOne(b => b.ProductionReceiptDetail).HasForeignKey(b => b.ProductionReceiptDetailId).OnDelete(DeleteBehavior.Cascade);
+                e.HasMany(x => x.Serials).WithOne(s => s.ProductionReceiptDetail).HasForeignKey(s => s.ProductionReceiptDetailId).OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // ── ProductionReceiptDetailBatch ─────────────────────
+            modelBuilder.Entity<ProductionReceiptDetailBatch>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Qty).HasColumnType("decimal(18,4)");
+                e.HasOne(x => x.Batch).WithMany().HasForeignKey(x => x.ItemBatchId).OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // ── ProductionReceiptDetailSerial ────────────────────
+            modelBuilder.Entity<ProductionReceiptDetailSerial>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.HasOne(x => x.Serial).WithMany().HasForeignKey(x => x.ItemSerialId).OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // ── JobWorkIssueMain ─────────────────────────────────
+            modelBuilder.Entity<JobWorkIssueMain>(e =>
+            {
+                e.HasKey(x => x.JobWorkIssueId);
+                e.Property(x => x.IssueNo).IsRequired().HasMaxLength(30);
+                e.Property(x => x.Status).HasMaxLength(20).HasDefaultValue("Draft");
+
+                e.HasOne(x => x.Warehouse).WithMany().HasForeignKey(x => x.WarehouseId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Location).WithMany().HasForeignKey(x => x.LocationId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.BusinessPartner).WithMany().HasForeignKey(x => x.BusinessPartnerId).OnDelete(DeleteBehavior.Restrict);
+
+                e.HasMany(x => x.Details).WithOne(d => d.JobWorkIssue).HasForeignKey(d => d.JobWorkIssueId).OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // ── JobWorkIssueDetail ───────────────────────────────
+            modelBuilder.Entity<JobWorkIssueDetail>(e =>
+            {
+                e.HasKey(x => x.JobWorkIssueDetailId);
+                e.Property(x => x.Qty).HasColumnType("decimal(18,4)");
+
+                e.HasOne(x => x.Item).WithMany().HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.Restrict);
+
+                e.HasMany(x => x.Batches).WithOne(b => b.JobWorkIssueDetail).HasForeignKey(b => b.JobWorkIssueDetailId).OnDelete(DeleteBehavior.Cascade);
+                e.HasMany(x => x.Serials).WithOne(s => s.JobWorkIssueDetail).HasForeignKey(s => s.JobWorkIssueDetailId).OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // ── JobWorkIssueDetailBatch ──────────────────────────
+            modelBuilder.Entity<JobWorkIssueDetailBatch>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Qty).HasColumnType("decimal(18,4)");
+                e.HasOne(x => x.Batch).WithMany().HasForeignKey(x => x.ItemBatchId).OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // ── JobWorkIssueDetailSerial ─────────────────────────
+            modelBuilder.Entity<JobWorkIssueDetailSerial>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.HasOne(x => x.Serial).WithMany().HasForeignKey(x => x.ItemSerialId).OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // ── JobWorkReceiptMain ───────────────────────────────
+            modelBuilder.Entity<JobWorkReceiptMain>(e =>
+            {
+                e.HasKey(x => x.JobWorkReceiptId);
+                e.Property(x => x.ReceiptNo).IsRequired().HasMaxLength(30);
+                e.Property(x => x.Status).HasMaxLength(20).HasDefaultValue("Draft");
+
+                e.HasOne(x => x.Warehouse).WithMany().HasForeignKey(x => x.WarehouseId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Location).WithMany().HasForeignKey(x => x.LocationId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.BusinessPartner).WithMany().HasForeignKey(x => x.BusinessPartnerId).OnDelete(DeleteBehavior.Restrict);
+
+                e.HasMany(x => x.Details).WithOne(d => d.JobWorkReceipt).HasForeignKey(d => d.JobWorkReceiptId).OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // ── JobWorkReceiptDetail ─────────────────────────────
+            modelBuilder.Entity<JobWorkReceiptDetail>(e =>
+            {
+                e.HasKey(x => x.JobWorkReceiptDetailId);
+                e.Property(x => x.Qty).HasColumnType("decimal(18,4)");
+
+                e.HasOne(x => x.Item).WithMany().HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.Restrict);
+
+                e.HasMany(x => x.Batches).WithOne(b => b.JobWorkReceiptDetail).HasForeignKey(b => b.JobWorkReceiptDetailId).OnDelete(DeleteBehavior.Cascade);
+                e.HasMany(x => x.Serials).WithOne(s => s.JobWorkReceiptDetail).HasForeignKey(s => s.JobWorkReceiptDetailId).OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // ── JobWorkReceiptDetailBatch ────────────────────────
+            modelBuilder.Entity<JobWorkReceiptDetailBatch>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Qty).HasColumnType("decimal(18,4)");
+                e.HasOne(x => x.Batch).WithMany().HasForeignKey(x => x.ItemBatchId).OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // ── JobWorkReceiptDetailSerial ───────────────────────
+            modelBuilder.Entity<JobWorkReceiptDetailSerial>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.HasOne(x => x.Serial).WithMany().HasForeignKey(x => x.ItemSerialId).OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // ── ApprovalLevel ──────────────────────────────────────
+            modelBuilder.Entity<ApprovalLevel>(e =>
+            {
+                e.HasKey(x => x.ApprovalLevelId);
+
+                e.HasIndex(x => new { x.CompanyId, x.DocumentType, x.LevelNumber })
+                 .IsUnique();
+
+                e.Property(x => x.DocumentType).HasMaxLength(50).IsRequired();
+                e.Property(x => x.LevelName).HasMaxLength(100).IsRequired();
+
+                e.Property(x => x.MaxAmount)
+                 .HasColumnType("decimal(18,2)");
+            });
+
+            // ── ApprovalLog ────────────────────────────────────────
+            modelBuilder.Entity<ApprovalLog>(e =>
+            {
+                e.HasKey(x => x.ApprovalLogId);
+
+                e.HasIndex(x => new { x.CompanyId, x.DocumentType, x.DocumentId });
+
+                e.Property(x => x.DocumentType).HasMaxLength(50).IsRequired();
+                e.Property(x => x.Action).HasMaxLength(20).IsRequired();
+                e.Property(x => x.Remarks).HasMaxLength(500);
             });
 
         }

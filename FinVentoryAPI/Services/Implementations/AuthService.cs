@@ -32,49 +32,55 @@ namespace FinVentoryAPI.Services.Implementations
             if (!BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
                 return null;
 
-            if (user.IsPlatformAdmin)
+            // Check if any company exists in the system at all
+            var hasAnyCompany = await _context.Companies.AnyAsync(c => c.IsActive);
+
+            if (!hasAnyCompany)
             {
                 return new
                 {
                     userId = user.UserId,
-                    isPlatformAdmin = true,
+                    roleId = user.RoleId,
+                    needsCompanySetup = true,
                     companies = new List<object>()
                 };
             }
 
-            // ── Single query, group by company ──
-            var records = await _context.UserCompany
-                .Where(x => x.UserId == user.UserId)
+            // User has companies — load them (include companies even if no FY exists yet)
+            var userCompanyRecords = await _context.UserCompany
+                .Where(x => x.UserId == user.UserId && x.IsActive
+                    && x.Company != null && x.Company.IsActive)
                 .Include(x => x.Company)
                 .Include(x => x.FinancialYear)
-                .Select(x => new
-                {
-                    x.CompanyId,
-                    x.Company.CompanyName,
-                    x.FinancialYearId,
-                    x.FinancialYear.YearName
-                })
                 .ToListAsync();
 
-            var companies = records
-                .GroupBy(x => new { x.CompanyId, x.CompanyName })
+            // Separate: companies that have at least one FY (for UserCompany mapping)
+            var companiesWithFY = userCompanyRecords
+                .Where(x => x.FinancialYear != null && x.FinancialYear.IsActive)
+                .ToList();
+
+            // All companies the user has access to
+            var allCompanies = userCompanyRecords
+                .GroupBy(x => new { x.CompanyId, x.Company.CompanyName })
                 .Select(g => new
                 {
                     companyId = g.Key.CompanyId,
                     companyName = g.Key.CompanyName,
-                    years = g.Select(y => new
-                    {
-                        financialYearId = y.FinancialYearId,
-                        yearName = y.YearName
-                    }).ToList()
+                    years = g.Where(x => x.FinancialYear != null && x.FinancialYear.IsActive)
+                             .Select(y => new
+                             {
+                                 financialYearId = y.FinancialYearId,
+                                 yearName = y.FinancialYear!.YearName
+                             }).ToList()
                 })
                 .ToList();
 
             return new
             {
                 userId = user.UserId,
-                isPlatformAdmin = false,
-                companies
+                roleId = user.RoleId,
+                needsCompanySetup = false,
+                companies = allCompanies
             };
         }
 
@@ -86,23 +92,23 @@ namespace FinVentoryAPI.Services.Implementations
                 .FirstOrDefaultAsync(x =>
                     x.UserId == dto.UserId &&
                     x.CompanyId == dto.CompanyId  &&
-                    x.FinancialYearId == dto.FinancialYearId
+                    x.FinancialYearId == dto.FinancialYearId &&
+                    x.IsActive
                     );
 
             if (mapping == null)
                 return null;
 
             var claims = new List<Claim>
-    {
-        new Claim("UserId", mapping.UserId.ToString()),
-        new Claim("CompanyId", mapping.CompanyId.ToString()),
-        new Claim("FinancialYearId", mapping.FinancialYearId.ToString()),
-        new Claim(ClaimTypes.Name, mapping.User.FullName),
-        new Claim(ClaimTypes.Email, mapping.User.Email),
-        new Claim("RoleId", mapping.RoleId.ToString()),
-        new Claim(ClaimTypes.Role, mapping.Role.RoleName),
-        new Claim("IsPlatformAdmin", mapping.User.IsPlatformAdmin.ToString())
-    };
+            {
+                new Claim("UserId", mapping.UserId.ToString()),
+                new Claim("CompanyId", mapping.CompanyId.ToString()),
+                new Claim("FinancialYearId", mapping.FinancialYearId.ToString()),
+                new Claim(ClaimTypes.Name, mapping.User.FullName),
+                new Claim(ClaimTypes.Email, mapping.User.Email),
+                new Claim("RoleId", mapping.RoleId.ToString()),
+                new Claim(ClaimTypes.Role, mapping.Role.RoleName),
+            };
 
             var key = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));

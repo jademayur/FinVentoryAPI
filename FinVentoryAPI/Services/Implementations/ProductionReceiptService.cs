@@ -15,13 +15,17 @@ namespace FinVentoryAPI.Services.Implementations
         private readonly Common _common;
         private readonly IStockLedgerService _stockLedger;
         private readonly IAuditLogService _auditLog;
+        private readonly IApprovalService _approvalService;
+        private readonly ICompanyConfigService _companyConfigService;
 
-        public ProductionReceiptService(AppDbContext context, Common common, IStockLedgerService stockLedger, IAuditLogService auditLog)
+        public ProductionReceiptService(AppDbContext context, Common common, IStockLedgerService stockLedger, IAuditLogService auditLog, IApprovalService approvalService, ICompanyConfigService companyConfigService)
         {
             _context = context;
             _common = common;
             _stockLedger = stockLedger;
             _auditLog = auditLog;
+            _approvalService = approvalService;
+            _companyConfigService = companyConfigService;
         }
 
         public async Task<ProductionReceiptResponseDto> CreateAsync(CreateProductionReceiptMainDto dto)
@@ -288,6 +292,13 @@ namespace FinVentoryAPI.Services.Implementations
                 .FirstOrDefaultAsync(x => x.ProductionReceiptId == id && x.CompanyId == companyId && !x.IsDeleted && x.Status == "Draft");
 
             if (main == null) throw new Exception("Production Receipt not found or not in Draft status.");
+
+            var approvalRequired = await _companyConfigService.GetValueAsync(companyId, "ApprovalRequired_ProductionReceipt");
+            if (approvalRequired?.ToLower() == "true")
+            {
+                await _approvalService.SubmitForApprovalAsync("ProductionReceipt", id);
+                return new ProductionReceiptResponseDto { ProductionReceiptId = id, Status = "PendingApproval_L1" };
+            }
 
             main.Status = "Confirmed";
             main.ModifiedBy = userId;

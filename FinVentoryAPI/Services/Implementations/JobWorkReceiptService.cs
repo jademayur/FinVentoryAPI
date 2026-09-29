@@ -15,13 +15,17 @@ namespace FinVentoryAPI.Services.Implementations
         private readonly Common _common;
         private readonly IStockLedgerService _stockLedger;
         private readonly IAuditLogService _auditLog;
+        private readonly IApprovalService _approvalService;
+        private readonly ICompanyConfigService _companyConfigService;
 
-        public JobWorkReceiptService(AppDbContext context, Common common, IStockLedgerService stockLedger, IAuditLogService auditLog)
+        public JobWorkReceiptService(AppDbContext context, Common common, IStockLedgerService stockLedger, IAuditLogService auditLog, IApprovalService approvalService, ICompanyConfigService companyConfigService)
         {
             _context = context;
             _common = common;
             _stockLedger = stockLedger;
             _auditLog = auditLog;
+            _approvalService = approvalService;
+            _companyConfigService = companyConfigService;
         }
 
         public async Task<JobWorkReceiptResponseDto> CreateAsync(CreateJobWorkReceiptMainDto dto)
@@ -186,6 +190,14 @@ namespace FinVentoryAPI.Services.Implementations
                 .Include(x => x.Details).ThenInclude(d => d.Item)
                 .FirstOrDefaultAsync(x => x.JobWorkReceiptId == id && x.CompanyId == companyId && !x.IsDeleted && x.Status == "Draft");
             if (main == null) throw new Exception("Job Work Receipt not found or not in Draft status.");
+
+            // Check if approval is required
+            var approvalRequired = await _companyConfigService.GetValueAsync(companyId, "ApprovalRequired_JobWorkReceipt");
+            if (approvalRequired?.ToLower() == "true")
+            {
+                await _approvalService.SubmitForApprovalAsync("JobWorkReceipt", id);
+                return new JobWorkReceiptResponseDto { JobWorkReceiptId = id, Status = "PendingApproval_L1" };
+            }
 
             main.Status = "Confirmed"; main.ModifiedBy = userId; main.ModifiedDate = DateTime.UtcNow;
 

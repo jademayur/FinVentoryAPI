@@ -16,6 +16,9 @@ namespace FinVentoryAPI.Services.Interfaces
         Task<SalesInvoiceResponseDto?>       GetForReturnAsync(int invoiceId);
 
         Task<InvoicePrefillDto> GetInvoicePrefillFromDeliveryAsync(List<int> deliveryIds);
+        
+        Task<bool> ConfirmAsync(int id);
+        Task<bool> CancelAsync(int id);
                 
     }
 }

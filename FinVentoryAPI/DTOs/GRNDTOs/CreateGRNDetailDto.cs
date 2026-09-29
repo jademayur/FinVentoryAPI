@@ -18,6 +18,10 @@ namespace FinVentoryAPI.DTOs.GRNDTOs
         [Range(0, double.MaxValue)]
         public decimal Rate { get; set; }
 
+        public decimal? Pack { get; set; }
+        public decimal? PackQty { get; set; }
+        public decimal? RateUnit { get; set; }
+
         [Range(0, 100)]
         public decimal DiscountRate { get; set; }
 

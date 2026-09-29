@@ -19,6 +19,23 @@ namespace FinVentoryAPI.Services.Implementations
         }
 
         // ════════════════════════════════════════════════════
+        // SINGLE COMBINED ENDPOINT - Returns all dashboard data in one call
+        // ════════════════════════════════════════════════════
+        public async Task<DashboardDataDto> GetDashboardDataAsync(int months = 6)
+        {
+            return new DashboardDataDto
+            {
+                TodaySummary = await GetTodaySummaryAsync(),
+                MonthlyTrend = await GetMonthlyTrendAsync(months),
+                OverdueReceivables = await GetOverdueReceivablesAsync(),
+                OverduePayables = await GetOverduePayablesAsync(),
+                CashBankBalances = await GetCashBankBalancesAsync(),
+                LowStockItems = await GetLowStockItemsAsync(),
+                PendingDocs = await GetPendingDocsAsync()
+            };
+        }
+
+        // ════════════════════════════════════════════════════
         // TODAY / MONTH SUMMARY CARDS
         // ════════════════════════════════════════════════════
         public async Task<TodaySummaryDto> GetTodaySummaryAsync()
@@ -124,42 +141,41 @@ namespace FinVentoryAPI.Services.Implementations
             var companyId = _common.GetCompanyId();
             var today = DateTime.Today;
 
-            var invoices = await _context.SalesInvoiceMains
-                .AsNoTracking()
-                .Include(x => x.BusinessPartner)
+            var invoices = await _context.SalesInvoiceMains.AsNoTracking()
                 .Where(x => x.CompanyId == companyId
                             && x.Status != "Cancelled"
                             && !x.IsDeleted
                             && x.DueDate < today)
                 .ToListAsync();
 
-            var invoiceIds = invoices.Select(x => x.InvoiceId).ToList();
+            if (!invoices.Any()) return new List<OverdueReceivableDto>();
 
-            var paidAmounts = await _context.IncomingPaymentAllocations
-                .AsNoTracking()
+            var partnerIds = invoices.Select(x => x.BusinessPartnerId).Distinct().ToList();
+            var partners = await _context.BusinessPartners
+                .Where(bp => partnerIds.Contains(bp.BusinessPartnerId))
+                .ToDictionaryAsync(bp => bp.BusinessPartnerId);
+
+            var invoiceIds = invoices.Select(x => x.InvoiceId).ToList();
+            var paidTotals = await _context.IncomingPaymentAllocations.AsNoTracking()
                 .Where(x => invoiceIds.Contains(x.InvoiceId))
                 .GroupBy(x => x.InvoiceId)
                 .Select(g => new { InvoiceId = g.Key, Paid = g.Sum(x => x.AmountApplied) })
-                .ToListAsync();
+                .ToDictionaryAsync(x => x.InvoiceId, x => x.Paid);
 
             return invoices
-                .Select(x =>
+                .Where(inv => (inv.NetTotal - paidTotals.GetValueOrDefault(inv.InvoiceId, 0)) > 0)
+                .Select(inv => new OverdueReceivableDto
                 {
-                    var paid = paidAmounts.FirstOrDefault(p => p.InvoiceId == x.InvoiceId)?.Paid ?? 0;
-                    return new OverdueReceivableDto
-                    {
-                        InvoiceId = x.InvoiceId,
-                        InvoiceNo = x.InvoiceNo,
-                        InvoiceDate = x.InvoiceDate,
-                        DueDate = x.DueDate,
-                        OverdueDays = (today - x.DueDate).Days,
-                        BusinessPartnerName = x.BusinessPartner?.BusinessPartnerName ?? string.Empty,
-                        NetTotal = x.NetTotal,
-                        PaidAmount = paid,
-                        OutstandingAmount = x.NetTotal - paid
-                    };
+                    InvoiceId = inv.InvoiceId,
+                    InvoiceNo = inv.InvoiceNo,
+                    InvoiceDate = inv.InvoiceDate,
+                    DueDate = inv.DueDate,
+                    OverdueDays = (today - inv.DueDate).Days,
+                    BusinessPartnerName = partners.GetValueOrDefault(inv.BusinessPartnerId)?.BusinessPartnerName ?? "",
+                    NetTotal = inv.NetTotal,
+                    PaidAmount = paidTotals.GetValueOrDefault(inv.InvoiceId, 0),
+                    OutstandingAmount = inv.NetTotal - paidTotals.GetValueOrDefault(inv.InvoiceId, 0)
                 })
-                .Where(x => x.OutstandingAmount > 0)
                 .OrderByDescending(x => x.OverdueDays)
                 .ToList();
         }
@@ -172,41 +188,41 @@ namespace FinVentoryAPI.Services.Implementations
             var companyId = _common.GetCompanyId();
             var today = DateTime.Today;
 
-            var invoices = await _context.PurchaseInvoiceMains
-                .AsNoTracking()
-                .Include(x => x.BusinessPartner)
+            var invoices = await _context.PurchaseInvoiceMains.AsNoTracking()
                 .Where(x => x.CompanyId == companyId
                             && x.Status != "Cancelled"
-                            && x.DueDate < today) // ⚠ confirm PurchaseInvoiceMain has IsDeleted/DueDate the same way
+                            && !x.IsDeleted
+                            && x.DueDate < today)
                 .ToListAsync();
 
-            var invoiceIds = invoices.Select(x => x.InvoiceId).ToList();
+            if (!invoices.Any()) return new List<OverduePayableDto>();
 
-            var paidAmounts = await _context.OutgoingPaymentAllocations
-    .AsNoTracking()
-    .Where(x => invoiceIds.Contains(x.BillId))
-    .GroupBy(x => x.BillId)
-    .Select(g => new { InvoiceId = g.Key, Paid = g.Sum(x => x.AmountApplied) })
-    .ToListAsync();
+            var partnerIds = invoices.Select(x => x.BusinessPartnerId).Distinct().ToList();
+            var partners = await _context.BusinessPartners
+                .Where(bp => partnerIds.Contains(bp.BusinessPartnerId))
+                .ToDictionaryAsync(bp => bp.BusinessPartnerId);
+
+            var invoiceIds = invoices.Select(x => x.InvoiceId).ToList();
+            var paidTotals = await _context.OutgoingPaymentAllocations.AsNoTracking()
+                .Where(x => invoiceIds.Contains(x.BillId))
+                .GroupBy(x => x.BillId)
+                .Select(g => new { BillId = g.Key, Paid = g.Sum(x => x.AmountApplied) })
+                .ToDictionaryAsync(x => x.BillId, x => x.Paid);
 
             return invoices
-                .Select(x =>
+                .Where(inv => (inv.NetTotal - paidTotals.GetValueOrDefault(inv.InvoiceId, 0)) > 0)
+                .Select(inv => new OverduePayableDto
                 {
-                    var paid = paidAmounts.FirstOrDefault(p => p.InvoiceId == x.InvoiceId)?.Paid ?? 0;
-                    return new OverduePayableDto
-                    {
-                        InvoiceId = x.InvoiceId,
-                        InvoiceNo = x.InvoiceNo,
-                        InvoiceDate = x.InvoiceDate,
-                        DueDate = x.DueDate,
-                        OverdueDays = (today - x.DueDate).Days,
-                        BusinessPartnerName = x.BusinessPartner?.BusinessPartnerName ?? string.Empty,
-                        NetTotal = x.NetTotal,
-                        PaidAmount = paid,
-                        OutstandingAmount = x.NetTotal - paid
-                    };
+                    InvoiceId = inv.InvoiceId,
+                    InvoiceNo = inv.InvoiceNo,
+                    InvoiceDate = inv.InvoiceDate,
+                    DueDate = inv.DueDate,
+                    OverdueDays = (today - inv.DueDate).Days,
+                    BusinessPartnerName = partners.GetValueOrDefault(inv.BusinessPartnerId)?.BusinessPartnerName ?? "",
+                    NetTotal = inv.NetTotal,
+                    PaidAmount = paidTotals.GetValueOrDefault(inv.InvoiceId, 0),
+                    OutstandingAmount = inv.NetTotal - paidTotals.GetValueOrDefault(inv.InvoiceId, 0)
                 })
-                .Where(x => x.OutstandingAmount > 0)
                 .OrderByDescending(x => x.OverdueDays)
                 .ToList();
         }
@@ -264,8 +280,8 @@ namespace FinVentoryAPI.Services.Implementations
 
             var items = await _context.Items
                 .AsNoTracking()
-                .Where(x => x.CompanyId == companyId && !x.IsDeleted && x.ReorderLevel > 0)
-                .Select(x => new { x.ItemId, x.ItemCode, x.ItemName, x.ReorderLevel }) // ⚠ still a guess
+                .Where(x => x.CompanyId == companyId && !x.IsDeleted && x.ReorderLevel != null && x.ReorderLevel > 0)
+                .Select(x => new { x.ItemId, x.ItemCode, x.ItemName, x.ReorderLevel })
                 .ToListAsync();
 
             return items
@@ -278,7 +294,7 @@ namespace FinVentoryAPI.Services.Implementations
                     ReorderLevel = i.ReorderLevel,
                     //Unit = i.Unit
                 })
-                .Where(x => x.AvailableQty <= x.ReorderLevel)
+                .Where(x => x.ReorderLevel != null && x.AvailableQty <= x.ReorderLevel)
                 .OrderBy(x => x.AvailableQty)
                 .ToList();
         }

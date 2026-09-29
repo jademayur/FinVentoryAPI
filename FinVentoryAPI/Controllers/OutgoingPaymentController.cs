@@ -1,12 +1,14 @@
 ﻿using FinVentoryAPI.DTOs.OutgoingPaymentDTOs;
 using FinVentoryAPI.DTOs.PagedRequestDto;
 using FinVentoryAPI.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FinVentoryAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class OutgoingPaymentController : ControllerBase
     {
         private readonly IOutgoingPaymentService _service;

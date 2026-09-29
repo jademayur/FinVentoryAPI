@@ -18,16 +18,25 @@ namespace FinVentoryAPI.Services.Implementations
         private readonly Common _common;
         private readonly IStockLedgerService _stockLedger;
         private readonly IAccountLedgerPostingService _accountLedger;
+        private readonly IAuditLogService _auditLog;
+        private readonly IApprovalService _approvalService;
+        private readonly ICompanyConfigService _companyConfigService;
 
         public SalesInvoiceService(
             AppDbContext context, Common common,
             IStockLedgerService stockLedger,
-            IAccountLedgerPostingService accountLedger)
+            IAccountLedgerPostingService accountLedger,
+            IAuditLogService auditLog,
+            IApprovalService approvalService,
+            ICompanyConfigService companyConfigService)
         {
             _context = context;
             _common = common;
             _stockLedger = stockLedger;
             _accountLedger = accountLedger;
+            _auditLog = auditLog;
+            _approvalService = approvalService;
+            _companyConfigService = companyConfigService;
         }
         // ════════════════════════════════════════════════════
         // CREATE  — replace your existing CreateAsync with this
@@ -46,7 +55,7 @@ namespace FinVentoryAPI.Services.Implementations
                 dto.ContactPersonId, dto.SalesPersonId,
                 dto.BillAddressId, dto.ShipAddressId);
 
-            var invoiceNo = await GenerateInvoiceNoAsync(companyId, finYearId);
+            var invoiceNo = await _common.GenerateDocumentNumber(_context, "Sales Invoice");
 
             var main = new SalesInvoiceMain
             {
@@ -138,6 +147,9 @@ namespace FinVentoryAPI.Services.Implementations
                         PriceType = lineDto.PriceType,
                         Qty = lineDto.Qty,
                         Rate = lineDto.Rate,
+                        Pack = lineDto.Pack,
+                        PackQty = lineDto.PackQty,
+                        RateUnit = lineDto.RateUnit,
                         DiscountRate = lineDto.DiscountRate,
                         AddisDiscountRate = lineDto.AddisDiscountRate,
                         IsTaxIncluded = lineDto.IsTaxIncluded,
@@ -150,19 +162,13 @@ namespace FinVentoryAPI.Services.Implementations
 
                 await SaveChangesAsync(); // batch/serial rows
 
-                // Re-fetch main with all includes for stock/account posting
-                var mainForPosting = await _context.SalesInvoiceMains
-                    .Include(m => m.Details!)
-                        .ThenInclude(d => d.TaxDetails)
-                    .Include(m => m.TaxDetails)
-                    .Include(m => m.BusinessPartner)
-                    .FirstOrDefaultAsync(m => m.InvoiceId == main.InvoiceId)
-                    ?? throw new Exception("Invoice not found after save.");
-
-                await PostStockLedgerAsync(mainForPosting, isReversal: false);
-                await PostAccountLedgerAsync(mainForPosting, isReversal: false);
-
                 await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "SalesInvoice",
+                    action: "Create",
+                    entityId: main.InvoiceId,
+                    entityNo: main.InvoiceNo,
+                    newValues: new { main.InvoiceNo, main.BusinessPartnerId, main.NetTotal, main.Status });
             }
             catch
             {
@@ -175,73 +181,6 @@ namespace FinVentoryAPI.Services.Implementations
         }
 
 
-        // ════════════════════════════════════════════════════
-        // FIXED SaveSerialLinesAsync
-        // ════════════════════════════════════════════════════
-        //private async Task SaveSerialLinesAsync(
-        //    SalesInvoiceDetail detail,
-        //    UpdateSalesInvoiceDetailDto lineDto,
-        //    int companyId)
-        //{
-        //    if (lineDto.Serials == null || !lineDto.Serials.Any())
-        //        throw new Exception(
-        //            $"Item {detail.ItemId} is Serial-managed. " +
-        //            "Please select at least one serial number.");
-
-        //    if (lineDto.Serials.Count != (int)detail.Qty)
-        //        throw new Exception(
-        //            $"Serial count ({lineDto.Serials.Count}) must equal line qty ({detail.Qty}).");
-
-        //    // ── Check for duplicate serial IDs in the request ────────────────────
-        //    var duplicateSerials = lineDto.Serials
-        //        .GroupBy(s => s.SerialId)
-        //        .Where(g => g.Count() > 1)
-        //        .Select(g => g.Key)
-        //        .ToList();
-
-        //    if (duplicateSerials.Any())
-        //        throw new Exception(
-        //            $"Duplicate serial numbers in request: {string.Join(", ", duplicateSerials)}.");
-
-        //    foreach (var serialDto in lineDto.Serials)
-        //    {
-        //        // ✅ FIX: Use AsNoTracking so EF always fetches fresh from DB
-        //        //    instead of returning the change-tracker cached entity
-        //        var serial = await _context.ItemSerials
-        //            .AsNoTracking()
-        //            .FirstOrDefaultAsync(s =>
-        //                s.SerialId == serialDto.SerialId &&
-        //                s.CompanyId == companyId &&
-        //                !s.IsDeleted)
-        //            ?? throw new Exception(
-        //                $"Serial {serialDto.SerialId} not found in company {companyId}.");
-
-        //        // Verify it belongs to the correct item
-        //        if (serial.ItemId != detail.ItemId)
-        //            throw new Exception(
-        //                $"Serial '{serial.SerialNo}' (ItemId={serial.ItemId}) " +
-        //                $"does not belong to item {detail.ItemId}.");
-
-        //        // ✅ FIX: Check DB status directly — not the tracked entity status
-        //        if (serial.Status != SerialStatus.InStock)
-        //            throw new Exception(
-        //                $"Serial '{serial.SerialNo}' is not available (status: {serial.Status}).");
-
-        //        // ✅ FIX: Update status via a direct tracked entity fetch
-        //        var trackedSerial = await _context.ItemSerials
-        //            .FirstOrDefaultAsync(s => s.SerialId == serialDto.SerialId);
-
-        //        if (trackedSerial != null)
-        //            trackedSerial.Status = SerialStatus.Sold;
-
-        //        _context.SalesInvoiceDetailSerials.Add(new SalesInvoiceDetailSerial
-        //        {
-        //            DetailId = detail.DetailId,
-        //            InvoiceId = detail.InvoiceId,
-        //            SerialId = serialDto.SerialId
-        //        });
-        //    }
-        //}
         // ════════════════════════════════════════════════════
         // UPDATE
         // ════════════════════════════════════════════════════
@@ -270,6 +209,8 @@ namespace FinVentoryAPI.Services.Implementations
             if (main.Status != "Draft")
                 throw new Exception("Only Draft invoices can be updated.");
 
+            var oldValues = new { main.InvoiceNo, main.BusinessPartnerId, main.NetTotal, main.Status };
+
             // ✅ Validate BEFORE transaction (read-only)
             await ValidateHeaderAsync(
                 dto.BusinessPartnerId, dto.LocationId, dto.SalesAccountId,
@@ -288,6 +229,9 @@ namespace FinVentoryAPI.Services.Implementations
                     PriceType = lineDto.PriceType,
                     Qty = lineDto.Qty,
                     Rate = lineDto.Rate,
+                    Pack = lineDto.Pack,
+                    PackQty = lineDto.PackQty,
+                    RateUnit = lineDto.RateUnit,
                     DiscountRate = lineDto.DiscountRate,
                     AddisDiscountRate = lineDto.AddisDiscountRate,
                     IsTaxIncluded = lineDto.IsTaxIncluded
@@ -343,6 +287,9 @@ namespace FinVentoryAPI.Services.Implementations
                         existing.PriceType = incoming.PriceType;
                         existing.Qty = incoming.Qty;
                         existing.Rate = incoming.Rate;
+                        existing.Pack = incoming.Pack;
+                        existing.PackQty = incoming.PackQty;
+                        existing.RateUnit = incoming.RateUnit;
                         existing.DiscountRate = incoming.DiscountRate;
                         existing.AddisDiscountRate = incoming.AddisDiscountRate;
                         existing.DiscountAmount = incoming.DiscountAmount;
@@ -448,6 +395,13 @@ namespace FinVentoryAPI.Services.Implementations
                 await UpdateAccountLedgerAsync(main);
 
                 await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "SalesInvoice",
+                    action: "Update",
+                    entityId: main.InvoiceId,
+                    entityNo: main.InvoiceNo,
+                    oldValues: oldValues,
+                    newValues: new { main.InvoiceNo, main.BusinessPartnerId, main.NetTotal, main.Status });
             }
             catch
             {
@@ -485,6 +439,8 @@ namespace FinVentoryAPI.Services.Implementations
             if (main.Status != "Draft")
                 throw new Exception("Only Draft invoices can be deleted.");
 
+            var oldValues = new { main.InvoiceNo, main.BusinessPartnerId, main.NetTotal, main.Status };
+
             await using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
@@ -505,6 +461,118 @@ namespace FinVentoryAPI.Services.Implementations
                 await SaveChangesAsync();
 
                 await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "SalesInvoice",
+                    action: "Delete",
+                    entityId: main.InvoiceId,
+                    entityNo: main.InvoiceNo,
+                    oldValues: oldValues,
+                    remarks: "Soft deleted");
+                return true;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        // ════════════════════════════════════════════════════
+        // CONFIRM
+        // ════════════════════════════════════════════════════
+        public async Task<bool> ConfirmAsync(int id)
+        {
+            var companyId = _common.GetCompanyId();
+            var userId = _common.GetUserId();
+
+            var main = await _context.SalesInvoiceMains
+                .Include(m => m.Details!)
+                    .ThenInclude(d => d.TaxDetails)
+                .Include(m => m.TaxDetails)
+                .Include(m => m.BusinessPartner)
+                .FirstOrDefaultAsync(x =>
+                    x.InvoiceId == id &&
+                    x.CompanyId == companyId &&
+                    !x.IsDeleted)
+                ?? throw new Exception("Sales Invoice not found.");
+
+            if (main.Status != "Draft")
+                throw new Exception("Only Draft invoices can be confirmed.");
+
+            // Check if approval is required
+            var approvalRequired = await _companyConfigService.GetValueAsync(companyId, "ApprovalRequired_SalesInvoice");
+            if (approvalRequired?.ToLower() == "true")
+            {
+                // Submit for approval instead of confirming directly
+                await _approvalService.SubmitForApprovalAsync("SalesInvoice", id);
+                return true;
+            }
+
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                main.Status = "Confirmed";
+                main.ModifiedBy = userId;
+                main.ModifiedDate = DateTime.UtcNow;
+
+                await SaveChangesAsync();
+
+                // Post stock and account ledger
+                await PostStockLedgerAsync(main, isReversal: false);
+                await PostAccountLedgerAsync(main, isReversal: false);
+
+                await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "SalesInvoice",
+                    action: "Confirm",
+                    entityId: main.InvoiceId,
+                    entityNo: main.InvoiceNo,
+                    newValues: new { main.Status });
+                return true;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        // ════════════════════════════════════════════════════
+        // CANCEL
+        // ════════════════════════════════════════════════════
+        public async Task<bool> CancelAsync(int id)
+        {
+            var companyId = _common.GetCompanyId();
+            var userId = _common.GetUserId();
+
+            var main = await _context.SalesInvoiceMains
+                .FirstOrDefaultAsync(x =>
+                    x.InvoiceId == id &&
+                    x.CompanyId == companyId &&
+                    !x.IsDeleted)
+                ?? throw new Exception("Sales Invoice not found.");
+
+            if (main.Status == "Cancelled")
+                throw new Exception("Invoice is already cancelled.");
+
+            if (main.Status == "Confirmed")
+                throw new Exception("Confirmed invoices cannot be cancelled. Please void the invoice.");
+
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                main.Status = "Cancelled";
+                main.ModifiedBy = userId;
+                main.ModifiedDate = DateTime.UtcNow;
+
+                await SaveChangesAsync();
+                await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "SalesInvoice",
+                    action: "Cancel",
+                    entityId: main.InvoiceId,
+                    entityNo: main.InvoiceNo,
+                    newValues: new { main.Status });
                 return true;
             }
             catch
@@ -817,46 +885,6 @@ namespace FinVentoryAPI.Services.Implementations
                 });
             }
         }
-        //    private async Task SaveSerialLinesAsync(
-        //SalesInvoiceDetail detail,
-        //UpdateSalesInvoiceDetailDto lineDto,       // ← fixed
-        //int companyId)
-        //    {          
-
-
-        //        if (lineDto.Serials == null || !lineDto.Serials.Any())
-        //            throw new Exception(
-        //                $"Item {detail.ItemId} is Serial-managed. " +
-        //                "Please select at least one serial number.");
-
-        //        if (lineDto.Serials.Count != (int)detail.Qty)
-        //            throw new Exception(
-        //                $"Serial count ({lineDto.Serials.Count}) must equal line qty ({detail.Qty}).");
-
-        //        foreach (var serialDto in lineDto.Serials)
-        //        {
-        //            var serial = await _context.ItemSerials
-        //                .FirstOrDefaultAsync(s =>
-        //                    s.SerialId == serialDto.SerialId &&
-        //                    s.CompanyId == companyId &&
-        //                    s.ItemId == detail.ItemId &&
-        //                    !s.IsDeleted)
-        //                ?? throw new Exception($"Serial {serialDto.SerialId} not found.");
-
-        //            if (serial.Status != SerialStatus.InStock)
-        //                throw new Exception(
-        //                    $"Serial '{serial.SerialNo}' is not available (status: {serial.Status}).");
-
-        //            serial.Status = SerialStatus.Sold;
-
-        //            _context.SalesInvoiceDetailSerials.Add(new SalesInvoiceDetailSerial
-        //            {
-        //                DetailId = detail.DetailId,
-        //                InvoiceId = detail.InvoiceId,
-        //                SerialId = serialDto.SerialId
-        //            });
-        //        }
-        //    }
 
         /// <summary>
         /// When a detail line is updated or deleted, restore the previously
@@ -1037,6 +1065,9 @@ namespace FinVentoryAPI.Services.Implementations
                         PendingQty = pending,
                         SuggestedQty = pending,
                         Rate = d.Rate,
+                        Pack = d.Pack,
+                        PackQty = d.PackQty,
+                        RateUnit = d.RateUnit,
                         DiscountRate = d.DiscountRate,
                         AddisDiscountRate = d.AddisDiscountRate,
                         IsTaxIncluded = d.IsTaxIncluded,
@@ -1175,7 +1206,15 @@ namespace FinVentoryAPI.Services.Implementations
             var hsn = item.Hsn;
             var tax = hsn.tax;
 
-            decimal grossAmount = lineDto.Rate * lineDto.Qty;
+            // ── Amount calculation ────────────────────────────────────────────────
+            // Rate Unit mode:  Gross = (Qty / RateUnit) × Rate
+            // Normal mode:     Gross = Rate × Qty
+            decimal grossAmount;
+            if (lineDto.RateUnit.HasValue && lineDto.RateUnit.Value > 0)
+                grossAmount = (lineDto.Qty / lineDto.RateUnit.Value) * lineDto.Rate;
+            else
+                grossAmount = lineDto.Rate * lineDto.Qty;
+
             decimal discountAmount = Math.Round(grossAmount * lineDto.DiscountRate / 100, 2);
             decimal afterFirst = grossAmount - discountAmount;
             decimal addisDiscAmt = Math.Round(afterFirst * lineDto.AddisDiscountRate / 100, 2);
@@ -1207,6 +1246,9 @@ namespace FinVentoryAPI.Services.Implementations
                 PriceType = lineDto.PriceType,
                 Qty = lineDto.Qty,
                 Rate = lineDto.Rate,
+                Pack = lineDto.Pack,
+                PackQty = lineDto.PackQty,
+                RateUnit = lineDto.RateUnit,
                 DiscountRate = lineDto.DiscountRate,
                 AddisDiscountRate = lineDto.AddisDiscountRate,
                 DiscountAmount = discountAmount,
@@ -1241,23 +1283,7 @@ namespace FinVentoryAPI.Services.Implementations
             };
         }
 
-        private async Task<string> GenerateInvoiceNoAsync(int companyId, int finYearId)
-        {
-            var financialYear = await _context.FinancialYears
-                .FirstOrDefaultAsync(x => x.FinancialYearId == finYearId);
 
-            var yearLabel = financialYear != null
-                ? $"{financialYear.StartDate.Year % 100}{financialYear.EndDate.Year % 100}"
-                : finYearId.ToString();
-
-            var count = await _context.SalesInvoiceMains
-                .CountAsync(x =>
-                    x.CompanyId == companyId &&
-                    x.FinYearId == finYearId &&
-                    !x.IsDeleted);
-
-            return $"INV-{yearLabel}-{(count + 1):D4}";
-        }
 
         private SalesInvoiceResponseDto MapToResponseDto(SalesInvoiceMain main)
         {
@@ -1335,6 +1361,9 @@ namespace FinVentoryAPI.Services.Implementations
                     PriceType = d.PriceType,
                     Qty = d.Qty,
                     Rate = d.Rate,
+                    Pack = d.Pack,
+                    PackQty = d.PackQty,
+                    RateUnit = d.RateUnit,
                     DiscountRate = d.DiscountRate,
                     AddisDiscountRate = d.AddisDiscountRate,
                     DiscountAmount = d.DiscountAmount,

@@ -167,8 +167,6 @@ namespace FinVentoryAPI.Services.Implementations
                 Prefix = x.Series?.Prefix ?? string.Empty,
                 NextNumber = x.Series?.NextNumber ?? 1,
                 IsDefault = x.Series?.IsDefault ?? false,
-                StartDate = x.Series?.StartDate ?? DateTime.MinValue,
-                EndDate = x.Series?.EndDate ?? DateTime.MinValue,
                 IsLocked = x.Series?.IsLocked ?? false
             };
     }

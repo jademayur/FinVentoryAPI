@@ -2,12 +2,14 @@
 using FinVentoryAPI.DTOs.StockLedgerDTOs;
 using FinVentoryAPI.Helpers;
 using FinVentoryAPI.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FinVentoryAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class StockLedgerController : ControllerBase
     {
         private readonly IStockLedgerService _service;

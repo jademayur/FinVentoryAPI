@@ -18,16 +18,25 @@ namespace FinVentoryAPI.Services.Implementations
         private readonly Common _common;
         private readonly IStockLedgerService _stockLedger;
         private readonly IAccountLedgerPostingService _accountLedger;
+        private readonly IAuditLogService _auditLog;
+        private readonly IApprovalService _approvalService;
+        private readonly ICompanyConfigService _companyConfigService;
 
         public PurchaseInvoiceService(
             AppDbContext context, Common common,
             IStockLedgerService stockLedger,
-            IAccountLedgerPostingService accountLedger)
+            IAccountLedgerPostingService accountLedger,
+            IAuditLogService auditLog,
+            IApprovalService approvalService,
+            ICompanyConfigService companyConfigService)
         {
             _context = context;
             _common = common;
             _stockLedger = stockLedger;
             _accountLedger = accountLedger;
+            _auditLog = auditLog;
+            _approvalService = approvalService;
+            _companyConfigService = companyConfigService;
         }
 
         // ════════════════════════════════════════════════════
@@ -47,7 +56,7 @@ namespace FinVentoryAPI.Services.Implementations
                 dto.ContactPersonId,
                 dto.BillAddressId, dto.ShipAddressId);
 
-            var invoiceNo = await GenerateInvoiceNoAsync(companyId, finYearId);
+            var invoiceNo = await _common.GenerateDocumentNumber(_context, "Purchase Invoice");
 
             var main = new PurchaseInvoiceMain
             {
@@ -158,6 +167,12 @@ namespace FinVentoryAPI.Services.Implementations
                 await PostAccountLedgerAsync(mainForPosting, isReversal: false);
 
                 await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "PurchaseInvoice",
+                    action: "Create",
+                    entityId: main.InvoiceId,
+                    entityNo: main.InvoiceNo,
+                    newValues: new { main.InvoiceNo, main.BusinessPartnerId, main.NetTotal, main.Status });
             }
             catch
             {
@@ -192,6 +207,8 @@ namespace FinVentoryAPI.Services.Implementations
             if (main.Status != "Draft")
                 throw new Exception("Only Draft invoices can be updated.");
 
+            var oldValues = new { main.InvoiceNo, main.BusinessPartnerId, main.NetTotal, main.Status };
+
             // ✅ Validate BEFORE transaction (read-only)
             await ValidateHeaderAsync(
                 dto.BusinessPartnerId, dto.LocationId, dto.PurchaseAccountId,
@@ -210,6 +227,9 @@ namespace FinVentoryAPI.Services.Implementations
                     PriceType = lineDto.PriceType,
                     Qty = lineDto.Qty,
                     Rate = lineDto.Rate,
+                    Pack = lineDto.Pack,
+                    PackQty = lineDto.PackQty,
+                    RateUnit = lineDto.RateUnit,
                     DiscountRate = lineDto.DiscountRate,
                     AddisDiscountRate = lineDto.AddisDiscountRate,
                     IsTaxIncluded = lineDto.IsTaxIncluded
@@ -266,6 +286,9 @@ namespace FinVentoryAPI.Services.Implementations
                         existing.PriceType = incoming.PriceType;
                         existing.Qty = incoming.Qty;
                         existing.Rate = incoming.Rate;
+                        existing.Pack = incoming.Pack;
+                        existing.PackQty = incoming.PackQty;
+                        existing.RateUnit = incoming.RateUnit;
                         existing.DiscountRate = incoming.DiscountRate;
                         existing.AddisDiscountRate = incoming.AddisDiscountRate;
                         existing.DiscountAmount = incoming.DiscountAmount;
@@ -371,6 +394,13 @@ namespace FinVentoryAPI.Services.Implementations
                 await UpdateAccountLedgerAsync(main);
 
                 await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "PurchaseInvoice",
+                    action: "Update",
+                    entityId: main.InvoiceId,
+                    entityNo: main.InvoiceNo,
+                    oldValues: oldValues,
+                    newValues: new { main.InvoiceNo, main.BusinessPartnerId, main.NetTotal, main.Status });
             }
             catch
             {
@@ -406,6 +436,8 @@ namespace FinVentoryAPI.Services.Implementations
             if (main.Status != "Draft")
                 throw new Exception("Only Draft invoices can be deleted.");
 
+            var oldValues = new { main.InvoiceNo, main.BusinessPartnerId, main.NetTotal, main.Status };
+
             await using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
@@ -422,6 +454,93 @@ namespace FinVentoryAPI.Services.Implementations
                     companyId, main.InvoiceNo, userId);
                 await _accountLedger.SoftDeleteByVoucherAsync(
                     companyId, main.FinYearId, main.InvoiceNo, userId);
+
+                await SaveChangesAsync();
+                await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "PurchaseInvoice",
+                    action: "Delete",
+                    entityId: main.InvoiceId,
+                    entityNo: main.InvoiceNo,
+                    oldValues: oldValues,
+                    remarks: "Soft deleted");
+                return true;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        // ════════════════════════════════════════════════════
+        // CONFIRM
+        // ════════════════════════════════════════════════════
+        public async Task<bool> ConfirmAsync(int id)
+        {
+            var companyId = _common.GetCompanyId();
+            var userId = _common.GetUserId();
+
+            var main = await _context.PurchaseInvoiceMains
+                .FirstOrDefaultAsync(x =>
+                    x.InvoiceId == id &&
+                    x.CompanyId == companyId &&
+                    !x.IsDeleted)
+                ?? throw new Exception("Purchase Invoice not found.");
+
+            if (main.Status != "Draft")
+                throw new Exception("Only Draft invoices can be confirmed.");
+
+            // Check if approval is required
+            var approvalRequired = await _companyConfigService.GetValueAsync(companyId, "ApprovalRequired_PurchaseInvoice");
+            if (approvalRequired?.ToLower() == "true")
+            {
+                await _approvalService.SubmitForApprovalAsync("PurchaseInvoice", id);
+                return true;
+            }
+
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                main.Status = "Confirmed";
+                main.ModifiedBy = userId;
+                main.ModifiedDate = DateTime.UtcNow;
+
+                await SaveChangesAsync();
+                await transaction.CommitAsync();
+                return true;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        // ════════════════════════════════════════════════════
+        // CANCEL  (Draft or Confirmed → Cancelled)
+        // ════════════════════════════════════════════════════
+        public async Task<bool> CancelAsync(int id)
+        {
+            var companyId = _common.GetCompanyId();
+            var userId = _common.GetUserId();
+
+            var main = await _context.PurchaseInvoiceMains
+                .FirstOrDefaultAsync(x =>
+                    x.InvoiceId == id &&
+                    x.CompanyId == companyId &&
+                    !x.IsDeleted)
+                ?? throw new Exception("Purchase Invoice not found.");
+
+            if (main.Status == "Cancelled")
+                throw new Exception("Purchase Invoice is already cancelled.");
+
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                main.Status = "Cancelled";
+                main.ModifiedBy = userId;
+                main.ModifiedDate = DateTime.UtcNow;
 
                 await SaveChangesAsync();
                 await transaction.CommitAsync();
@@ -700,6 +819,7 @@ namespace FinVentoryAPI.Services.Implementations
                     !x.IsDeleted)
                 .Include(x => x.Details!).ThenInclude(d => d.Item)
                 .Include(x => x.Details!).ThenInclude(d => d.Hsn).ThenInclude(h => h!.tax)
+                .Include(x => x.Details!).ThenInclude(d => d.TaxDetails!).ThenInclude(td => td.Tax)
                 .ToListAsync();
 
             if (grns.Count != grnIds.Count)
@@ -725,11 +845,37 @@ namespace FinVentoryAPI.Services.Implementations
 
                     if (pending <= 0) continue;
 
+                    bool hasHsn = d.HsnId.HasValue && d.HsnId.Value != 0;
                     var hsnTax = d.Hsn?.tax;
 
                     bool isIntra = (firstGrn.PurchaseStateCode.HasValue && firstGrn.BillStateCode.HasValue)
                         ? firstGrn.PurchaseStateCode.Value == firstGrn.BillStateCode.Value
                         : true;
+
+                    decimal hsnIgst = isIntra ? 0 : (hsnTax?.IGST ?? 0);
+                    decimal hsnCgst = isIntra ? (hsnTax?.CGST ?? 0) : 0;
+                    decimal hsnSgst = isIntra ? (hsnTax?.SGST ?? 0) : 0;
+                    decimal hsnCess = d.Hsn?.Cess ?? 0;
+
+                    var grnTax = d.TaxDetails?.FirstOrDefault();
+                    bool isManualTax = !hasHsn;
+                    int? manualTaxId = null;
+
+                    if (grnTax != null)
+                    {
+                        bool ratesDiffer =
+                            grnTax.IGSTRate != hsnIgst ||
+                            grnTax.CGSTRate != hsnCgst ||
+                            grnTax.SGSTRate != hsnSgst ||
+                            grnTax.CessRate != hsnCess ||
+                            grnTax.TaxId != (hsnTax?.TaxId ?? 0);
+
+                        if (!hasHsn || ratesDiffer)
+                        {
+                            isManualTax = true;
+                            manualTaxId = grnTax.TaxId;
+                        }
+                    }
 
                     var raw = d.Item?.ItemManageBy.ToString() ?? "Regular";
 
@@ -749,13 +895,18 @@ namespace FinVentoryAPI.Services.Implementations
                         PendingQty = pending,
                         SuggestedQty = pending,
                         Rate = d.Rate,
+                        Pack = d.Pack,
+                        PackQty = d.PackQty,
+                        RateUnit = d.RateUnit,
                         DiscountRate = d.DiscountRate,
                         AddisDiscountRate = d.AddisDiscountRate,
                         IsTaxIncluded = d.IsTaxIncluded,
-                        CgstRate = isIntra ? (hsnTax?.CGST ?? 0) : 0,
-                        SgstRate = isIntra ? (hsnTax?.SGST ?? 0) : 0,
-                        IgstRate = !isIntra ? (hsnTax?.IGST ?? 0) : 0,
-                        CessRate = d.Hsn?.Cess ?? 0,
+                        CgstRate = isManualTax ? (grnTax?.CGSTRate ?? 0) : hsnCgst,
+                        SgstRate = isManualTax ? (grnTax?.SGSTRate ?? 0) : hsnSgst,
+                        IgstRate = isManualTax ? (grnTax?.IGSTRate ?? 0) : hsnIgst,
+                        CessRate = isManualTax ? (grnTax?.CessRate ?? 0) : hsnCess,
+                        IsManualTax = isManualTax,
+                        ManualTaxId = manualTaxId,
                         ItemManageBy = raw
                     });
                 }
@@ -1158,7 +1309,12 @@ namespace FinVentoryAPI.Services.Implementations
             var hsn = item.Hsn;
             var tax = hsn.tax;
 
-            decimal grossAmount = lineDto.Rate * lineDto.Qty;
+            // Rate Unit mode: Gross = (Qty / RateUnit) × Rate ; else Gross = Rate × Qty
+            decimal grossAmount;
+            if (lineDto.RateUnit.HasValue && lineDto.RateUnit.Value > 0)
+                grossAmount = (lineDto.Qty / lineDto.RateUnit.Value) * lineDto.Rate;
+            else
+                grossAmount = lineDto.Rate * lineDto.Qty;
             decimal discountAmount = Math.Round(grossAmount * lineDto.DiscountRate / 100, 2);
             decimal afterFirst = grossAmount - discountAmount;
             decimal addisDiscAmt = Math.Round(afterFirst * lineDto.AddisDiscountRate / 100, 2);
@@ -1191,6 +1347,9 @@ namespace FinVentoryAPI.Services.Implementations
                 PriceType = lineDto.PriceType,
                 Qty = lineDto.Qty,
                 Rate = lineDto.Rate,
+                Pack = lineDto.Pack,
+                PackQty = lineDto.PackQty,
+                RateUnit = lineDto.RateUnit,
                 DiscountRate = lineDto.DiscountRate,
                 AddisDiscountRate = lineDto.AddisDiscountRate,
                 DiscountAmount = discountAmount,
@@ -1227,27 +1386,7 @@ namespace FinVentoryAPI.Services.Implementations
             };
         }
 
-        // ════════════════════════════════════════════════════
-        // PRIVATE HELPERS — Invoice Number
-        // ════════════════════════════════════════════════════
 
-        private async Task<string> GenerateInvoiceNoAsync(int companyId, int finYearId)
-        {
-            var financialYear = await _context.FinancialYears
-                .FirstOrDefaultAsync(x => x.FinancialYearId == finYearId);
-
-            var yearLabel = financialYear != null
-                ? $"{financialYear.StartDate.Year % 100}{financialYear.EndDate.Year % 100}"
-                : finYearId.ToString();
-
-            var count = await _context.PurchaseInvoiceMains
-                .CountAsync(x =>
-                    x.CompanyId == companyId &&
-                    x.FinYearId == finYearId &&
-                    !x.IsDeleted);
-
-            return $"PINV-{yearLabel}-{(count + 1):D4}";
-        }
 
         // ════════════════════════════════════════════════════
         // PRIVATE HELPERS — Stock Ledger
@@ -1467,6 +1606,9 @@ namespace FinVentoryAPI.Services.Implementations
                     PriceType = d.PriceType,
                     Qty = d.Qty,
                     Rate = d.Rate,
+                    Pack = d.Pack,
+                    PackQty = d.PackQty,
+                    RateUnit = d.RateUnit,
                     DiscountRate = d.DiscountRate,
                     AddisDiscountRate = d.AddisDiscountRate,
                     DiscountAmount = d.DiscountAmount,

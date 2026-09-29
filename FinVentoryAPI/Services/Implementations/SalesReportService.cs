@@ -79,16 +79,21 @@ namespace FinVentoryAPI.Services.Implementations
                 })
                 .FirstOrDefaultAsync() ?? new SalesReportMetaDto();
 
+            // ── Pagination meta ────────────────────────────────────────
+            meta.PageNumber = req.PageNumber;
+            meta.PageSize = req.PageSize;
+            meta.TotalPages = (int)Math.Ceiling((double)meta.TotalRecords / req.PageSize);
+
             // ── Dispatch to report builder ─────────────────────────────
             object data = req.ReportType switch
             {
-                "SalesRegister" => await BuildSalesRegisterAsync(baseQuery),
+                "SalesRegister" => await BuildSalesRegisterAsync(baseQuery, req),
                 "SalesRegisterDetails" => await BuildSalesRegisterDetailsAsync(baseQuery, req),
                 "ItemWise" => await BuildItemWiseAsync(baseQuery, req),
-                "PartyWise" => await BuildPartyWiseAsync(baseQuery),
-                "TaxWise" => await BuildTaxWiseAsync(baseQuery),
-                "MonthlySummary" => await BuildMonthlySummaryAsync(baseQuery),
-                "MonthlyGST" => await BuildMonthlyGSTAsync(baseQuery),
+                "PartyWise" => await BuildPartyWiseAsync(baseQuery, req),
+                "TaxWise" => await BuildTaxWiseAsync(baseQuery, req),
+                "MonthlySummary" => await BuildMonthlySummaryAsync(baseQuery, req),
+                "MonthlyGST" => await BuildMonthlyGSTAsync(baseQuery, req),
                 _ => throw new ArgumentException(
                                               $"Unknown ReportType: {req.ReportType}")
             };
@@ -204,7 +209,7 @@ namespace FinVentoryAPI.Services.Implementations
 
         // ── 1. Sales Register ─────────────────────────────────
         private async Task<List<SalesRegisterRowDto>> BuildSalesRegisterAsync(
-            IQueryable<SalesInvoiceMain> q)
+            IQueryable<SalesInvoiceMain> q, SalesReportRequestDto req)
         {
             return await q
                 .Include(x => x.BusinessPartner)
@@ -213,6 +218,8 @@ namespace FinVentoryAPI.Services.Implementations
                 .Include(x => x.Details)
                 .OrderBy(x => x.InvoiceDate)
                 .ThenBy(x => x.InvoiceNo)
+                .Skip((req.PageNumber - 1) * req.PageSize)
+                .Take(req.PageSize)
                 .Select(x => new SalesRegisterRowDto
                 {
                     InvoiceNo = x.InvoiceNo,
@@ -249,6 +256,8 @@ namespace FinVentoryAPI.Services.Implementations
                 .Include(x => x.Details!).ThenInclude(d => d.TaxDetails)
                 .OrderBy(x => x.InvoiceDate)
                 .ThenBy(x => x.InvoiceNo)
+                .Skip((req.PageNumber - 1) * req.PageSize)
+                .Take(req.PageSize)
                 .ToListAsync();
 
             return invoices.Select(x =>
@@ -299,8 +308,8 @@ namespace FinVentoryAPI.Services.Implementations
             var invoiceIds = await q.Select(x => x.InvoiceId).ToListAsync();
 
             IQueryable<SalesInvoiceDetail> detailQuery = _context.SalesInvoiceDetails
-    .Where(d => invoiceIds.Contains(d.InvoiceId))
-    .Include(d => d.Item);
+                .Where(d => invoiceIds.Contains(d.InvoiceId))
+                .Include(d => d.Item);
 
             if (req.ItemIds?.Count > 0)
                 detailQuery = detailQuery.Where(d => req.ItemIds.Contains(d.ItemId));
@@ -329,12 +338,14 @@ namespace FinVentoryAPI.Services.Implementations
                     TotalNet = g.Sum(d => d.LineTotal)
                 })
                 .OrderByDescending(r => r.TotalNet)
+                .Skip((req.PageNumber - 1) * req.PageSize)
+                .Take(req.PageSize)
                 .ToListAsync();
         }
 
         // ── 4. Party Wise Sales ───────────────────────────────
         private async Task<List<PartyWiseSalesRowDto>> BuildPartyWiseAsync(
-            IQueryable<SalesInvoiceMain> q)
+            IQueryable<SalesInvoiceMain> q, SalesReportRequestDto req)
         {
             return await q
                 .Include(x => x.BusinessPartner)
@@ -361,12 +372,14 @@ namespace FinVentoryAPI.Services.Implementations
                     TotalNet = g.Sum(x => x.NetTotal)
                 })
                 .OrderByDescending(r => r.TotalNet)
+                .Skip((req.PageNumber - 1) * req.PageSize)
+                .Take(req.PageSize)
                 .ToListAsync();
         }
 
         // ── 5. Tax Wise Sales ─────────────────────────────────
         private async Task<List<TaxWiseSalesRowDto>> BuildTaxWiseAsync(
-            IQueryable<SalesInvoiceMain> q)
+            IQueryable<SalesInvoiceMain> q, SalesReportRequestDto req)
         {
             var invoiceIds = await q.Select(x => x.InvoiceId).ToListAsync();
 
@@ -389,12 +402,14 @@ namespace FinVentoryAPI.Services.Implementations
                     NetAmount = g.Sum(t => t.TaxableAmount + t.TotalTaxAmount)
                 })
                 .OrderBy(r => r.TaxName)
+                .Skip((req.PageNumber - 1) * req.PageSize)
+                .Take(req.PageSize)
                 .ToListAsync();
         }
 
         // ── 6. Monthly Summary ────────────────────────────────
         private async Task<List<MonthlySummaryRowDto>> BuildMonthlySummaryAsync(
-            IQueryable<SalesInvoiceMain> q)
+            IQueryable<SalesInvoiceMain> q, SalesReportRequestDto req)
         {
             var rows = await q
                 .Include(x => x.Details)
@@ -413,6 +428,8 @@ namespace FinVentoryAPI.Services.Implementations
                     NetTotal = g.Sum(x => x.NetTotal)
                 })
                 .OrderBy(r => r.Year).ThenBy(r => r.Month)
+                .Skip((req.PageNumber - 1) * req.PageSize)
+                .Take(req.PageSize)
                 .ToListAsync();
 
             // Set human-readable label after query (avoids EF translation issue)
@@ -425,7 +442,7 @@ namespace FinVentoryAPI.Services.Implementations
 
         // ── 7. Monthly GST Summary ────────────────────────────
         private async Task<List<MonthlyGSTRowDto>> BuildMonthlyGSTAsync(
-            IQueryable<SalesInvoiceMain> q)
+            IQueryable<SalesInvoiceMain> q, SalesReportRequestDto req)
         {
             var invoiceIds = await q.Select(x => x.InvoiceId).ToListAsync();
 
@@ -457,6 +474,8 @@ namespace FinVentoryAPI.Services.Implementations
                     NetAmount = g.Sum(x => x.t.TaxableAmount + x.t.TotalTaxAmount)
                 })
                 .OrderBy(r => r.Year).ThenBy(r => r.Month).ThenBy(r => r.GstType)
+                .Skip((req.PageNumber - 1) * req.PageSize)
+                .Take(req.PageSize)
                 .ToListAsync();
 
             foreach (var r in rows)

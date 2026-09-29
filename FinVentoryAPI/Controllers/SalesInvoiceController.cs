@@ -2,6 +2,7 @@
 using FinVentoryAPI.DTOs.SalesInvoiceDTOs;
 using FinVentoryAPI.Enums;
 using FinVentoryAPI.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,6 +11,7 @@ namespace FinVentoryAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class SalesInvoiceController : ControllerBase
     {
         private readonly ISalesInvoiceService _service;
@@ -162,6 +164,36 @@ namespace FinVentoryAPI.Controllers
                 var result = await _service.GetForReturnAsync(id);
                 if (result == null) return NotFound();
                 return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        // ── CONFIRM ─────────────────────────────────────────
+        [HttpPost("{id}/confirm")]
+        public async Task<IActionResult> Confirm(int id)
+        {
+            try
+            {
+                var result = await _service.ConfirmAsync(id);
+                return Ok(new { message = "Invoice confirmed successfully.", success = result });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        // ── CANCEL ──────────────────────────────────────────
+        [HttpPost("{id}/cancel")]
+        public async Task<IActionResult> Cancel(int id)
+        {
+            try
+            {
+                var result = await _service.CancelAsync(id);
+                return Ok(new { message = "Invoice cancelled.", success = result });
             }
             catch (Exception ex)
             {

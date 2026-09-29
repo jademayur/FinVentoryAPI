@@ -17,6 +17,12 @@ namespace FinVentoryAPI.Entities
         public string PriceType { get; set; } = string.Empty;  // MRP / Retail / Wholesale
         public decimal Qty { get; set; }
         public decimal Rate { get; set; }
+
+        // ── Packing (Pack / Pack & Rate Unit inventory methods) ──
+        public decimal? Pack { get; set; }
+        public decimal? PackQty { get; set; }
+        public decimal? RateUnit { get; set; }
+
         public decimal DiscountRate { get; set; } = 0;
         public decimal AddisDiscountRate { get; set; } = 0;
         public decimal DiscountAmount { get; set; } = 0;

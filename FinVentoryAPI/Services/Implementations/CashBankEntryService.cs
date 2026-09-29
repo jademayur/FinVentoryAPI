@@ -16,15 +16,24 @@ namespace FinVentoryAPI.Services.Implementations
         private readonly AppDbContext _context;
         private readonly Common _common;
         private readonly IAccountLedgerPostingService _accountLedger;
+        private readonly IAuditLogService _auditLog;
+        private readonly IApprovalService _approvalService;
+        private readonly ICompanyConfigService _companyConfigService;
 
         public CashBankEntryService(
             AppDbContext context,
             Common common,
-            IAccountLedgerPostingService accountLedger)
+            IAccountLedgerPostingService accountLedger,
+            IAuditLogService auditLog,
+            IApprovalService approvalService,
+            ICompanyConfigService companyConfigService)
         {
             _context = context;
             _common = common;
             _accountLedger = accountLedger;
+            _auditLog = auditLog;
+            _approvalService = approvalService;
+            _companyConfigService = companyConfigService;
         }
 
         // ════════════════════════════════════════════════════
@@ -39,7 +48,15 @@ namespace FinVentoryAPI.Services.Implementations
             await ValidateHeaderAsync(dto.HeadAccountId, dto.ReferenceNo, companyId);
             ValidateLines(dto.Lines);
 
-            var entryNumber = await GenerateEntryNumberAsync(dto.BookType, dto.EntryType, companyId, finYearId);
+            var documentType = (dto.BookType, dto.EntryType) switch
+            {
+                (1, EntryType.Payment) => "Cash Payment",
+                (1, EntryType.Receipt) => "Cash Receipt",
+                (2, EntryType.Payment) => "Bank Payment",
+                (2, EntryType.Receipt) => "Bank Receipt",
+                _ => "Payment Voucher"
+            };
+            var entryNumber = await _common.GenerateDocumentNumber(_context, documentType);
 
             var entry = new CashBankEntry
             {
@@ -94,6 +111,12 @@ namespace FinVentoryAPI.Services.Implementations
                     createdBy: userId);
 
                 await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "CashBankEntry",
+                    action: "Create",
+                    entityId: entry.CashBankEntryId,
+                    entityNo: entry.EntryNumber,
+                    newValues: new { entry.EntryNumber, entry.HeadAccountId, entry.TotalAmount, entry.Status });
             }
             catch
             {
@@ -125,6 +148,8 @@ namespace FinVentoryAPI.Services.Implementations
 
             if (entry.Status != "Draft")
                 throw new Exception("Only Draft entries can be updated.");
+
+            var oldValues = new { entry.EntryNumber, entry.HeadAccountId, entry.TotalAmount, entry.Status };
 
             await ValidateHeaderAsync(dto.HeadAccountId, dto.ReferenceNo, companyId);
             ValidateLines(dto.Lines);
@@ -198,6 +223,13 @@ namespace FinVentoryAPI.Services.Implementations
                     modifiedBy: userId);
 
                 await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "CashBankEntry",
+                    action: "Update",
+                    entityId: entry.CashBankEntryId,
+                    entityNo: entry.EntryNumber,
+                    oldValues: oldValues,
+                    newValues: new { entry.EntryNumber, entry.HeadAccountId, entry.TotalAmount, entry.Status });
             }
             catch
             {
@@ -228,6 +260,8 @@ namespace FinVentoryAPI.Services.Implementations
             if (entry.Status != "Draft")
                 throw new Exception("Only Draft entries can be deleted.");
 
+            var oldValues = new { entry.EntryNumber, entry.HeadAccountId, entry.TotalAmount, entry.Status };
+
             await using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
@@ -244,6 +278,119 @@ namespace FinVentoryAPI.Services.Implementations
 
                 await SaveChangesAsync();
                 await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "CashBankEntry",
+                    action: "Delete",
+                    entityId: entry.CashBankEntryId,
+                    entityNo: entry.EntryNumber,
+                    oldValues: oldValues,
+                    remarks: "Soft deleted");
+                return true;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        // ════════════════════════════════════════════════════
+        // CONFIRM  (Draft → Confirmed)
+        // ════════════════════════════════════════════════════
+        public async Task<bool> ConfirmAsync(int id)
+        {
+            var companyId = _common.GetCompanyId();
+            var userId = _common.GetUserId();
+
+            var entry = await _context.CashBankEntries
+                .Include(e => e.Lines)
+                .FirstOrDefaultAsync(x =>
+                    x.CashBankEntryId == id &&
+                    x.CompanyId == companyId &&
+                    !x.IsDeleted);
+
+            if (entry == null) return false;
+
+            if (entry.Status != "Draft")
+                throw new Exception("Only Draft entries can be confirmed.");
+
+            // Check if approval is required
+            var approvalRequired = await _companyConfigService.GetValueAsync(companyId, "ApprovalRequired_CashBankEntry");
+            if (approvalRequired?.ToLower() == "true")
+            {
+                await _approvalService.SubmitForApprovalAsync("CashBankEntry", id);
+                return true;
+            }
+
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                entry.Status = "Confirmed";
+                entry.ModifiedBy = userId;
+                entry.ModifiedDate = DateTime.UtcNow;
+
+                await SaveChangesAsync();
+                await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "CashBankEntry",
+                    action: "Confirm",
+                    entityId: entry.CashBankEntryId,
+                    entityNo: entry.EntryNumber,
+                    newValues: new { entry.Status });
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+
+            return true;
+        }
+
+        // ════════════════════════════════════════════════════
+        // CANCEL  (Draft → Cancelled)
+        // ════════════════════════════════════════════════════
+        public async Task<bool> CancelAsync(int id)
+        {
+            var companyId = _common.GetCompanyId();
+            var userId = _common.GetUserId();
+            var finYearId = _common.GetFinancialYearId();
+
+            var entry = await _context.CashBankEntries
+                .FirstOrDefaultAsync(x =>
+                    x.CashBankEntryId == id &&
+                    x.CompanyId == companyId &&
+                    !x.IsDeleted);
+
+            if (entry == null) return false;
+
+            if (entry.Status != "Draft")
+                throw new Exception("Only Draft entries can be cancelled.");
+
+            var oldValues = new { entry.EntryNumber, entry.HeadAccountId, entry.TotalAmount, entry.Status };
+
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                entry.Status = "Cancelled";
+                entry.ModifiedBy = userId;
+                entry.ModifiedDate = DateTime.UtcNow;
+
+                await _accountLedger.SoftDeleteByVoucherAsync(
+                    companyId: companyId,
+                    financialYearId: finYearId,
+                    voucherNo: entry.EntryNumber,
+                    modifiedBy: userId);
+
+                await SaveChangesAsync();
+                await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "CashBankEntry",
+                    action: "Cancel",
+                    entityId: entry.CashBankEntryId,
+                    entityNo: entry.EntryNumber,
+                    oldValues: oldValues,
+                    newValues: new { entry.Status });
                 return true;
             }
             catch
@@ -513,36 +660,7 @@ namespace FinVentoryAPI.Services.Implementations
                     $"Duplicate accounts in lines: AccountId(s) {string.Join(", ", duplicates)}.");
         }
 
-        // ════════════════════════════════════════════════════
-        // PRIVATE — Entry number generation
-        // ════════════════════════════════════════════════════
-        private async Task<string> GenerateEntryNumberAsync(
-            int bookType, EntryType entryType, int companyId, int finYearId)
-        {
-            var prefix = (bookType, entryType) switch
-            {
-                (1, EntryType.Payment) => "CP",  // Cash Payment
-                (1, EntryType.Receipt) => "CR",  // Cash Receipt
-                (2, EntryType.Payment) => "BP",  // Bank Payment
-                (2, EntryType.Receipt) => "BR",  // Bank Receipt
-                _ => "CB"    // fallback
-            };
 
-            var financialYear = await _context.FinancialYears
-                .FirstOrDefaultAsync(x => x.FinancialYearId == finYearId);
-
-            var yearLabel = financialYear != null
-                ? $"{financialYear.StartDate.Year % 100}{financialYear.EndDate.Year % 100}"
-                : finYearId.ToString();
-
-            var count = await _context.CashBankEntries
-                .CountAsync(x =>
-                    x.CompanyId == companyId &&
-                    x.FinYearId == finYearId &&
-                    !x.IsDeleted);
-
-            return $"{prefix}{yearLabel}{(count + 1):D4}";
-        }
 
         // ════════════════════════════════════════════════════
         // PRIVATE — Map to response DTO

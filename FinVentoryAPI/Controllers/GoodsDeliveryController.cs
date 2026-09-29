@@ -1,6 +1,7 @@
 ﻿using FinVentoryAPI.DTOs.GoodsDeliveryDTOs;
 using FinVentoryAPI.DTOs.PagedRequestDto;
 using FinVentoryAPI.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -8,6 +9,7 @@ namespace FinVentoryAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class GoodsDeliveryController : ControllerBase
     {
         private readonly IGoodsDeliveryService _service;

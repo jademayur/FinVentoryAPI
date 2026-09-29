@@ -1,6 +1,7 @@
 ﻿using FinVentoryAPI.DTOs.SalesReportDTOs;
 using FinVentoryAPI.Services.Implementations;
 using FinVentoryAPI.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -8,6 +9,7 @@ namespace FinVentoryAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class SalesReportController : ControllerBase
     {
         private readonly ISalesReportService _svc;

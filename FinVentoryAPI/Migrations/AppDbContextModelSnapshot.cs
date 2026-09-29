@@ -129,6 +129,372 @@ namespace FinVentoryAPI.Migrations
                     b.ToTable("AccountGroups");
                 });
 
+            modelBuilder.Entity("FinVentoryAPI.Entities.AccountLedgerPosting", b =>
+                {
+                    b.Property<int>("PostingId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PostingId"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("BusinessPartnerId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("Credit")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("Debit")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("FinancialYearId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("VoucherNo")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("VoucherType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("PostingId");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("BusinessPartnerId");
+
+                    b.ToTable("AccountLedgerPostings");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.ApprovalLevel", b =>
+                {
+                    b.Property<int>("ApprovalLevelId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ApprovalLevelId"));
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DocumentType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LevelName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("LevelNumber")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("MaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("RoleId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("ApprovalLevelId");
+
+                    b.HasIndex("CompanyId", "DocumentType", "LevelNumber")
+                        .IsUnique();
+
+                    b.ToTable("ApprovalLevels");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.ApprovalLog", b =>
+                {
+                    b.Property<int>("ApprovalLogId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ApprovalLogId"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("ActionDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DocumentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DocumentType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("LevelNumber")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("ApprovalLogId");
+
+                    b.HasIndex("CompanyId", "DocumentType", "DocumentId");
+
+                    b.ToTable("ApprovalLogs");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.AuditLog", b =>
+                {
+                    b.Property<long>("AuditLogId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("AuditLogId"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("EntityId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EntityNo")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("FinancialYearId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("IpAddress")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Module")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("NewValues")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("OldValues")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("AuditLogId");
+
+                    b.ToTable("AuditLogs");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.Bank", b =>
+                {
+                    b.Property<int>("BankId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("BankId"));
+
+                    b.Property<string>("AccountNo")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("BankName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Branch")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("IFSCCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SwiftCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("BankId");
+
+                    b.ToTable("Bank");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.BillOfMaterial", b =>
+                {
+                    b.Property<int>("BomId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("BomId"));
+
+                    b.Property<int>("BaseUnitId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("BomCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("BomName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("OutputQuantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.HasKey("BomId");
+
+                    b.HasIndex("ItemId");
+
+                    b.ToTable("BillOfMaterial");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.BomLine", b =>
+                {
+                    b.Property<int>("BomLineId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("BomLineId"));
+
+                    b.Property<int>("BomId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("ConversionFactor")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UnitId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("WastagePercent")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.HasKey("BomLineId");
+
+                    b.HasIndex("BomId");
+
+                    b.HasIndex("ItemId");
+
+                    b.ToTable("BomLines");
+                });
+
             modelBuilder.Entity("FinVentoryAPI.Entities.Brand", b =>
                 {
                     b.Property<int>("BrandId")
@@ -277,8 +643,8 @@ namespace FinVentoryAPI.Migrations
                     b.Property<string>("Pincode")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("State")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<int?>("State")
+                        .HasColumnType("int");
 
                     b.Property<int>("Type")
                         .HasColumnType("int");
@@ -321,6 +687,120 @@ namespace FinVentoryAPI.Migrations
                     b.HasIndex("BusinessPartnerId");
 
                     b.ToTable("BusinessPartnerContacts");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.CashBankEntry", b =>
+                {
+                    b.Property<int>("CashBankEntryId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("CashBankEntryId"));
+
+                    b.Property<int>("AccountDrCr")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateOnly>("EntryDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("EntryNumber")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("EntryType")
+                        .HasColumnType("int");
+
+                    b.Property<int>("FinYearId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("HeadAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Narration")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("PaymentMode")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateOnly?>("ReferenceDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("ReferenceNo")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("CashBankEntryId");
+
+                    b.HasIndex("HeadAccountId");
+
+                    b.ToTable("CashBankEntries");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.CashBankEntryLine", b =>
+                {
+                    b.Property<int>("CashBankEntryLineId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("CashBankEntryLineId"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("CashBankEntryId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DrCr")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Narration")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.HasKey("CashBankEntryLineId");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("CashBankEntryId");
+
+                    b.ToTable("CashBankEntryLines");
                 });
 
             modelBuilder.Entity("FinVentoryAPI.Entities.Company", b =>
@@ -368,6 +848,10 @@ namespace FinVentoryAPI.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<string>("Logo")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<string>("Mobile")
                         .IsRequired()
                         .HasMaxLength(15)
@@ -388,8 +872,8 @@ namespace FinVentoryAPI.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("nvarchar(10)");
 
-                    b.Property<string>("State")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<int?>("State")
+                        .HasColumnType("int");
 
                     b.Property<int?>("UpdatedBy")
                         .HasColumnType("int");
@@ -400,6 +884,287 @@ namespace FinVentoryAPI.Migrations
                     b.HasKey("CompanyId");
 
                     b.ToTable("Companies");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.CompanyConfig", b =>
+                {
+                    b.Property<int>("ConfigId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ConfigId"));
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ConfigKey")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ConfigType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ConfigValue")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("ConfigId");
+
+                    b.HasIndex("CompanyId", "ConfigKey")
+                        .IsUnique();
+
+                    b.ToTable("CompanyConfigs");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.DocType", b =>
+                {
+                    b.Property<int>("DocumentTypeId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("DocumentTypeId"));
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TypeName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("DocumentTypeId");
+
+                    b.ToTable("DocumentTypes");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.DocumentCopyLog", b =>
+                {
+                    b.Property<int>("CopyLogId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("CopyLogId"));
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("CopiedQty")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FinYearId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SourceDetailId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SourceId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("SourceQty")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("SourceType")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TargetDetailId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TargetId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TargetType")
+                        .HasColumnType("int");
+
+                    b.HasKey("CopyLogId");
+
+                    b.HasIndex("TargetType", "TargetId", "TargetDetailId")
+                        .HasDatabaseName("IX_CopyLog_Target");
+
+                    b.HasIndex("CompanyId", "ItemId", "SourceType", "IsDeleted")
+                        .HasDatabaseName("IX_CopyLog_CompanyItem");
+
+                    b.HasIndex("SourceType", "SourceId", "SourceDetailId", "IsDeleted")
+                        .HasDatabaseName("IX_CopyLog_Source");
+
+                    b.ToTable("DocumentCopyLogs", (string)null);
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.DocumentSeries", b =>
+                {
+                    b.Property<int>("SeriesId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("SeriesId"));
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("DocumentLength")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DocumentType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("EndDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("FinancialYearId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Format")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsLocked")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsManual")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ModuleId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("NextNumber")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Prefix")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("SeriesCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("SeriesName")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("StartFromNumber")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Suffix")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("SeriesId");
+
+                    b.ToTable("DocumentSeries");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.DocumentSeriesMapping", b =>
+                {
+                    b.Property<int>("MappingId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("MappingId"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("SeriesId")
+                        .HasColumnType("int");
+
+                    b.HasKey("MappingId");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("SeriesId");
+
+                    b.HasIndex("CompanyId", "AccountId")
+                        .IsUnique();
+
+                    b.ToTable("DocumentSeriesMappings");
                 });
 
             modelBuilder.Entity("FinVentoryAPI.Entities.FinancialYear", b =>
@@ -445,6 +1210,520 @@ namespace FinVentoryAPI.Migrations
                     b.HasKey("FinancialYearId");
 
                     b.ToTable("FinancialYears");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.GRNDetail", b =>
+                {
+                    b.Property<int>("GRNDetailId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("GRNDetailId"));
+
+                    b.Property<decimal>("AddisDiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("AddisDiscountRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CessAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CessRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("DiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("DiscountRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("GRNId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("HsnCode")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int?>("HsnId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsTaxIncluded")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("LineTaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("LineTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("OrderedQty")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("PreviouslyReceivedQty")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("PriceType")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int?>("PurchaseOrderDetailId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("PurchaseOrderId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Rate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("ReceivedQty")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TaxableAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("GRNDetailId");
+
+                    b.HasIndex("GRNId");
+
+                    b.HasIndex("HsnId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("PurchaseOrderDetailId");
+
+                    b.HasIndex("PurchaseOrderId");
+
+                    b.ToTable("GRNDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.GRNMain", b =>
+                {
+                    b.Property<int>("GRNId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("GRNId"));
+
+                    b.Property<int?>("BillAddressId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("BillStateCode")
+                        .HasColumnType("int");
+
+                    b.Property<int>("BusinessPartnerId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("CessAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ContactPersonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FinYearId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("GRNDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("GRNNo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("LocationId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("NetTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("PurchaseStateCode")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("RefDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RefNo")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<decimal>("RoundOff")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("ShipAddressId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<decimal>("SubTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("SupplierInvoiceDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SupplierInvoiceNo")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<decimal>("TaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("GRNId");
+
+                    b.HasIndex("BillAddressId");
+
+                    b.HasIndex("BusinessPartnerId");
+
+                    b.HasIndex("ContactPersonId");
+
+                    b.HasIndex("LocationId");
+
+                    b.HasIndex("ShipAddressId");
+
+                    b.ToTable("GRNMains");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.GRNTaxDetail", b =>
+                {
+                    b.Property<int>("TaxDetailId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TaxDetailId"));
+
+                    b.Property<decimal>("CGSTAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CGSTRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CessAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CessRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("GRNDetailId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("GRNId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("IGSTAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("IGSTRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("SGSTAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("SGSTRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("TaxId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("TaxableAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TotalTaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("TaxDetailId");
+
+                    b.HasIndex("GRNDetailId");
+
+                    b.HasIndex("GRNId");
+
+                    b.HasIndex("TaxId");
+
+                    b.ToTable("GRNTaxDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.GoodsDeliveryDetail", b =>
+                {
+                    b.Property<int>("DeliveryDetailId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("DeliveryDetailId"));
+
+                    b.Property<decimal>("AddisDiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("AddisDiscountRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CessAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CessRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("DeliveryId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("DeliveryQty")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("DiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("DiscountRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("HsnCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("HsnId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsTaxIncluded")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("LineTaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("LineTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("OrderDetailId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("OrderedQty")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("PreviouslyDeliveredQty")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("PriceType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("Rate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TaxableAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("DeliveryDetailId");
+
+                    b.HasIndex("DeliveryId");
+
+                    b.HasIndex("HsnId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("OrderDetailId");
+
+                    b.HasIndex("OrderId");
+
+                    b.ToTable("GoodsDeliveryDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.GoodsDeliveryMain", b =>
+                {
+                    b.Property<int>("DeliveryId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("DeliveryId"));
+
+                    b.Property<int?>("BillAddressId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("BillStateCode")
+                        .HasColumnType("int");
+
+                    b.Property<int>("BusinessPartnerId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("CessAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ContactPersonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("DeliveryDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeliveryNo")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("FinYearId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("LocationId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("NetTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("RefDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RefNo")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("RoundOff")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("SalesPersonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SalesStateCode")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ShipAddressId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("SubTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("DeliveryId");
+
+                    b.HasIndex("BillAddressId");
+
+                    b.HasIndex("BusinessPartnerId");
+
+                    b.HasIndex("ContactPersonId");
+
+                    b.HasIndex("LocationId");
+
+                    b.HasIndex("SalesPersonId");
+
+                    b.HasIndex("ShipAddressId");
+
+                    b.ToTable("GoodsDeliveryMains");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.GoodsDeliveryTaxDetail", b =>
+                {
+                    b.Property<int>("TaxDetailId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TaxDetailId"));
+
+                    b.Property<decimal>("CGSTAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CGSTRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CessAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CessRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("DeliveryDetailId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DeliveryId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("IGSTAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("IGSTRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("SGSTAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("SGSTRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("TaxId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("TaxableAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TotalTaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("TaxDetailId");
+
+                    b.HasIndex("DeliveryDetailId");
+
+                    b.HasIndex("DeliveryId");
+
+                    b.HasIndex("TaxId");
+
+                    b.ToTable("GoodsDeliveryTaxDetails");
                 });
 
             modelBuilder.Entity("FinVentoryAPI.Entities.Hsn", b =>
@@ -504,6 +1783,125 @@ namespace FinVentoryAPI.Migrations
                     b.HasIndex("TaxId");
 
                     b.ToTable("Hsns");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.IncomingPaymentAllocation", b =>
+                {
+                    b.Property<int>("AllocationId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("AllocationId"));
+
+                    b.Property<decimal>("AmountApplied")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("InvoiceId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PaymentId")
+                        .HasColumnType("int");
+
+                    b.HasKey("AllocationId");
+
+                    b.HasIndex("InvoiceId");
+
+                    b.HasIndex("PaymentId");
+
+                    b.ToTable("IncomingPaymentAllocations");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.IncomingPaymentMain", b =>
+                {
+                    b.Property<int>("PaymentId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PaymentId"));
+
+                    b.Property<decimal>("AllocatedAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("BankName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("BusinessPartnerId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ChequeDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ChequeNo")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("DepositAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("FinYearId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("OnAccountAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("PaymentDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PaymentMode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)")
+                        .HasDefaultValue("Cash");
+
+                    b.Property<string>("PaymentNo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Draft");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("TransactionRef")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("PaymentId");
+
+                    b.HasIndex("BusinessPartnerId");
+
+                    b.HasIndex("DepositAccountId");
+
+                    b.ToTable("IncomingPaymentMains");
                 });
 
             modelBuilder.Entity("FinVentoryAPI.Entities.Item", b =>
@@ -591,6 +1989,9 @@ namespace FinVentoryAPI.Migrations
                     b.Property<int?>("PurchaseAccountId")
                         .HasColumnType("int");
 
+                    b.Property<decimal?>("ReorderLevel")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<int?>("SalesAccountId")
                         .HasColumnType("int");
 
@@ -611,6 +2012,77 @@ namespace FinVentoryAPI.Migrations
                     b.HasIndex("SalesAccountId");
 
                     b.ToTable("Items");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.ItemBatch", b =>
+                {
+                    b.Property<int>("BatchId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("BatchId"));
+
+                    b.Property<decimal>("AvailableQty")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("BatchNo")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ExpiryDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FinYearId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ManufactureDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("ReceivedQty")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("UsedQty")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.HasKey("BatchId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("CompanyId", "ItemId", "BatchNo")
+                        .IsUnique();
+
+                    b.ToTable("ItemBatches");
                 });
 
             modelBuilder.Entity("FinVentoryAPI.Entities.ItemGroup", b =>
@@ -686,6 +2158,496 @@ namespace FinVentoryAPI.Migrations
                     b.HasIndex("ItemId");
 
                     b.ToTable("ItemsPrices");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.ItemSerial", b =>
+                {
+                    b.Property<int>("SerialId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("SerialId"));
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("FinYearId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("PurchaseDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SerialNo")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("tinyint");
+
+                    b.Property<DateTime?>("WarrantyExpiry")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("SerialId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("CompanyId", "ItemId", "SerialNo")
+                        .IsUnique();
+
+                    b.ToTable("ItemSerials");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.JobWorkIssueDetail", b =>
+                {
+                    b.Property<int>("JobWorkIssueDetailId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("JobWorkIssueDetailId"));
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("JobWorkIssueId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("Qty")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("JobWorkIssueDetailId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("JobWorkIssueId");
+
+                    b.ToTable("JobWorkIssueDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.JobWorkIssueDetailBatch", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ItemBatchId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("JobWorkIssueDetailId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Qty")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemBatchId");
+
+                    b.HasIndex("JobWorkIssueDetailId");
+
+                    b.ToTable("JobWorkIssueDetailBatches");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.JobWorkIssueDetailSerial", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ItemSerialId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("JobWorkIssueDetailId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemSerialId");
+
+                    b.HasIndex("JobWorkIssueDetailId");
+
+                    b.ToTable("JobWorkIssueDetailSerials");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.JobWorkIssueMain", b =>
+                {
+                    b.Property<int>("JobWorkIssueId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("JobWorkIssueId"));
+
+                    b.Property<int?>("BusinessPartnerId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FinancialYearId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("IssueDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("IssueNo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int>("LocationId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Draft");
+
+                    b.Property<int>("WarehouseId")
+                        .HasColumnType("int");
+
+                    b.HasKey("JobWorkIssueId");
+
+                    b.HasIndex("BusinessPartnerId");
+
+                    b.HasIndex("LocationId");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.ToTable("JobWorkIssueMains");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.JobWorkReceiptDetail", b =>
+                {
+                    b.Property<int>("JobWorkReceiptDetailId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("JobWorkReceiptDetailId"));
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("JobWorkReceiptId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("Qty")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("JobWorkReceiptDetailId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("JobWorkReceiptId");
+
+                    b.ToTable("JobWorkReceiptDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.JobWorkReceiptDetailBatch", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ItemBatchId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("JobWorkReceiptDetailId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Qty")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemBatchId");
+
+                    b.HasIndex("JobWorkReceiptDetailId");
+
+                    b.ToTable("JobWorkReceiptDetailBatches");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.JobWorkReceiptDetailSerial", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ItemSerialId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("JobWorkReceiptDetailId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemSerialId");
+
+                    b.HasIndex("JobWorkReceiptDetailId");
+
+                    b.ToTable("JobWorkReceiptDetailSerials");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.JobWorkReceiptMain", b =>
+                {
+                    b.Property<int>("JobWorkReceiptId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("JobWorkReceiptId"));
+
+                    b.Property<int?>("BusinessPartnerId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FinancialYearId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("LocationId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ReceiptDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReceiptNo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Draft");
+
+                    b.Property<int>("WarehouseId")
+                        .HasColumnType("int");
+
+                    b.HasKey("JobWorkReceiptId");
+
+                    b.HasIndex("BusinessPartnerId");
+
+                    b.HasIndex("LocationId");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.ToTable("JobWorkReceiptMains");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.JournalEntry", b =>
+                {
+                    b.Property<int>("JournalEntryId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("JournalEntryId"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("EntryDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("EntryNo")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("FinYearId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("TotalCredit")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TotalDebit")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("JournalEntryId");
+
+                    b.HasIndex("AccountId");
+
+                    b.ToTable("JournalEntries");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.JournalEntryLine", b =>
+                {
+                    b.Property<int>("LineId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("LineId"));
+
+                    b.Property<string>("AccountCode")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Credit")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("Debit")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("JournalEntryId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Narration")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("LineId");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("JournalEntryId");
+
+                    b.ToTable("JournalEntryLines");
                 });
 
             modelBuilder.Entity("FinVentoryAPI.Entities.Location", b =>
@@ -911,6 +2873,1478 @@ namespace FinVentoryAPI.Migrations
                     b.ToTable("OpeningItemBalances");
                 });
 
+            modelBuilder.Entity("FinVentoryAPI.Entities.OutgoingPaymentAllocation", b =>
+                {
+                    b.Property<int>("AllocationId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("AllocationId"));
+
+                    b.Property<decimal>("AmountApplied")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("BillId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PaymentId")
+                        .HasColumnType("int");
+
+                    b.HasKey("AllocationId");
+
+                    b.HasIndex("BillId");
+
+                    b.HasIndex("PaymentId");
+
+                    b.ToTable("OutgoingPaymentAllocations");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.OutgoingPaymentMain", b =>
+                {
+                    b.Property<int>("PaymentId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PaymentId"));
+
+                    b.Property<decimal>("AllocatedAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("BankName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("BusinessPartnerId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ChequeDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ChequeNo")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FinYearId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("OnAccountAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("PaymentAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("PaymentDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PaymentMode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PaymentNo")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("TransactionRef")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("PaymentId");
+
+                    b.HasIndex("BusinessPartnerId");
+
+                    b.HasIndex("PaymentAccountId");
+
+                    b.ToTable("OutgoingPaymentMains");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.ProductionIssueDetail", b =>
+                {
+                    b.Property<int>("ProductionIssueDetailId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ProductionIssueDetailId"));
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("ProductionIssueId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Qty")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("ProductionIssueDetailId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("ProductionIssueId");
+
+                    b.ToTable("ProductionIssueDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.ProductionIssueDetailBatch", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ItemBatchId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ProductionIssueDetailId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Qty")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemBatchId");
+
+                    b.HasIndex("ProductionIssueDetailId");
+
+                    b.ToTable("ProductionIssueDetailBatches");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.ProductionIssueDetailSerial", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ItemSerialId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ProductionIssueDetailId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemSerialId");
+
+                    b.HasIndex("ProductionIssueDetailId");
+
+                    b.ToTable("ProductionIssueDetailSerials");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.ProductionIssueMain", b =>
+                {
+                    b.Property<int>("ProductionIssueId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ProductionIssueId"));
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FinancialYearId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("IssueDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("IssueNo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int>("LocationId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ProductionOrderId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Draft");
+
+                    b.Property<int>("WarehouseId")
+                        .HasColumnType("int");
+
+                    b.HasKey("ProductionIssueId");
+
+                    b.HasIndex("LocationId");
+
+                    b.HasIndex("ProductionOrderId");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.ToTable("ProductionIssueMains");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.ProductionOrder", b =>
+                {
+                    b.Property<int>("ProductionOrderId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ProductionOrderId"));
+
+                    b.Property<DateOnly?>("ActualCompletionDate")
+                        .HasColumnType("date");
+
+                    b.Property<decimal?>("ActualQuantity")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("BomId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FinancialYearId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateOnly?>("OrderDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("OrderNo")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateOnly?>("PlannedEndDate")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("PlannedQuantity")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateOnly?>("PlannedStartDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("RefDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("RefNo")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UnitId")
+                        .HasColumnType("int");
+
+                    b.HasKey("ProductionOrderId");
+
+                    b.HasIndex("BomId");
+
+                    b.HasIndex("ItemId");
+
+                    b.ToTable("ProductionOrders");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.ProductionOrderLine", b =>
+                {
+                    b.Property<int>("ProductionOrderLineId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ProductionOrderLineId"));
+
+                    b.Property<decimal?>("ActualQuantity")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("PlannedQuantity")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("ProductionOrderId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UnitId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("WastagePercent")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("ProductionOrderLineId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("ProductionOrderId");
+
+                    b.ToTable("ProductionOrderLines");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.ProductionReceiptDetail", b =>
+                {
+                    b.Property<int>("ProductionReceiptDetailId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ProductionReceiptDetailId"));
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("ProductionReceiptId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Qty")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("ProductionReceiptDetailId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("ProductionReceiptId");
+
+                    b.ToTable("ProductionReceiptDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.ProductionReceiptDetailBatch", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ItemBatchId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ProductionReceiptDetailId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Qty")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemBatchId");
+
+                    b.HasIndex("ProductionReceiptDetailId");
+
+                    b.ToTable("ProductionReceiptDetailBatches");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.ProductionReceiptDetailSerial", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ItemSerialId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ProductionReceiptDetailId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemSerialId");
+
+                    b.HasIndex("ProductionReceiptDetailId");
+
+                    b.ToTable("ProductionReceiptDetailSerials");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.ProductionReceiptMain", b =>
+                {
+                    b.Property<int>("ProductionReceiptId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ProductionReceiptId"));
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FinancialYearId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("LocationId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ProductionOrderId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("ReceiptDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReceiptNo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Draft");
+
+                    b.Property<int>("WarehouseId")
+                        .HasColumnType("int");
+
+                    b.HasKey("ProductionReceiptId");
+
+                    b.HasIndex("LocationId");
+
+                    b.HasIndex("ProductionOrderId");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.ToTable("ProductionReceiptMains");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.PurchaseInvoiceDetail", b =>
+                {
+                    b.Property<int>("DetailId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("DetailId"));
+
+                    b.Property<decimal>("AddisDiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("AddisDiscountRate")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("CessAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CessRate")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("DiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("DiscountRate")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int?>("GRNDetailId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("GRNId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("HsnCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("HsnId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("InvoiceId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsTaxIncluded")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("LineTaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("LineTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("PriceType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("Qty")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("Rate")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("TaxableAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("DetailId");
+
+                    b.HasIndex("GRNDetailId");
+
+                    b.HasIndex("GRNId");
+
+                    b.HasIndex("HsnId");
+
+                    b.HasIndex("InvoiceId");
+
+                    b.HasIndex("ItemId");
+
+                    b.ToTable("PurchaseInvoiceDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.PurchaseInvoiceDetailBatch", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BatchId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DetailId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("InvoiceId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Qty")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchId");
+
+                    b.HasIndex("DetailId");
+
+                    b.ToTable("PurchaseInvoiceDetailBatches");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.PurchaseInvoiceDetailSerial", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("DetailId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("InvoiceId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SerialId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DetailId");
+
+                    b.HasIndex("SerialId");
+
+                    b.ToTable("PurchaseInvoiceDetailSerials");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.PurchaseInvoiceMain", b =>
+                {
+                    b.Property<int>("InvoiceId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("InvoiceId"));
+
+                    b.Property<int?>("BillAddressId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("BillStateCode")
+                        .HasColumnType("int");
+
+                    b.Property<int>("BusinessPartnerId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("CessAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ContactPersonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("DueDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FinYearId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("InvoiceDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("InvoiceNo")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("LocationId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LrDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LrNo")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("NetTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("PurchaseAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("PurchaseStateCode")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("RoundOff")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("ShipAddressId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("SubTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("SupplierInvoiceDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SupplierInvoiceNo")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("TaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("TransportName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("VehicleNo")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("InvoiceId");
+
+                    b.HasIndex("BillAddressId");
+
+                    b.HasIndex("BusinessPartnerId");
+
+                    b.HasIndex("ContactPersonId");
+
+                    b.HasIndex("LocationId");
+
+                    b.HasIndex("PurchaseAccountId");
+
+                    b.HasIndex("ShipAddressId");
+
+                    b.ToTable("PurchaseInvoiceMains");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.PurchaseInvoiceTaxDetail", b =>
+                {
+                    b.Property<int>("TaxDetailId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TaxDetailId"));
+
+                    b.Property<decimal>("CGSTAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("CGSTPostingAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("CGSTRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CessAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("CessPostingAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("CessRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("DetailId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("IGSTAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("IGSTPostingAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("IGSTRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("InvoiceId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("SGSTAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("SGSTPostingAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("SGSTRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("TaxId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("TaxableAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TotalTaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("TaxDetailId");
+
+                    b.HasIndex("CGSTPostingAccountId");
+
+                    b.HasIndex("CessPostingAccountId");
+
+                    b.HasIndex("DetailId");
+
+                    b.HasIndex("IGSTPostingAccountId");
+
+                    b.HasIndex("InvoiceId");
+
+                    b.HasIndex("SGSTPostingAccountId");
+
+                    b.HasIndex("TaxId");
+
+                    b.ToTable("PurchaseInvoiceTaxDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.PurchaseOrderDetail", b =>
+                {
+                    b.Property<int>("OrderDetailId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("OrderDetailId"));
+
+                    b.Property<decimal>("AddisDiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("AddisDiscountRate")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("CessAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CessRate")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("DiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("DiscountRate")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("HsnCode")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int>("HsnId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsTaxIncluded")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("LineTaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("LineTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PriceType")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<decimal>("Qty")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("Rate")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("TaxableAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("OrderDetailId");
+
+                    b.HasIndex("HsnId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("OrderId");
+
+                    b.ToTable("PurchaseOrderDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.PurchaseOrderMain", b =>
+                {
+                    b.Property<int>("OrderId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("OrderId"));
+
+                    b.Property<int?>("BillAddressId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("BillStateCode")
+                        .HasColumnType("int");
+
+                    b.Property<int>("BusinessPartnerId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("CessAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ContactPersonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeliveryDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FinYearId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("LocationId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("NetTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("OrderDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("OrderNo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int?>("PurchaseStateCode")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("RefDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RefNo")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<decimal>("RoundOff")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int?>("ShipAddressId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<decimal>("SubTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("OrderId");
+
+                    b.HasIndex("BillAddressId");
+
+                    b.HasIndex("BusinessPartnerId");
+
+                    b.HasIndex("ContactPersonId");
+
+                    b.HasIndex("LocationId");
+
+                    b.HasIndex("ShipAddressId");
+
+                    b.ToTable("PurchaseOrderMains");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.PurchaseOrderTaxDetail", b =>
+                {
+                    b.Property<int>("TaxDetailId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TaxDetailId"));
+
+                    b.Property<decimal>("CGSTAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CGSTRate")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("CessAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CessRate")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("IGSTAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("IGSTRate")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("OrderDetailId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("SGSTAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("SGSTRate")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("TaxId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("TaxableAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TotalTaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("TaxDetailId");
+
+                    b.HasIndex("OrderDetailId");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("TaxId");
+
+                    b.ToTable("PurchaseOrderTaxDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.PurchaseReturnDetail", b =>
+                {
+                    b.Property<int>("DetailId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("DetailId"));
+
+                    b.Property<decimal>("AddisDiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("AddisDiscountRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CessAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CessRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("DiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("DiscountRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("HsnCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("HsnId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsTaxIncluded")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("LineTaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("LineTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("PriceType")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("Qty")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("Rate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("ReturnId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("TaxableAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("DetailId");
+
+                    b.HasIndex("HsnId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("ReturnId");
+
+                    b.ToTable("PurchaseReturnDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.PurchaseReturnDetailBatch", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BatchId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("BatchNo")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("DetailId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Qty")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("ReturnId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchId");
+
+                    b.HasIndex("DetailId");
+
+                    b.ToTable("PurchaseReturnDetailBatches");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.PurchaseReturnDetailSerial", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("DetailId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ReturnId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SerialId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SerialNo")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DetailId");
+
+                    b.HasIndex("SerialId");
+
+                    b.ToTable("PurchaseReturnDetailSerials");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.PurchaseReturnMain", b =>
+                {
+                    b.Property<int>("ReturnId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ReturnId"));
+
+                    b.Property<int?>("BillAddressId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("BillStateCode")
+                        .HasColumnType("int");
+
+                    b.Property<int>("BusinessPartnerId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("CessAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<long?>("CreatedBy")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FinYearId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("LocationId")
+                        .HasColumnType("int");
+
+                    b.Property<long?>("ModifiedBy")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("NetTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("NoteType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("OriginalInvoiceDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("OriginalInvoiceId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("OriginalInvoiceNo")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("PurchaseAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("PurchaseStateCode")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("ReturnDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReturnNo")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("RoundOff")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("SubTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("ReturnId");
+
+                    b.HasIndex("BillAddressId");
+
+                    b.HasIndex("BusinessPartnerId");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("LocationId");
+
+                    b.HasIndex("OriginalInvoiceId");
+
+                    b.HasIndex("PurchaseAccountId");
+
+                    b.ToTable("PurchaseReturnMains");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.PurchaseReturnTaxDetail", b =>
+                {
+                    b.Property<int>("TaxDetailId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TaxDetailId"));
+
+                    b.Property<decimal>("CGSTAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("CGSTPostingAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("CGSTRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CessAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("CessPostingAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("CessRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("DetailId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("IGSTAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("IGSTPostingAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("IGSTRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("ReturnId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("SGSTAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("SGSTPostingAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("SGSTRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("TaxId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("TaxableAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TotalTaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("TaxDetailId");
+
+                    b.HasIndex("CGSTPostingAccountId");
+
+                    b.HasIndex("CessPostingAccountId");
+
+                    b.HasIndex("DetailId");
+
+                    b.HasIndex("IGSTPostingAccountId");
+
+                    b.HasIndex("ReturnId");
+
+                    b.HasIndex("SGSTPostingAccountId");
+
+                    b.HasIndex("TaxId");
+
+                    b.ToTable("PurchaseReturnTaxDetails");
+                });
+
             modelBuilder.Entity("FinVentoryAPI.Entities.Role", b =>
                 {
                     b.Property<int>("RoleId")
@@ -1009,6 +4443,12 @@ namespace FinVentoryAPI.Migrations
                     b.Property<decimal>("CessRate")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<int?>("DeliveryDetailId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("DeliveryId")
+                        .HasColumnType("int");
+
                     b.Property<decimal>("DiscountAmount")
                         .HasColumnType("decimal(18,2)");
 
@@ -1061,6 +4501,63 @@ namespace FinVentoryAPI.Migrations
                     b.ToTable("SalesInvoiceDetails");
                 });
 
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesInvoiceDetailBatch", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BatchId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DetailId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("InvoiceId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Qty")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchId");
+
+                    b.HasIndex("DetailId");
+
+                    b.ToTable("SalesInvoiceDetailBatches");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesInvoiceDetailSerial", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("DetailId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("InvoiceId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SerialId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DetailId");
+
+                    b.HasIndex("SerialId")
+                        .IsUnique();
+
+                    b.ToTable("SalesInvoiceDetailSerials");
+                });
+
             modelBuilder.Entity("FinVentoryAPI.Entities.SalesInvoiceMain", b =>
                 {
                     b.Property<int>("InvoiceId")
@@ -1069,6 +4566,12 @@ namespace FinVentoryAPI.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("InvoiceId"));
 
+                    b.Property<int?>("BillAddressId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("BillStateCode")
+                        .HasColumnType("int");
+
                     b.Property<int>("BusinessPartnerId")
                         .HasColumnType("int");
 
@@ -1076,6 +4579,9 @@ namespace FinVentoryAPI.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ContactPersonId")
                         .HasColumnType("int");
 
                     b.Property<int?>("CreatedBy")
@@ -1106,6 +4612,12 @@ namespace FinVentoryAPI.Migrations
                     b.Property<int>("LocationId")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("LrDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LrNo")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int?>("ModifiedBy")
                         .HasColumnType("int");
 
@@ -1124,6 +4636,15 @@ namespace FinVentoryAPI.Migrations
                     b.Property<int>("SalesAccountId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("SalesPersonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SalesStateCode")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ShipAddressId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -1134,13 +4655,27 @@ namespace FinVentoryAPI.Migrations
                     b.Property<decimal>("TaxAmount")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<string>("TransportName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("VehicleNo")
+                        .HasColumnType("nvarchar(max)");
+
                     b.HasKey("InvoiceId");
 
+                    b.HasIndex("BillAddressId");
+
                     b.HasIndex("BusinessPartnerId");
+
+                    b.HasIndex("ContactPersonId");
 
                     b.HasIndex("LocationId");
 
                     b.HasIndex("SalesAccountId");
+
+                    b.HasIndex("SalesPersonId");
+
+                    b.HasIndex("ShipAddressId");
 
                     b.ToTable("SalesInvoiceMains");
                 });
@@ -1221,6 +4756,1301 @@ namespace FinVentoryAPI.Migrations
                     b.HasIndex("TaxId");
 
                     b.ToTable("SalesInvoiceTaxDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesOrderDetail", b =>
+                {
+                    b.Property<int>("OrderDetailId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("OrderDetailId"));
+
+                    b.Property<decimal>("AddisDiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("AddisDiscountRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CessAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CessRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("DiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("DiscountRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("HsnCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("HsnId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsTaxIncluded")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("LineTaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("LineTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PriceType")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("Qty")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("Rate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TaxableAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("OrderDetailId");
+
+                    b.HasIndex("HsnId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("OrderId");
+
+                    b.ToTable("SalesOrderDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesOrderMain", b =>
+                {
+                    b.Property<int>("OrderId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("OrderId"));
+
+                    b.Property<int?>("BillAddressId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("BillStateCode")
+                        .HasColumnType("int");
+
+                    b.Property<int>("BusinessPartnerId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("CessAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ContactPersonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeliveryDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FinYearId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("LocationId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("NetTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("OrderDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("OrderNo")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("QuotationDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("QuotationId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("QuotationNo")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("RefDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RefNo")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("RoundOff")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("SalesPersonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SalesStateCode")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ShipAddressId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("SubTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("OrderId");
+
+                    b.HasIndex("BillAddressId");
+
+                    b.HasIndex("BusinessPartnerId");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("ContactPersonId");
+
+                    b.HasIndex("LocationId");
+
+                    b.HasIndex("QuotationId");
+
+                    b.HasIndex("SalesPersonId");
+
+                    b.HasIndex("ShipAddressId");
+
+                    b.ToTable("SalesOrderMains");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesOrderTaxDetail", b =>
+                {
+                    b.Property<int>("TaxDetailId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TaxDetailId"));
+
+                    b.Property<decimal>("CGSTAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CGSTRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CessAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CessRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("IGSTAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("IGSTRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("OrderDetailId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("SGSTAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("SGSTRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("TaxId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("TaxableAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TotalTaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("TaxDetailId");
+
+                    b.HasIndex("OrderDetailId");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("TaxId");
+
+                    b.ToTable("SalesOrderTaxDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesPerson", b =>
+                {
+                    b.Property<int>("SalesPersonId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("SalesPersonId"));
+
+                    b.Property<decimal?>("CommissionPct")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Mobile")
+                        .HasMaxLength(15)
+                        .HasColumnType("nvarchar(15)");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SalesPersonCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("SalesPersonName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.HasKey("SalesPersonId");
+
+                    b.ToTable("SalesPersons");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesQuotationDetail", b =>
+                {
+                    b.Property<int>("DetailId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("DetailId"));
+
+                    b.Property<decimal>("AddisDiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("AddisDiscountRate")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("CessAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CessRate")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("DiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("DiscountRate")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("HsnCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("HsnId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsTaxIncluded")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("LineTaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("LineTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("PriceType")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<decimal>("Qty")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("QuotationId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Rate")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("TaxableAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("DetailId");
+
+                    b.HasIndex("HsnId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("QuotationId");
+
+                    b.ToTable("SalesQuotationDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesQuotationMain", b =>
+                {
+                    b.Property<int>("QuotationId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("QuotationId"));
+
+                    b.Property<int?>("BillAddressId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("BillStateCode")
+                        .HasColumnType("int");
+
+                    b.Property<int>("BusinessPartnerId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("CessAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ContactPersonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FinYearId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("LocationId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("NetTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("ParentQuotationId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("QuotationDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("QuotationNo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("RevisionNo")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("RoundOff")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("SalesPersonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SalesStateCode")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ShipAddressId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Draft");
+
+                    b.Property<decimal>("SubTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("ValidUntilDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("QuotationId");
+
+                    b.HasIndex("BillAddressId");
+
+                    b.HasIndex("BusinessPartnerId");
+
+                    b.HasIndex("ContactPersonId");
+
+                    b.HasIndex("LocationId");
+
+                    b.HasIndex("ParentQuotationId");
+
+                    b.HasIndex("SalesPersonId");
+
+                    b.HasIndex("ShipAddressId");
+
+                    b.ToTable("SalesQuotationMains");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesQuotationTaxDetail", b =>
+                {
+                    b.Property<int>("TaxDetailId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TaxDetailId"));
+
+                    b.Property<decimal>("CGSTAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CGSTRate")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("CessAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CessRate")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<int>("DetailId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("IGSTAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("IGSTRate")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<int>("QuotationId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("SGSTAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("SGSTRate")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<int>("TaxId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("TaxableAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TotalTaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("TaxDetailId");
+
+                    b.HasIndex("DetailId");
+
+                    b.HasIndex("QuotationId");
+
+                    b.HasIndex("TaxId");
+
+                    b.ToTable("SalesQuotationTaxDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesReturnDetail", b =>
+                {
+                    b.Property<int>("DetailId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("DetailId"));
+
+                    b.Property<decimal>("AddisDiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("AddisDiscountRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CessAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CessRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("DiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("DiscountRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("HsnCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("HsnId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsTaxIncluded")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("LineTaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("LineTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("PriceType")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("Qty")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("Rate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("ReturnId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("TaxableAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("DetailId");
+
+                    b.HasIndex("HsnId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("ReturnId");
+
+                    b.ToTable("SalesReturnDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesReturnDetailBatch", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BatchId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DetailId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Qty")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("ReturnId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchId");
+
+                    b.HasIndex("DetailId");
+
+                    b.ToTable("SalesReturnDetailBatches");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesReturnDetailSerial", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("DetailId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ReturnId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SerialId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DetailId");
+
+                    b.HasIndex("SerialId");
+
+                    b.ToTable("SalesReturnDetailSerials");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesReturnMain", b =>
+                {
+                    b.Property<int>("ReturnId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ReturnId"));
+
+                    b.Property<int?>("BillAddressId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("BillStateCode")
+                        .HasColumnType("int");
+
+                    b.Property<int>("BusinessPartnerId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("CessAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FinYearId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool?>("IsExport")
+                        .HasColumnType("bit");
+
+                    b.Property<bool?>("IsNonGST")
+                        .HasColumnType("bit");
+
+                    b.Property<bool?>("IsReverseCharge")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("LocationId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("NetTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("NoteType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("OriginalInvoiceDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("OriginalInvoiceId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("OriginalInvoiceNo")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PortCode")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("ReturnDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReturnNo")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("RoundOff")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("SalesAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SalesStateCode")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ShippingBillDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ShippingBillNo")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("SubTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("ReturnId");
+
+                    b.HasIndex("BillAddressId");
+
+                    b.HasIndex("BusinessPartnerId");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("LocationId");
+
+                    b.HasIndex("OriginalInvoiceId");
+
+                    b.HasIndex("SalesAccountId");
+
+                    b.ToTable("SalesReturnMains");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesReturnTaxDetail", b =>
+                {
+                    b.Property<int>("TaxDetailId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TaxDetailId"));
+
+                    b.Property<decimal>("CGSTAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("CGSTPostingAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("CGSTRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CessAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("CessPostingAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("CessRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("DetailId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("IGSTAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("IGSTPostingAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("IGSTRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("ReturnId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("SGSTAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("SGSTPostingAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("SGSTRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("TaxId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("TaxableAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TotalTaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("TaxDetailId");
+
+                    b.HasIndex("CGSTPostingAccountId");
+
+                    b.HasIndex("CessPostingAccountId");
+
+                    b.HasIndex("DetailId");
+
+                    b.HasIndex("IGSTPostingAccountId");
+
+                    b.HasIndex("ReturnId");
+
+                    b.HasIndex("SGSTPostingAccountId");
+
+                    b.HasIndex("TaxId");
+
+                    b.ToTable("SalesReturnTaxDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.StockAdjustmentDetail", b =>
+                {
+                    b.Property<int>("AdjustmentDetailId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("AdjustmentDetailId"));
+
+                    b.Property<int>("AdjustmentId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("Qty")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("AdjustmentDetailId");
+
+                    b.HasIndex("AdjustmentId");
+
+                    b.HasIndex("ItemId");
+
+                    b.ToTable("StockAdjustmentDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.StockAdjustmentDetailBatch", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AdjustmentDetailId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ItemBatchId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Qty")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdjustmentDetailId");
+
+                    b.HasIndex("ItemBatchId");
+
+                    b.ToTable("StockAdjustmentDetailBatches");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.StockAdjustmentDetailSerial", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AdjustmentDetailId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ItemSerialId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdjustmentDetailId");
+
+                    b.HasIndex("ItemSerialId");
+
+                    b.ToTable("StockAdjustmentDetailSerials");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.StockAdjustmentMain", b =>
+                {
+                    b.Property<int>("AdjustmentId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("AdjustmentId"));
+
+                    b.Property<DateTime>("AdjustmentDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("AdjustmentNo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("AdjustmentType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FinancialYearId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("LocationId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Draft");
+
+                    b.Property<int>("WarehouseId")
+                        .HasColumnType("int");
+
+                    b.HasKey("AdjustmentId");
+
+                    b.HasIndex("LocationId");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.ToTable("StockAdjustmentMains");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.StockLedger", b =>
+                {
+                    b.Property<int>("LedgerId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("LedgerId"));
+
+                    b.Property<int?>("BusinessPartnerId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("Qty")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("Rate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("VoucherNo")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("VoucherType")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("WarehouseId")
+                        .HasColumnType("int");
+
+                    b.HasKey("LedgerId");
+
+                    b.HasIndex("BusinessPartnerId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.ToTable("StockLedgers");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.StockTransferDetail", b =>
+                {
+                    b.Property<int>("TransferDetailId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TransferDetailId"));
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("Qty")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("TransferId")
+                        .HasColumnType("int");
+
+                    b.HasKey("TransferDetailId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("TransferId");
+
+                    b.ToTable("StockTransferDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.StockTransferDetailBatch", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ItemBatchId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Qty")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("TransferDetailId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemBatchId");
+
+                    b.HasIndex("TransferDetailId");
+
+                    b.ToTable("StockTransferDetailBatches");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.StockTransferDetailSerial", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ItemSerialId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TransferDetailId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemSerialId");
+
+                    b.HasIndex("TransferDetailId");
+
+                    b.ToTable("StockTransferDetailSerials");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.StockTransferMain", b =>
+                {
+                    b.Property<int>("TransferId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TransferId"));
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FinancialYearId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("FromWarehouseId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("LocationId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Draft");
+
+                    b.Property<int>("ToWarehouseId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("TransferDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TransferNo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.HasKey("TransferId");
+
+                    b.HasIndex("FromWarehouseId");
+
+                    b.HasIndex("LocationId");
+
+                    b.HasIndex("ToWarehouseId");
+
+                    b.ToTable("StockTransferMains");
                 });
 
             modelBuilder.Entity("FinVentoryAPI.Entities.Tax", b =>
@@ -1320,24 +6150,27 @@ namespace FinVentoryAPI.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsPlatformAdmin")
                         .HasColumnType("bit");
 
                     b.Property<string>("Mobile")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int?>("RoleId")
+                    b.Property<int>("RoleId")
                         .HasColumnType("int");
-
-                    b.Property<int?>("UpdatedBy")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedDate")
-                        .HasColumnType("datetime2");
 
                     b.HasKey("UserId");
 
@@ -1460,6 +6293,53 @@ namespace FinVentoryAPI.Migrations
                     b.Navigation("ParentGroup");
                 });
 
+            modelBuilder.Entity("FinVentoryAPI.Entities.AccountLedgerPosting", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartner", "BusinessPartner")
+                        .WithMany()
+                        .HasForeignKey("BusinessPartnerId");
+
+                    b.Navigation("Account");
+
+                    b.Navigation("BusinessPartner");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.BillOfMaterial", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.Item", "FinishedGood")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("FinishedGood");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.BomLine", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.BillOfMaterial", "Bom")
+                        .WithMany("Lines")
+                        .HasForeignKey("BomId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Item", "Component")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Bom");
+
+                    b.Navigation("Component");
+                });
+
             modelBuilder.Entity("FinVentoryAPI.Entities.BusinessPartner", b =>
                 {
                     b.HasOne("FinVentoryAPI.Entities.AccountGroup", "accountGroup")
@@ -1489,6 +6369,264 @@ namespace FinVentoryAPI.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("FinVentoryAPI.Entities.CashBankEntry", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.Account", "CashBankAccount")
+                        .WithMany()
+                        .HasForeignKey("HeadAccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CashBankAccount");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.CashBankEntryLine", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.CashBankEntry", "CashBankEntry")
+                        .WithMany("Lines")
+                        .HasForeignKey("CashBankEntryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Account");
+
+                    b.Navigation("CashBankEntry");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.DocumentSeriesMapping", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.DocumentSeries", "Series")
+                        .WithMany()
+                        .HasForeignKey("SeriesId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Account");
+
+                    b.Navigation("Series");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.GRNDetail", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.GRNMain", "GRN")
+                        .WithMany("Details")
+                        .HasForeignKey("GRNId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Hsn", "Hsn")
+                        .WithMany()
+                        .HasForeignKey("HsnId");
+
+                    b.HasOne("FinVentoryAPI.Entities.Item", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.PurchaseOrderDetail", "PurchaseOrderDetail")
+                        .WithMany()
+                        .HasForeignKey("PurchaseOrderDetailId");
+
+                    b.HasOne("FinVentoryAPI.Entities.PurchaseOrderMain", "PurchaseOrder")
+                        .WithMany()
+                        .HasForeignKey("PurchaseOrderId");
+
+                    b.Navigation("GRN");
+
+                    b.Navigation("Hsn");
+
+                    b.Navigation("Item");
+
+                    b.Navigation("PurchaseOrder");
+
+                    b.Navigation("PurchaseOrderDetail");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.GRNMain", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartnerAddress", "BillAddress")
+                        .WithMany()
+                        .HasForeignKey("BillAddressId");
+
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartner", "BusinessPartner")
+                        .WithMany()
+                        .HasForeignKey("BusinessPartnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartnerContact", "ContactPerson")
+                        .WithMany()
+                        .HasForeignKey("ContactPersonId");
+
+                    b.HasOne("FinVentoryAPI.Entities.Location", "Location")
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartnerAddress", "ShipAddress")
+                        .WithMany()
+                        .HasForeignKey("ShipAddressId");
+
+                    b.Navigation("BillAddress");
+
+                    b.Navigation("BusinessPartner");
+
+                    b.Navigation("ContactPerson");
+
+                    b.Navigation("Location");
+
+                    b.Navigation("ShipAddress");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.GRNTaxDetail", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.GRNDetail", "Detail")
+                        .WithMany("TaxDetails")
+                        .HasForeignKey("GRNDetailId");
+
+                    b.HasOne("FinVentoryAPI.Entities.GRNMain", "GRN")
+                        .WithMany("TaxDetails")
+                        .HasForeignKey("GRNId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Tax", "Tax")
+                        .WithMany()
+                        .HasForeignKey("TaxId");
+
+                    b.Navigation("Detail");
+
+                    b.Navigation("GRN");
+
+                    b.Navigation("Tax");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.GoodsDeliveryDetail", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.GoodsDeliveryMain", "Delivery")
+                        .WithMany("Details")
+                        .HasForeignKey("DeliveryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Hsn", "Hsn")
+                        .WithMany()
+                        .HasForeignKey("HsnId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Item", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.SalesOrderDetail", "OrderDetail")
+                        .WithMany()
+                        .HasForeignKey("OrderDetailId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("FinVentoryAPI.Entities.SalesOrderMain", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Delivery");
+
+                    b.Navigation("Hsn");
+
+                    b.Navigation("Item");
+
+                    b.Navigation("Order");
+
+                    b.Navigation("OrderDetail");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.GoodsDeliveryMain", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartnerAddress", "BillAddress")
+                        .WithMany()
+                        .HasForeignKey("BillAddressId");
+
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartner", "BusinessPartner")
+                        .WithMany()
+                        .HasForeignKey("BusinessPartnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartnerContact", "ContactPerson")
+                        .WithMany()
+                        .HasForeignKey("ContactPersonId");
+
+                    b.HasOne("FinVentoryAPI.Entities.Location", "Location")
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.SalesPerson", "SalesPerson")
+                        .WithMany()
+                        .HasForeignKey("SalesPersonId");
+
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartnerAddress", "ShipAddress")
+                        .WithMany()
+                        .HasForeignKey("ShipAddressId");
+
+                    b.Navigation("BillAddress");
+
+                    b.Navigation("BusinessPartner");
+
+                    b.Navigation("ContactPerson");
+
+                    b.Navigation("Location");
+
+                    b.Navigation("SalesPerson");
+
+                    b.Navigation("ShipAddress");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.GoodsDeliveryTaxDetail", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.GoodsDeliveryDetail", "Detail")
+                        .WithMany("TaxDetails")
+                        .HasForeignKey("DeliveryDetailId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.GoodsDeliveryMain", "Delivery")
+                        .WithMany("TaxDetails")
+                        .HasForeignKey("DeliveryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Tax", "Tax")
+                        .WithMany()
+                        .HasForeignKey("TaxId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Delivery");
+
+                    b.Navigation("Detail");
+
+                    b.Navigation("Tax");
+                });
+
             modelBuilder.Entity("FinVentoryAPI.Entities.Hsn", b =>
                 {
                     b.HasOne("FinVentoryAPI.Entities.Account", "account")
@@ -1504,6 +6642,44 @@ namespace FinVentoryAPI.Migrations
                     b.Navigation("account");
 
                     b.Navigation("tax");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.IncomingPaymentAllocation", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.SalesInvoiceMain", "Invoice")
+                        .WithMany()
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.IncomingPaymentMain", "Payment")
+                        .WithMany("Allocations")
+                        .HasForeignKey("PaymentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Invoice");
+
+                    b.Navigation("Payment");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.IncomingPaymentMain", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartner", "BusinessPartner")
+                        .WithMany()
+                        .HasForeignKey("BusinessPartnerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Account", "DepositAccount")
+                        .WithMany()
+                        .HasForeignKey("DepositAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("BusinessPartner");
+
+                    b.Navigation("DepositAccount");
                 });
 
             modelBuilder.Entity("FinVentoryAPI.Entities.Item", b =>
@@ -1560,6 +6736,17 @@ namespace FinVentoryAPI.Migrations
                     b.Navigation("SalesAccount");
                 });
 
+            modelBuilder.Entity("FinVentoryAPI.Entities.ItemBatch", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.Item", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Item");
+                });
+
             modelBuilder.Entity("FinVentoryAPI.Entities.ItemGroup", b =>
                 {
                     b.HasOne("FinVentoryAPI.Entities.ItemGroup", "ParentGroup")
@@ -1578,6 +6765,213 @@ namespace FinVentoryAPI.Migrations
                         .IsRequired();
 
                     b.Navigation("Item");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.ItemSerial", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.Item", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Item");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.JobWorkIssueDetail", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.Item", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.JobWorkIssueMain", "JobWorkIssue")
+                        .WithMany("Details")
+                        .HasForeignKey("JobWorkIssueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Item");
+
+                    b.Navigation("JobWorkIssue");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.JobWorkIssueDetailBatch", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.ItemBatch", "Batch")
+                        .WithMany()
+                        .HasForeignKey("ItemBatchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.JobWorkIssueDetail", "JobWorkIssueDetail")
+                        .WithMany("Batches")
+                        .HasForeignKey("JobWorkIssueDetailId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Batch");
+
+                    b.Navigation("JobWorkIssueDetail");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.JobWorkIssueDetailSerial", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.ItemSerial", "Serial")
+                        .WithMany()
+                        .HasForeignKey("ItemSerialId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.JobWorkIssueDetail", "JobWorkIssueDetail")
+                        .WithMany("Serials")
+                        .HasForeignKey("JobWorkIssueDetailId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("JobWorkIssueDetail");
+
+                    b.Navigation("Serial");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.JobWorkIssueMain", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartner", "BusinessPartner")
+                        .WithMany()
+                        .HasForeignKey("BusinessPartnerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FinVentoryAPI.Entities.Location", "Location")
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("BusinessPartner");
+
+                    b.Navigation("Location");
+
+                    b.Navigation("Warehouse");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.JobWorkReceiptDetail", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.Item", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.JobWorkReceiptMain", "JobWorkReceipt")
+                        .WithMany("Details")
+                        .HasForeignKey("JobWorkReceiptId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Item");
+
+                    b.Navigation("JobWorkReceipt");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.JobWorkReceiptDetailBatch", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.ItemBatch", "Batch")
+                        .WithMany()
+                        .HasForeignKey("ItemBatchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.JobWorkReceiptDetail", "JobWorkReceiptDetail")
+                        .WithMany("Batches")
+                        .HasForeignKey("JobWorkReceiptDetailId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Batch");
+
+                    b.Navigation("JobWorkReceiptDetail");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.JobWorkReceiptDetailSerial", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.ItemSerial", "Serial")
+                        .WithMany()
+                        .HasForeignKey("ItemSerialId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.JobWorkReceiptDetail", "JobWorkReceiptDetail")
+                        .WithMany("Serials")
+                        .HasForeignKey("JobWorkReceiptDetailId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("JobWorkReceiptDetail");
+
+                    b.Navigation("Serial");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.JobWorkReceiptMain", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartner", "BusinessPartner")
+                        .WithMany()
+                        .HasForeignKey("BusinessPartnerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FinVentoryAPI.Entities.Location", "Location")
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("BusinessPartner");
+
+                    b.Navigation("Location");
+
+                    b.Navigation("Warehouse");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.JournalEntry", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Account");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.JournalEntryLine", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.JournalEntry", "JournalEntry")
+                        .WithMany("Lines")
+                        .HasForeignKey("JournalEntryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Account");
+
+                    b.Navigation("JournalEntry");
                 });
 
             modelBuilder.Entity("FinVentoryAPI.Entities.Location", b =>
@@ -1643,6 +7037,686 @@ namespace FinVentoryAPI.Migrations
                     b.Navigation("Item");
                 });
 
+            modelBuilder.Entity("FinVentoryAPI.Entities.OutgoingPaymentAllocation", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.PurchaseInvoiceMain", "Bill")
+                        .WithMany()
+                        .HasForeignKey("BillId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.OutgoingPaymentMain", "Payment")
+                        .WithMany("Allocations")
+                        .HasForeignKey("PaymentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Bill");
+
+                    b.Navigation("Payment");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.OutgoingPaymentMain", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartner", "BusinessPartner")
+                        .WithMany()
+                        .HasForeignKey("BusinessPartnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Account", "PaymentAccount")
+                        .WithMany()
+                        .HasForeignKey("PaymentAccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("BusinessPartner");
+
+                    b.Navigation("PaymentAccount");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.ProductionIssueDetail", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.Item", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.ProductionIssueMain", "ProductionIssue")
+                        .WithMany("Details")
+                        .HasForeignKey("ProductionIssueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Item");
+
+                    b.Navigation("ProductionIssue");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.ProductionIssueDetailBatch", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.ItemBatch", "Batch")
+                        .WithMany()
+                        .HasForeignKey("ItemBatchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.ProductionIssueDetail", "ProductionIssueDetail")
+                        .WithMany("Batches")
+                        .HasForeignKey("ProductionIssueDetailId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Batch");
+
+                    b.Navigation("ProductionIssueDetail");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.ProductionIssueDetailSerial", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.ItemSerial", "Serial")
+                        .WithMany()
+                        .HasForeignKey("ItemSerialId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.ProductionIssueDetail", "ProductionIssueDetail")
+                        .WithMany("Serials")
+                        .HasForeignKey("ProductionIssueDetailId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ProductionIssueDetail");
+
+                    b.Navigation("Serial");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.ProductionIssueMain", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.Location", "Location")
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.ProductionOrder", "ProductionOrder")
+                        .WithMany()
+                        .HasForeignKey("ProductionOrderId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FinVentoryAPI.Entities.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Location");
+
+                    b.Navigation("ProductionOrder");
+
+                    b.Navigation("Warehouse");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.ProductionOrder", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.BillOfMaterial", "Bom")
+                        .WithMany()
+                        .HasForeignKey("BomId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FinVentoryAPI.Entities.Item", "FinishedGood")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Bom");
+
+                    b.Navigation("FinishedGood");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.ProductionOrderLine", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.Item", "Component")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.ProductionOrder", "ProductionOrder")
+                        .WithMany("Lines")
+                        .HasForeignKey("ProductionOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Component");
+
+                    b.Navigation("ProductionOrder");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.ProductionReceiptDetail", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.Item", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.ProductionReceiptMain", "ProductionReceipt")
+                        .WithMany("Details")
+                        .HasForeignKey("ProductionReceiptId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Item");
+
+                    b.Navigation("ProductionReceipt");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.ProductionReceiptDetailBatch", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.ItemBatch", "Batch")
+                        .WithMany()
+                        .HasForeignKey("ItemBatchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.ProductionReceiptDetail", "ProductionReceiptDetail")
+                        .WithMany("Batches")
+                        .HasForeignKey("ProductionReceiptDetailId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Batch");
+
+                    b.Navigation("ProductionReceiptDetail");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.ProductionReceiptDetailSerial", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.ItemSerial", "Serial")
+                        .WithMany()
+                        .HasForeignKey("ItemSerialId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.ProductionReceiptDetail", "ProductionReceiptDetail")
+                        .WithMany("Serials")
+                        .HasForeignKey("ProductionReceiptDetailId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ProductionReceiptDetail");
+
+                    b.Navigation("Serial");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.ProductionReceiptMain", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.Location", "Location")
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.ProductionOrder", "ProductionOrder")
+                        .WithMany()
+                        .HasForeignKey("ProductionOrderId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FinVentoryAPI.Entities.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Location");
+
+                    b.Navigation("ProductionOrder");
+
+                    b.Navigation("Warehouse");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.PurchaseInvoiceDetail", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.GRNDetail", "GRNDetail")
+                        .WithMany()
+                        .HasForeignKey("GRNDetailId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FinVentoryAPI.Entities.GRNMain", "GRN")
+                        .WithMany()
+                        .HasForeignKey("GRNId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FinVentoryAPI.Entities.Hsn", "Hsn")
+                        .WithMany()
+                        .HasForeignKey("HsnId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.PurchaseInvoiceMain", "Invoice")
+                        .WithMany("Details")
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Item", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("GRN");
+
+                    b.Navigation("GRNDetail");
+
+                    b.Navigation("Hsn");
+
+                    b.Navigation("Invoice");
+
+                    b.Navigation("Item");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.PurchaseInvoiceDetailBatch", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.ItemBatch", "Batch")
+                        .WithMany()
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.PurchaseInvoiceDetail", "Detail")
+                        .WithMany("Batches")
+                        .HasForeignKey("DetailId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Batch");
+
+                    b.Navigation("Detail");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.PurchaseInvoiceDetailSerial", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.PurchaseInvoiceDetail", "Detail")
+                        .WithMany("Serials")
+                        .HasForeignKey("DetailId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.ItemSerial", "Serial")
+                        .WithMany()
+                        .HasForeignKey("SerialId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Detail");
+
+                    b.Navigation("Serial");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.PurchaseInvoiceMain", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartnerAddress", "BillAddress")
+                        .WithMany()
+                        .HasForeignKey("BillAddressId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartner", "BusinessPartner")
+                        .WithMany()
+                        .HasForeignKey("BusinessPartnerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartnerContact", "ContactPerson")
+                        .WithMany()
+                        .HasForeignKey("ContactPersonId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FinVentoryAPI.Entities.Location", "Location")
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Account", "PurchaseAccount")
+                        .WithMany()
+                        .HasForeignKey("PurchaseAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartnerAddress", "ShipAddress")
+                        .WithMany()
+                        .HasForeignKey("ShipAddressId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("BillAddress");
+
+                    b.Navigation("BusinessPartner");
+
+                    b.Navigation("ContactPerson");
+
+                    b.Navigation("Location");
+
+                    b.Navigation("PurchaseAccount");
+
+                    b.Navigation("ShipAddress");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.PurchaseInvoiceTaxDetail", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.Account", "CGSTPostingAccount")
+                        .WithMany()
+                        .HasForeignKey("CGSTPostingAccountId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FinVentoryAPI.Entities.Account", "CessPostingAccount")
+                        .WithMany()
+                        .HasForeignKey("CessPostingAccountId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FinVentoryAPI.Entities.PurchaseInvoiceDetail", "Detail")
+                        .WithMany("TaxDetails")
+                        .HasForeignKey("DetailId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Account", "IGSTPostingAccount")
+                        .WithMany()
+                        .HasForeignKey("IGSTPostingAccountId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FinVentoryAPI.Entities.PurchaseInvoiceMain", "Invoice")
+                        .WithMany("TaxDetails")
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Account", "SGSTPostingAccount")
+                        .WithMany()
+                        .HasForeignKey("SGSTPostingAccountId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FinVentoryAPI.Entities.Tax", "Tax")
+                        .WithMany()
+                        .HasForeignKey("TaxId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CGSTPostingAccount");
+
+                    b.Navigation("CessPostingAccount");
+
+                    b.Navigation("Detail");
+
+                    b.Navigation("IGSTPostingAccount");
+
+                    b.Navigation("Invoice");
+
+                    b.Navigation("SGSTPostingAccount");
+
+                    b.Navigation("Tax");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.PurchaseOrderDetail", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.Hsn", "Hsn")
+                        .WithMany()
+                        .HasForeignKey("HsnId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Item", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.PurchaseOrderMain", "Order")
+                        .WithMany("Details")
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Hsn");
+
+                    b.Navigation("Item");
+
+                    b.Navigation("Order");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.PurchaseOrderMain", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartnerAddress", "BillAddress")
+                        .WithMany()
+                        .HasForeignKey("BillAddressId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartner", "BusinessPartner")
+                        .WithMany()
+                        .HasForeignKey("BusinessPartnerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartnerContact", "ContactPerson")
+                        .WithMany()
+                        .HasForeignKey("ContactPersonId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FinVentoryAPI.Entities.Location", "Location")
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartnerAddress", "ShipAddress")
+                        .WithMany()
+                        .HasForeignKey("ShipAddressId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("BillAddress");
+
+                    b.Navigation("BusinessPartner");
+
+                    b.Navigation("ContactPerson");
+
+                    b.Navigation("Location");
+
+                    b.Navigation("ShipAddress");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.PurchaseOrderTaxDetail", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.PurchaseOrderDetail", "Detail")
+                        .WithMany("TaxDetails")
+                        .HasForeignKey("OrderDetailId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.PurchaseOrderMain", "Order")
+                        .WithMany("TaxDetails")
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Tax", "Tax")
+                        .WithMany()
+                        .HasForeignKey("TaxId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Detail");
+
+                    b.Navigation("Order");
+
+                    b.Navigation("Tax");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.PurchaseReturnDetail", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.Hsn", "Hsn")
+                        .WithMany()
+                        .HasForeignKey("HsnId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Item", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.PurchaseReturnMain", "Return")
+                        .WithMany("Details")
+                        .HasForeignKey("ReturnId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Hsn");
+
+                    b.Navigation("Item");
+
+                    b.Navigation("Return");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.PurchaseReturnDetailBatch", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.ItemBatch", "Batch")
+                        .WithMany()
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.PurchaseReturnDetail", "Detail")
+                        .WithMany("Batches")
+                        .HasForeignKey("DetailId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Batch");
+
+                    b.Navigation("Detail");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.PurchaseReturnDetailSerial", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.PurchaseReturnDetail", "Detail")
+                        .WithMany("Serials")
+                        .HasForeignKey("DetailId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.ItemSerial", "Serial")
+                        .WithMany()
+                        .HasForeignKey("SerialId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Detail");
+
+                    b.Navigation("Serial");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.PurchaseReturnMain", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartnerAddress", "BillAddress")
+                        .WithMany()
+                        .HasForeignKey("BillAddressId");
+
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartner", "BusinessPartner")
+                        .WithMany()
+                        .HasForeignKey("BusinessPartnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Location", "Location")
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.PurchaseInvoiceMain", "OriginalInvoice")
+                        .WithMany()
+                        .HasForeignKey("OriginalInvoiceId");
+
+                    b.HasOne("FinVentoryAPI.Entities.Account", "PurchaseAccount")
+                        .WithMany()
+                        .HasForeignKey("PurchaseAccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("BillAddress");
+
+                    b.Navigation("BusinessPartner");
+
+                    b.Navigation("Company");
+
+                    b.Navigation("Location");
+
+                    b.Navigation("OriginalInvoice");
+
+                    b.Navigation("PurchaseAccount");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.PurchaseReturnTaxDetail", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.Account", "CGSTPostingAccount")
+                        .WithMany()
+                        .HasForeignKey("CGSTPostingAccountId");
+
+                    b.HasOne("FinVentoryAPI.Entities.Account", "CessPostingAccount")
+                        .WithMany()
+                        .HasForeignKey("CessPostingAccountId");
+
+                    b.HasOne("FinVentoryAPI.Entities.PurchaseReturnDetail", "Detail")
+                        .WithMany("TaxDetails")
+                        .HasForeignKey("DetailId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Account", "IGSTPostingAccount")
+                        .WithMany()
+                        .HasForeignKey("IGSTPostingAccountId");
+
+                    b.HasOne("FinVentoryAPI.Entities.PurchaseReturnMain", "Return")
+                        .WithMany("TaxDetails")
+                        .HasForeignKey("ReturnId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Account", "SGSTPostingAccount")
+                        .WithMany()
+                        .HasForeignKey("SGSTPostingAccountId");
+
+                    b.HasOne("FinVentoryAPI.Entities.Tax", "Tax")
+                        .WithMany()
+                        .HasForeignKey("TaxId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CGSTPostingAccount");
+
+                    b.Navigation("CessPostingAccount");
+
+                    b.Navigation("Detail");
+
+                    b.Navigation("IGSTPostingAccount");
+
+                    b.Navigation("Return");
+
+                    b.Navigation("SGSTPostingAccount");
+
+                    b.Navigation("Tax");
+                });
+
             modelBuilder.Entity("FinVentoryAPI.Entities.RoleRight", b =>
                 {
                     b.HasOne("FinVentoryAPI.Entities.MenuItem", "MenuItem")
@@ -1697,13 +7771,61 @@ namespace FinVentoryAPI.Migrations
                     b.Navigation("Item");
                 });
 
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesInvoiceDetailBatch", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.ItemBatch", "Batch")
+                        .WithMany("SalesInvoiceDetailBatches")
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.SalesInvoiceDetail", "Detail")
+                        .WithMany("Batches")
+                        .HasForeignKey("DetailId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Batch");
+
+                    b.Navigation("Detail");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesInvoiceDetailSerial", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.SalesInvoiceDetail", "Detail")
+                        .WithMany("Serials")
+                        .HasForeignKey("DetailId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.ItemSerial", "Serial")
+                        .WithMany("SalesInvoiceDetailSerials")
+                        .HasForeignKey("SerialId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Detail");
+
+                    b.Navigation("Serial");
+                });
+
             modelBuilder.Entity("FinVentoryAPI.Entities.SalesInvoiceMain", b =>
                 {
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartnerAddress", "BillAddress")
+                        .WithMany()
+                        .HasForeignKey("BillAddressId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("FinVentoryAPI.Entities.BusinessPartner", "BusinessPartner")
                         .WithMany()
                         .HasForeignKey("BusinessPartnerId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartnerContact", "ContactPerson")
+                        .WithMany()
+                        .HasForeignKey("ContactPersonId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("FinVentoryAPI.Entities.Location", "Location")
                         .WithMany()
@@ -1717,11 +7839,29 @@ namespace FinVentoryAPI.Migrations
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
+                    b.HasOne("FinVentoryAPI.Entities.SalesPerson", "SalesPerson")
+                        .WithMany()
+                        .HasForeignKey("SalesPersonId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartnerAddress", "ShipAddress")
+                        .WithMany()
+                        .HasForeignKey("ShipAddressId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("BillAddress");
+
                     b.Navigation("BusinessPartner");
+
+                    b.Navigation("ContactPerson");
 
                     b.Navigation("Location");
 
                     b.Navigation("SalesAccount");
+
+                    b.Navigation("SalesPerson");
+
+                    b.Navigation("ShipAddress");
                 });
 
             modelBuilder.Entity("FinVentoryAPI.Entities.SalesInvoiceTaxDetail", b =>
@@ -1779,6 +7919,571 @@ namespace FinVentoryAPI.Migrations
                     b.Navigation("Tax");
                 });
 
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesOrderDetail", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.Hsn", "Hsn")
+                        .WithMany()
+                        .HasForeignKey("HsnId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Item", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.SalesOrderMain", "Order")
+                        .WithMany("Details")
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Hsn");
+
+                    b.Navigation("Item");
+
+                    b.Navigation("Order");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesOrderMain", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartnerAddress", "BillAddress")
+                        .WithMany()
+                        .HasForeignKey("BillAddressId");
+
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartner", "BusinessPartner")
+                        .WithMany()
+                        .HasForeignKey("BusinessPartnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartnerContact", "ContactPerson")
+                        .WithMany()
+                        .HasForeignKey("ContactPersonId");
+
+                    b.HasOne("FinVentoryAPI.Entities.Location", "Location")
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.SalesQuotationMain", "Quotation")
+                        .WithMany()
+                        .HasForeignKey("QuotationId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("FinVentoryAPI.Entities.SalesPerson", "SalesPerson")
+                        .WithMany()
+                        .HasForeignKey("SalesPersonId");
+
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartnerAddress", "ShipAddress")
+                        .WithMany()
+                        .HasForeignKey("ShipAddressId");
+
+                    b.Navigation("BillAddress");
+
+                    b.Navigation("BusinessPartner");
+
+                    b.Navigation("Company");
+
+                    b.Navigation("ContactPerson");
+
+                    b.Navigation("Location");
+
+                    b.Navigation("Quotation");
+
+                    b.Navigation("SalesPerson");
+
+                    b.Navigation("ShipAddress");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesOrderTaxDetail", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.SalesOrderDetail", "Detail")
+                        .WithMany("TaxDetails")
+                        .HasForeignKey("OrderDetailId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.SalesOrderMain", "Order")
+                        .WithMany("TaxDetails")
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Tax", "Tax")
+                        .WithMany()
+                        .HasForeignKey("TaxId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Detail");
+
+                    b.Navigation("Order");
+
+                    b.Navigation("Tax");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesQuotationDetail", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.Hsn", "Hsn")
+                        .WithMany()
+                        .HasForeignKey("HsnId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Item", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.SalesQuotationMain", "Quotation")
+                        .WithMany("Details")
+                        .HasForeignKey("QuotationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Hsn");
+
+                    b.Navigation("Item");
+
+                    b.Navigation("Quotation");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesQuotationMain", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartnerAddress", "BillAddress")
+                        .WithMany()
+                        .HasForeignKey("BillAddressId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartner", "BusinessPartner")
+                        .WithMany()
+                        .HasForeignKey("BusinessPartnerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartnerContact", "ContactPerson")
+                        .WithMany()
+                        .HasForeignKey("ContactPersonId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FinVentoryAPI.Entities.Location", "Location")
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.SalesQuotationMain", "ParentQuotation")
+                        .WithMany("Revisions")
+                        .HasForeignKey("ParentQuotationId");
+
+                    b.HasOne("FinVentoryAPI.Entities.SalesPerson", "SalesPerson")
+                        .WithMany()
+                        .HasForeignKey("SalesPersonId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartnerAddress", "ShipAddress")
+                        .WithMany()
+                        .HasForeignKey("ShipAddressId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("BillAddress");
+
+                    b.Navigation("BusinessPartner");
+
+                    b.Navigation("ContactPerson");
+
+                    b.Navigation("Location");
+
+                    b.Navigation("ParentQuotation");
+
+                    b.Navigation("SalesPerson");
+
+                    b.Navigation("ShipAddress");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesQuotationTaxDetail", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.SalesQuotationDetail", "Detail")
+                        .WithMany("TaxDetails")
+                        .HasForeignKey("DetailId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.SalesQuotationMain", "Quotation")
+                        .WithMany("TaxDetails")
+                        .HasForeignKey("QuotationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Tax", "Tax")
+                        .WithMany()
+                        .HasForeignKey("TaxId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Detail");
+
+                    b.Navigation("Quotation");
+
+                    b.Navigation("Tax");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesReturnDetail", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.Hsn", "Hsn")
+                        .WithMany()
+                        .HasForeignKey("HsnId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Item", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.SalesReturnMain", "Return")
+                        .WithMany("Details")
+                        .HasForeignKey("ReturnId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Hsn");
+
+                    b.Navigation("Item");
+
+                    b.Navigation("Return");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesReturnDetailBatch", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.ItemBatch", "Batch")
+                        .WithMany()
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.SalesReturnDetail", "Detail")
+                        .WithMany("Batches")
+                        .HasForeignKey("DetailId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Batch");
+
+                    b.Navigation("Detail");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesReturnDetailSerial", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.SalesReturnDetail", "Detail")
+                        .WithMany("Serials")
+                        .HasForeignKey("DetailId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.ItemSerial", "Serial")
+                        .WithMany()
+                        .HasForeignKey("SerialId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Detail");
+
+                    b.Navigation("Serial");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesReturnMain", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartnerAddress", "BillAddress")
+                        .WithMany()
+                        .HasForeignKey("BillAddressId");
+
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartner", "BusinessPartner")
+                        .WithMany()
+                        .HasForeignKey("BusinessPartnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Location", "Location")
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.SalesInvoiceMain", "OriginalInvoice")
+                        .WithMany()
+                        .HasForeignKey("OriginalInvoiceId");
+
+                    b.HasOne("FinVentoryAPI.Entities.Account", "SalesAccount")
+                        .WithMany()
+                        .HasForeignKey("SalesAccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("BillAddress");
+
+                    b.Navigation("BusinessPartner");
+
+                    b.Navigation("Company");
+
+                    b.Navigation("Location");
+
+                    b.Navigation("OriginalInvoice");
+
+                    b.Navigation("SalesAccount");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesReturnTaxDetail", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.Account", "CGSTPostingAccount")
+                        .WithMany()
+                        .HasForeignKey("CGSTPostingAccountId");
+
+                    b.HasOne("FinVentoryAPI.Entities.Account", "CessPostingAccount")
+                        .WithMany()
+                        .HasForeignKey("CessPostingAccountId");
+
+                    b.HasOne("FinVentoryAPI.Entities.SalesReturnDetail", "Detail")
+                        .WithMany("TaxDetails")
+                        .HasForeignKey("DetailId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Account", "IGSTPostingAccount")
+                        .WithMany()
+                        .HasForeignKey("IGSTPostingAccountId");
+
+                    b.HasOne("FinVentoryAPI.Entities.SalesReturnMain", "Return")
+                        .WithMany("TaxDetails")
+                        .HasForeignKey("ReturnId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Account", "SGSTPostingAccount")
+                        .WithMany()
+                        .HasForeignKey("SGSTPostingAccountId");
+
+                    b.HasOne("FinVentoryAPI.Entities.Tax", "Tax")
+                        .WithMany()
+                        .HasForeignKey("TaxId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CGSTPostingAccount");
+
+                    b.Navigation("CessPostingAccount");
+
+                    b.Navigation("Detail");
+
+                    b.Navigation("IGSTPostingAccount");
+
+                    b.Navigation("Return");
+
+                    b.Navigation("SGSTPostingAccount");
+
+                    b.Navigation("Tax");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.StockAdjustmentDetail", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.StockAdjustmentMain", "Adjustment")
+                        .WithMany("Details")
+                        .HasForeignKey("AdjustmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Item", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Adjustment");
+
+                    b.Navigation("Item");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.StockAdjustmentDetailBatch", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.StockAdjustmentDetail", "Detail")
+                        .WithMany("Batches")
+                        .HasForeignKey("AdjustmentDetailId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.ItemBatch", "Batch")
+                        .WithMany()
+                        .HasForeignKey("ItemBatchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Batch");
+
+                    b.Navigation("Detail");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.StockAdjustmentDetailSerial", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.StockAdjustmentDetail", "Detail")
+                        .WithMany("Serials")
+                        .HasForeignKey("AdjustmentDetailId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.ItemSerial", "Serial")
+                        .WithMany()
+                        .HasForeignKey("ItemSerialId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Detail");
+
+                    b.Navigation("Serial");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.StockAdjustmentMain", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.Location", "Location")
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Location");
+
+                    b.Navigation("Warehouse");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.StockLedger", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.BusinessPartner", "BusinessPartner")
+                        .WithMany()
+                        .HasForeignKey("BusinessPartnerId");
+
+                    b.HasOne("FinVentoryAPI.Entities.Item", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId");
+
+                    b.Navigation("BusinessPartner");
+
+                    b.Navigation("Item");
+
+                    b.Navigation("Warehouse");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.StockTransferDetail", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.Item", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.StockTransferMain", "Transfer")
+                        .WithMany("Details")
+                        .HasForeignKey("TransferId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Item");
+
+                    b.Navigation("Transfer");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.StockTransferDetailBatch", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.ItemBatch", "Batch")
+                        .WithMany()
+                        .HasForeignKey("ItemBatchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.StockTransferDetail", "Detail")
+                        .WithMany("Batches")
+                        .HasForeignKey("TransferDetailId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Batch");
+
+                    b.Navigation("Detail");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.StockTransferDetailSerial", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.ItemSerial", "Serial")
+                        .WithMany()
+                        .HasForeignKey("ItemSerialId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.StockTransferDetail", "Detail")
+                        .WithMany("Serials")
+                        .HasForeignKey("TransferDetailId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Detail");
+
+                    b.Navigation("Serial");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.StockTransferMain", b =>
+                {
+                    b.HasOne("FinVentoryAPI.Entities.Warehouse", "FromWarehouse")
+                        .WithMany()
+                        .HasForeignKey("FromWarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Location", "Location")
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FinVentoryAPI.Entities.Warehouse", "ToWarehouse")
+                        .WithMany()
+                        .HasForeignKey("ToWarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("FromWarehouse");
+
+                    b.Navigation("Location");
+
+                    b.Navigation("ToWarehouse");
+                });
+
             modelBuilder.Entity("FinVentoryAPI.Entities.Tax", b =>
                 {
                     b.HasOne("FinVentoryAPI.Entities.Account", "CGSTAccount")
@@ -1808,7 +8513,8 @@ namespace FinVentoryAPI.Migrations
                     b.HasOne("FinVentoryAPI.Entities.Role", "Role")
                         .WithMany()
                         .HasForeignKey("RoleId")
-                        .OnDelete(DeleteBehavior.NoAction);
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
 
                     b.Navigation("Role");
                 });
@@ -1860,6 +8566,11 @@ namespace FinVentoryAPI.Migrations
                     b.Navigation("ChildGroups");
                 });
 
+            modelBuilder.Entity("FinVentoryAPI.Entities.BillOfMaterial", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
             modelBuilder.Entity("FinVentoryAPI.Entities.BusinessPartner", b =>
                 {
                     b.Navigation("BPAddresses");
@@ -1867,9 +8578,43 @@ namespace FinVentoryAPI.Migrations
                     b.Navigation("BPContacts");
                 });
 
+            modelBuilder.Entity("FinVentoryAPI.Entities.CashBankEntry", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
             modelBuilder.Entity("FinVentoryAPI.Entities.Company", b =>
                 {
                     b.Navigation("UserCompanies");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.GRNDetail", b =>
+                {
+                    b.Navigation("TaxDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.GRNMain", b =>
+                {
+                    b.Navigation("Details");
+
+                    b.Navigation("TaxDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.GoodsDeliveryDetail", b =>
+                {
+                    b.Navigation("TaxDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.GoodsDeliveryMain", b =>
+                {
+                    b.Navigation("Details");
+
+                    b.Navigation("TaxDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.IncomingPaymentMain", b =>
+                {
+                    b.Navigation("Allocations");
                 });
 
             modelBuilder.Entity("FinVentoryAPI.Entities.Item", b =>
@@ -1877,9 +8622,48 @@ namespace FinVentoryAPI.Migrations
                     b.Navigation("Prices");
                 });
 
+            modelBuilder.Entity("FinVentoryAPI.Entities.ItemBatch", b =>
+                {
+                    b.Navigation("SalesInvoiceDetailBatches");
+                });
+
             modelBuilder.Entity("FinVentoryAPI.Entities.ItemGroup", b =>
                 {
                     b.Navigation("ChildGroups");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.ItemSerial", b =>
+                {
+                    b.Navigation("SalesInvoiceDetailSerials");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.JobWorkIssueDetail", b =>
+                {
+                    b.Navigation("Batches");
+
+                    b.Navigation("Serials");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.JobWorkIssueMain", b =>
+                {
+                    b.Navigation("Details");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.JobWorkReceiptDetail", b =>
+                {
+                    b.Navigation("Batches");
+
+                    b.Navigation("Serials");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.JobWorkReceiptMain", b =>
+                {
+                    b.Navigation("Details");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.JournalEntry", b =>
+                {
+                    b.Navigation("Lines");
                 });
 
             modelBuilder.Entity("FinVentoryAPI.Entities.MenuGroup", b =>
@@ -1899,6 +8683,84 @@ namespace FinVentoryAPI.Migrations
                     b.Navigation("MenuItems");
                 });
 
+            modelBuilder.Entity("FinVentoryAPI.Entities.OutgoingPaymentMain", b =>
+                {
+                    b.Navigation("Allocations");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.ProductionIssueDetail", b =>
+                {
+                    b.Navigation("Batches");
+
+                    b.Navigation("Serials");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.ProductionIssueMain", b =>
+                {
+                    b.Navigation("Details");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.ProductionOrder", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.ProductionReceiptDetail", b =>
+                {
+                    b.Navigation("Batches");
+
+                    b.Navigation("Serials");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.ProductionReceiptMain", b =>
+                {
+                    b.Navigation("Details");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.PurchaseInvoiceDetail", b =>
+                {
+                    b.Navigation("Batches");
+
+                    b.Navigation("Serials");
+
+                    b.Navigation("TaxDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.PurchaseInvoiceMain", b =>
+                {
+                    b.Navigation("Details");
+
+                    b.Navigation("TaxDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.PurchaseOrderDetail", b =>
+                {
+                    b.Navigation("TaxDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.PurchaseOrderMain", b =>
+                {
+                    b.Navigation("Details");
+
+                    b.Navigation("TaxDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.PurchaseReturnDetail", b =>
+                {
+                    b.Navigation("Batches");
+
+                    b.Navigation("Serials");
+
+                    b.Navigation("TaxDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.PurchaseReturnMain", b =>
+                {
+                    b.Navigation("Details");
+
+                    b.Navigation("TaxDetails");
+                });
+
             modelBuilder.Entity("FinVentoryAPI.Entities.Role", b =>
                 {
                     b.Navigation("RoleRights");
@@ -1906,6 +8768,10 @@ namespace FinVentoryAPI.Migrations
 
             modelBuilder.Entity("FinVentoryAPI.Entities.SalesInvoiceDetail", b =>
                 {
+                    b.Navigation("Batches");
+
+                    b.Navigation("Serials");
+
                     b.Navigation("TaxDetails");
                 });
 
@@ -1914,6 +8780,72 @@ namespace FinVentoryAPI.Migrations
                     b.Navigation("Details");
 
                     b.Navigation("TaxDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesOrderDetail", b =>
+                {
+                    b.Navigation("TaxDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesOrderMain", b =>
+                {
+                    b.Navigation("Details");
+
+                    b.Navigation("TaxDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesQuotationDetail", b =>
+                {
+                    b.Navigation("TaxDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesQuotationMain", b =>
+                {
+                    b.Navigation("Details");
+
+                    b.Navigation("Revisions");
+
+                    b.Navigation("TaxDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesReturnDetail", b =>
+                {
+                    b.Navigation("Batches");
+
+                    b.Navigation("Serials");
+
+                    b.Navigation("TaxDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.SalesReturnMain", b =>
+                {
+                    b.Navigation("Details");
+
+                    b.Navigation("TaxDetails");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.StockAdjustmentDetail", b =>
+                {
+                    b.Navigation("Batches");
+
+                    b.Navigation("Serials");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.StockAdjustmentMain", b =>
+                {
+                    b.Navigation("Details");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.StockTransferDetail", b =>
+                {
+                    b.Navigation("Batches");
+
+                    b.Navigation("Serials");
+                });
+
+            modelBuilder.Entity("FinVentoryAPI.Entities.StockTransferMain", b =>
+                {
+                    b.Navigation("Details");
                 });
 #pragma warning restore 612, 618
         }

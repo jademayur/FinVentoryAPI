@@ -15,15 +15,24 @@ namespace FinVentoryAPI.Services.Implementations
         private readonly AppDbContext _context;
         private readonly Common _common;
         private readonly IAccountLedgerPostingService _accountLedger;
+        private readonly IAuditLogService _auditLog;
+        private readonly IApprovalService _approvalService;
+        private readonly ICompanyConfigService _companyConfigService;
 
         public JournalEntryService(
             AppDbContext context,
             Common common,
-            IAccountLedgerPostingService accountLedger)
+            IAccountLedgerPostingService accountLedger,
+            IAuditLogService auditLog,
+            IApprovalService approvalService,
+            ICompanyConfigService companyConfigService)
         {
             _context = context;
             _common = common;
             _accountLedger = accountLedger;
+            _auditLog = auditLog;
+            _approvalService = approvalService;
+            _companyConfigService = companyConfigService;
         }
 
         // ════════════════════════════════════════════════════
@@ -40,7 +49,7 @@ namespace FinVentoryAPI.Services.Implementations
 
             var entryNo = !string.IsNullOrWhiteSpace(dto.EntryNo)
                 ? dto.EntryNo
-                : await GenerateEntryNumberAsync(companyId, finYearId);
+                : await _common.GenerateDocumentNumber(_context, "Journal Voucher");
 
             var entry = new JournalEntry
             {
@@ -97,6 +106,12 @@ namespace FinVentoryAPI.Services.Implementations
                     createdBy: userId);
 
                 await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "JournalEntry",
+                    action: "Create",
+                    entityId: entry.JournalEntryId,
+                    entityNo: entry.EntryNo,
+                    newValues: new { entry.EntryNo, entry.AccountId, entry.TotalDebit, entry.Status });
             }
             catch
             {
@@ -128,6 +143,8 @@ namespace FinVentoryAPI.Services.Implementations
 
             if (entry.Status != "Draft")
                 throw new Exception("Only Draft entries can be updated.");
+
+            var oldValues = new { entry.EntryNo, entry.AccountId, entry.TotalDebit, entry.Status };
 
             await ValidateHeaderAccountAsync(dto.AccountId, companyId);
             ValidateLines(dto.Lines);
@@ -193,6 +210,13 @@ namespace FinVentoryAPI.Services.Implementations
                     modifiedBy: userId);
 
                 await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "JournalEntry",
+                    action: "Update",
+                    entityId: entry.JournalEntryId,
+                    entityNo: entry.EntryNo,
+                    oldValues: oldValues,
+                    newValues: new { entry.EntryNo, entry.AccountId, entry.TotalDebit, entry.Status });
             }
             catch
             {
@@ -223,6 +247,8 @@ namespace FinVentoryAPI.Services.Implementations
             if (entry.Status != "Draft")
                 throw new Exception("Only Draft entries can be deleted.");
 
+            var oldValues = new { entry.EntryNo, entry.AccountId, entry.TotalDebit, entry.Status };
+
             await using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
@@ -239,6 +265,122 @@ namespace FinVentoryAPI.Services.Implementations
 
                 await SaveChangesAsync();
                 await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "JournalEntry",
+                    action: "Delete",
+                    entityId: entry.JournalEntryId,
+                    entityNo: entry.EntryNo,
+                    oldValues: oldValues,
+                    remarks: "Soft deleted");
+                return true;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        // ════════════════════════════════════════════════════
+        // CONFIRM  (Draft → Confirmed)
+        // ════════════════════════════════════════════════════
+        public async Task<bool> ConfirmAsync(int id)
+        {
+            var companyId = _common.GetCompanyId();
+            var userId = _common.GetUserId();
+
+            var entry = await _context.JournalEntries
+                .Include(e => e.Lines)
+                .FirstOrDefaultAsync(x =>
+                    x.JournalEntryId == id &&
+                    x.CompanyId == companyId &&
+                    !x.IsDeleted);
+
+            if (entry == null) return false;
+
+            if (entry.Status != "Draft")
+                throw new Exception("Only Draft entries can be confirmed.");
+
+            // Check if approval is required
+            var approvalRequired = await _companyConfigService.GetValueAsync(companyId, "ApprovalRequired_JournalEntry");
+            if (approvalRequired?.ToLower() == "true")
+            {
+                await _approvalService.SubmitForApprovalAsync("JournalEntry", id);
+                return true;
+            }
+
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                entry.Status = "Confirmed";
+                entry.ModifiedBy = userId;
+                entry.ModifiedDate = DateTime.UtcNow;
+
+                await SaveChangesAsync();
+                await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "JournalEntry",
+                    action: "Confirm",
+                    entityId: entry.JournalEntryId,
+                    entityNo: entry.EntryNo,
+                    oldValues: new { entry.Status },
+                    newValues: new { Status = "Confirmed" });
+
+                return true;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        // ════════════════════════════════════════════════════
+        // CANCEL
+        // ════════════════════════════════════════════════════
+        public async Task<bool> CancelAsync(int id)
+        {
+            var companyId = _common.GetCompanyId();
+            var userId = _common.GetUserId();
+
+            var entry = await _context.JournalEntries
+                .Include(e => e.Lines)
+                .FirstOrDefaultAsync(x =>
+                    x.JournalEntryId == id &&
+                    x.CompanyId == companyId &&
+                    !x.IsDeleted);
+
+            if (entry == null) return false;
+
+            if (entry.Status == "Cancelled")
+                throw new Exception("Entry is already cancelled.");
+
+            if (entry.Status == "Confirmed")
+                throw new Exception("Confirmed entries cannot be cancelled.");
+
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                entry.Status = "Cancelled";
+                entry.ModifiedBy = userId;
+                entry.ModifiedDate = DateTime.UtcNow;
+
+                await _accountLedger.SoftDeleteByVoucherAsync(
+                    companyId: companyId,
+                    financialYearId: entry.FinYearId,
+                    voucherNo: entry.EntryNo!,
+                    modifiedBy: userId);
+
+                await SaveChangesAsync();
+                await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "JournalEntry",
+                    action: "Cancel",
+                    entityId: entry.JournalEntryId,
+                    entityNo: entry.EntryNo,
+                    oldValues: new { entry.Status },
+                    newValues: new { Status = "Cancelled" });
+
                 return true;
             }
             catch
@@ -461,26 +603,7 @@ namespace FinVentoryAPI.Services.Implementations
                     $"Duplicate accounts in lines: AccountId(s) {string.Join(", ", duplicates)}.");
         }
 
-        // ════════════════════════════════════════════════════
-        // PRIVATE — Entry number generation
-        // ════════════════════════════════════════════════════
-        private async Task<string> GenerateEntryNumberAsync(int companyId, int finYearId)
-        {
-            var financialYear = await _context.FinancialYears
-                .FirstOrDefaultAsync(x => x.FinancialYearId == finYearId);
 
-            var yearLabel = financialYear != null
-                ? $"{financialYear.StartDate.Year % 100}{financialYear.EndDate.Year % 100}"
-                : finYearId.ToString();
-
-            var count = await _context.JournalEntries
-                .CountAsync(x =>
-                    x.CompanyId == companyId &&
-                    x.FinYearId == finYearId &&
-                    !x.IsDeleted);
-
-            return $"JV{yearLabel}{(count + 1):D4}";
-        }
 
         // ════════════════════════════════════════════════════
         // PRIVATE — Map to response DTO

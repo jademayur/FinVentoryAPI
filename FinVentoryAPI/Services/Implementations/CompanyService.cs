@@ -43,10 +43,181 @@ namespace FinVentoryAPI.Services.Implementations
             appDbContext.Companies.Add(company);
             await appDbContext.SaveChangesAsync();
 
-            // wherever you create a company — after SaveChangesAsync() gives you the Id:
-            var seedResult = await _seedService.SeedAllAsync(company.CompanyId, _common.GetUserId());
+            // Seed accounting data (AccountGroups, Accounts, Taxes, FinancialYear)
+            var seedResult = await _seedService.SeedAllAsync(company.CompanyId, userId);
+
+            // Get the newly created FinancialYear
+            var financialYear = await appDbContext.FinancialYears
+                .Where(f => f.CompanyId == company.CompanyId && f.IsActive)
+                .OrderByDescending(f => f.FinancialYearId)
+                .FirstOrDefaultAsync();
+
+            // Find or create an "applAdmin" role
+            var adminRole = await appDbContext.Roles
+                .FirstOrDefaultAsync(r => r.RoleName == "applAdmin" && r.IsActive);
+            if (adminRole == null)
+            {
+                adminRole = new Role { RoleName = "applAdmin", IsActive = true };
+                appDbContext.Roles.Add(adminRole);
+                await appDbContext.SaveChangesAsync();
+            }
+
+            // Link the creating user to the new company with Admin role
+            var existingMapping = await appDbContext.UserCompany
+                .FirstOrDefaultAsync(uc => uc.UserId == userId && uc.CompanyId == company.CompanyId);
+
+            if (existingMapping == null)
+            {
+                var userCompany = new UserCompany
+                {
+                    UserId = userId,
+                    CompanyId = company.CompanyId,
+                    RoleId = adminRole.RoleId,
+                    FinancialYearId = financialYear?.FinancialYearId,
+                    IsActive = true
+                };
+                appDbContext.UserCompany.Add(userCompany);
+                await appDbContext.SaveChangesAsync();
+            }
+
+            // Skip RoleRights for applAdmin — it gets all menus automatically
+            if (adminRole.RoleName != "applAdmin")
+            {
+                await SeedRoleRightsForRoleAsync(adminRole.RoleId, userId);
+            }
+
+            // Seed approval configuration (all disabled by default)
+            await SeedApprovalConfigAsync(company.CompanyId);
+
+            // Seed default approval levels for all document types
+            await SeedApprovalLevelsAsync(company.CompanyId, adminRole.RoleId);
 
             return MapToResponse(company);
+        }
+
+        private async Task SeedRoleRightsForRoleAsync(int roleId, int userId)
+        {
+            // Skip if RoleRights already exist for this role
+            if (await appDbContext.RoleRights.AnyAsync(r => r.RoleId == roleId))
+                return;
+
+            // Get all active MenuItems
+            var menuItems = await appDbContext.MenuItems
+                .Include(mi => mi.MenuGroup)
+                .Include(mi => mi.Module)
+                .Where(mi => mi.IsActive && mi.MenuGroup.IsActive && mi.Module.IsActive)
+                .ToListAsync();
+
+            if (!menuItems.Any())
+                return;
+
+            var rights = menuItems.Select(mi => new RoleRight
+            {
+                RoleId = roleId,
+                ModuleId = mi.ModuleId,
+                MenuItemId = mi.MenuItemId,
+                CanView = true,
+                CanAdd = true,
+                CanEdit = true,
+                CanDelete = true,
+                CanPrint = true,
+                CanExport = true,
+                CanApprove = true,
+                GrantedBy = userId,
+                GrantedAt = DateTime.UtcNow
+            }).ToList();
+
+            appDbContext.RoleRights.AddRange(rights);
+            await appDbContext.SaveChangesAsync();
+        }
+
+        private async Task SeedApprovalConfigAsync(int companyId)
+        {
+            // Master toggle
+            var masterKey = "ApprovalSystemEnabled";
+            var masterExists = await appDbContext.CompanyConfigs
+                .FirstOrDefaultAsync(c => c.CompanyId == companyId && c.ConfigKey == masterKey);
+            if (masterExists == null)
+            {
+                appDbContext.CompanyConfigs.Add(new CompanyConfig
+                {
+                    CompanyId = companyId,
+                    ConfigKey = masterKey,
+                    ConfigValue = "false",
+                    ConfigType = "boolean",
+                    Description = "Enable or disable the entire approval system",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
+
+            // All document types
+            var documentTypes = GetAllApprovalDocumentTypes();
+
+            foreach (var docType in documentTypes)
+            {
+                var configKey = $"ApprovalRequired_{docType}";
+                var existing = await appDbContext.CompanyConfigs
+                    .FirstOrDefaultAsync(c => c.CompanyId == companyId && c.ConfigKey == configKey);
+
+                if (existing == null)
+                {
+                    appDbContext.CompanyConfigs.Add(new CompanyConfig
+                    {
+                        CompanyId = companyId,
+                        ConfigKey = configKey,
+                        ConfigValue = "false",
+                        ConfigType = "boolean",
+                        Description = $"Enable approval workflow for {docType}",
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    });
+                }
+            }
+
+            await appDbContext.SaveChangesAsync();
+        }
+
+        private static string[] GetAllApprovalDocumentTypes() => new[]
+        {
+            // Sales
+            "SalesQuotation", "SalesOrder", "GoodsDelivery", "SalesInvoice", "SalesReturn",
+            // Purchase
+            "PurchaseOrder", "GRN", "PurchaseInvoice", "PurchaseReturn",
+            // Inventory
+            "StockTransfer", "StockAdjustment",
+            // Production
+            "ProductionIssue", "ProductionReceipt",
+            // Job Work
+            "JobWorkIssue", "JobWorkReceipt",
+            // Finance
+            "JournalEntry", "CashBankEntry", "IncomingPayment", "OutgoingPayment"
+        };
+
+        private async Task SeedApprovalLevelsAsync(int companyId, int adminRoleId)
+        {
+            // Check if approval levels already exist
+            if (await appDbContext.ApprovalLevels.AnyAsync(a => a.CompanyId == companyId))
+                return;
+
+            var documentTypes = GetAllApprovalDocumentTypes();
+
+            foreach (var docType in documentTypes)
+            {
+                appDbContext.ApprovalLevels.Add(new ApprovalLevel
+                {
+                    CompanyId = companyId,
+                    DocumentType = docType,
+                    LevelNumber = 1,
+                    LevelName = "Manager",
+                    MaxAmount = null,
+                    RoleId = adminRoleId,
+                    IsActive = false, // Disabled by default, admin can enable
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+
+            await appDbContext.SaveChangesAsync();
         }
 
         public async Task<List<CompanyResponseDto>> GetAllCompaniesAsync()

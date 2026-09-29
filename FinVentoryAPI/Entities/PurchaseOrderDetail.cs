@@ -39,6 +39,11 @@ namespace FinVentoryAPI.Entities
         [Column(TypeName = "decimal(18,4)")]
         public decimal Rate { get; set; }
 
+        // ── Packing (Pack / Pack & Rate Unit inventory methods) ──
+        public decimal? Pack { get; set; }
+        public decimal? PackQty { get; set; }
+        public decimal? RateUnit { get; set; }
+
         [Column(TypeName = "decimal(18,4)")]
         public decimal DiscountRate { get; set; }
 

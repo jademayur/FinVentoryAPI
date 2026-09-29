@@ -4,6 +4,7 @@ namespace FinVentoryAPI.Services.Interfaces
 {
     public interface IDashboardService
     {
+        Task<DashboardDataDto> GetDashboardDataAsync(int months = 6);
         Task<TodaySummaryDto> GetTodaySummaryAsync();
         Task<List<MonthlyTrendDto>> GetMonthlyTrendAsync(int months);
         Task<List<OverdueReceivableDto>> GetOverdueReceivablesAsync();

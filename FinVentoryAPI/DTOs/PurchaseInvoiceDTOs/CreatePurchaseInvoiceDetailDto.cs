@@ -19,6 +19,10 @@ namespace FinVentoryAPI.DTOs.PurchaseInvoiceDTOs
         [Range(0, double.MaxValue, ErrorMessage = "Rate must be 0 or greater.")]
         public decimal Rate { get; set; }
 
+        public decimal? Pack { get; set; }
+        public decimal? PackQty { get; set; }
+        public decimal? RateUnit { get; set; }
+
         [Range(0, 100)] public decimal DiscountRate { get; set; }
         [Range(0, 100)] public decimal AddisDiscountRate { get; set; }
         public bool IsTaxIncluded { get; set; }

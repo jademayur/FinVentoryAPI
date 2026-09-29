@@ -84,11 +84,10 @@ namespace FinVentoryAPI.Services.Implementations
         // ════════════════════════════════════════════════════════════════════
         // PUBLIC — Summary (full GSTR-3B)
         // ════════════════════════════════════════════════════════════════════
-        public async Task<Gstr3bResponseDto> GetSummaryAsync(string taxPeriod)
+        public async Task<Gstr3bResponseDto> GetSummaryAsync(string? dateFrom, string? dateTo)
         {
             var companyId = _common.GetCompanyId();
-            var finYearId = _common.GetFinancialYearId();
-            var (from, to) = ParseTaxPeriod(taxPeriod);
+            var (from, to, yearName) = await GetFinancialYearRangeAsync(dateFrom, dateTo);
 
             var company = await _context.Companies
                 .FirstOrDefaultAsync(c => c.CompanyId == companyId)
@@ -97,7 +96,7 @@ namespace FinVentoryAPI.Services.Implementations
             // ── Fetch raw data ─────────────────────────────────────────────
             var salesMains = await _context.SalesInvoiceMains
                 .Where(x => x.CompanyId == companyId
-                         && x.FinYearId == finYearId
+                         && x.FinYearId == _common.GetFinancialYearId()
                          && !x.IsDeleted
                          && x.InvoiceDate >= from
                          && x.InvoiceDate <= to)
@@ -110,7 +109,7 @@ namespace FinVentoryAPI.Services.Implementations
 
             var purchaseMains = await _context.PurchaseInvoiceMains
                 .Where(x => x.CompanyId == companyId
-                         && x.FinYearId == finYearId
+                         && x.FinYearId == _common.GetFinancialYearId()
                          && !x.IsDeleted
                          && x.InvoiceDate >= from
                          && x.InvoiceDate <= to)
@@ -231,7 +230,7 @@ namespace FinVentoryAPI.Services.Implementations
 
             return new Gstr3bResponseDto
             {
-                TaxPeriod = taxPeriod,
+                TaxPeriod = yearName,
                 CompanyName = company.CompanyName,
                 GSTIN = company.GSTNumber ?? string.Empty,
                 OutwardSupplies = sec31,
@@ -246,15 +245,14 @@ namespace FinVentoryAPI.Services.Implementations
         // ════════════════════════════════════════════════════════════════════
         // PUBLIC — Sales Invoice drill-down (GSTR-3B)
         // ════════════════════════════════════════════════════════════════════
-        public async Task<List<Gstr3bInvoiceListDto>> GetSalesInvoicesAsync(string taxPeriod)
+        public async Task<List<Gstr3bInvoiceListDto>> GetSalesInvoicesAsync(string? dateFrom, string? dateTo)
         {
             var companyId = _common.GetCompanyId();
-            var finYearId = _common.GetFinancialYearId();
-            var (from, to) = ParseTaxPeriod(taxPeriod);
+            var (from, to, yearName) = await GetFinancialYearRangeAsync(dateFrom, dateTo);
 
             var invoices = await _context.SalesInvoiceMains
                 .Where(x => x.CompanyId == companyId
-                         && x.FinYearId == finYearId
+                         && x.FinYearId == _common.GetFinancialYearId()
                          && !x.IsDeleted
                          && x.InvoiceDate >= from
                          && x.InvoiceDate <= to)
@@ -302,15 +300,14 @@ namespace FinVentoryAPI.Services.Implementations
         // ════════════════════════════════════════════════════════════════════
         // PUBLIC — Purchase Invoice drill-down (GSTR-3B)
         // ════════════════════════════════════════════════════════════════════
-        public async Task<List<Gstr3bInvoiceListDto>> GetPurchaseInvoicesAsync(string taxPeriod)
+        public async Task<List<Gstr3bInvoiceListDto>> GetPurchaseInvoicesAsync(string? dateFrom, string? dateTo)
         {
             var companyId = _common.GetCompanyId();
-            var finYearId = _common.GetFinancialYearId();
-            var (from, to) = ParseTaxPeriod(taxPeriod);
+            var (from, to, yearName) = await GetFinancialYearRangeAsync(dateFrom, dateTo);
 
             var invoices = await _context.PurchaseInvoiceMains
                 .Where(x => x.CompanyId == companyId
-                         && x.FinYearId == finYearId
+                         && x.FinYearId == _common.GetFinancialYearId()
                          && !x.IsDeleted
                          && x.InvoiceDate >= from
                          && x.InvoiceDate <= to)
@@ -358,11 +355,10 @@ namespace FinVentoryAPI.Services.Implementations
         // ════════════════════════════════════════════════════════════════════
         // GSTR-1 — Summary
         // ════════════════════════════════════════════════════════════════════
-        public async Task<Gstr1ResponseDto> GetGstr1SummaryAsync(string taxPeriod)
+        public async Task<Gstr1ResponseDto> GetGstr1SummaryAsync(string? dateFrom, string? dateTo)
         {
             var companyId = _common.GetCompanyId();
-            var finYearId = _common.GetFinancialYearId();
-            var (from, to) = ParseTaxPeriod(taxPeriod);
+            var (from, to, yearName) = await GetFinancialYearRangeAsync(dateFrom, dateTo);
 
             var company = await _context.Companies
                 .FirstOrDefaultAsync(c => c.CompanyId == companyId)
@@ -370,7 +366,7 @@ namespace FinVentoryAPI.Services.Implementations
 
             var salesMains = await _context.SalesInvoiceMains
                 .Where(x => x.CompanyId == companyId
-                         && x.FinYearId == finYearId
+                         && x.FinYearId == _common.GetFinancialYearId()
                          && !x.IsDeleted
                          && x.InvoiceDate >= from
                          && x.InvoiceDate <= to)
@@ -498,7 +494,7 @@ namespace FinVentoryAPI.Services.Implementations
 
             return new Gstr1ResponseDto
             {
-                TaxPeriod = taxPeriod,
+                TaxPeriod = yearName,
                 CompanyName = company.CompanyName,
                 GSTIN = company.GSTNumber ?? string.Empty,
                 B2BSupplies = b2b,
@@ -512,15 +508,14 @@ namespace FinVentoryAPI.Services.Implementations
         // ════════════════════════════════════════════════════════════════════
         // GSTR-1 — B2B drill-down
         // ════════════════════════════════════════════════════════════════════
-        public async Task<List<Gstr1B2BRowDto>> GetGstr1B2BAsync(string taxPeriod)
+        public async Task<List<Gstr1B2BRowDto>> GetGstr1B2BAsync(string? dateFrom, string? dateTo)
         {
             var companyId = _common.GetCompanyId();
-            var finYearId = _common.GetFinancialYearId();
-            var (from, to) = ParseTaxPeriod(taxPeriod);
+            var (from, to, yearName) = await GetFinancialYearRangeAsync(dateFrom, dateTo);
 
             var invoices = await _context.SalesInvoiceMains
                 .Where(x => x.CompanyId == companyId
-                         && x.FinYearId == finYearId
+                         && x.FinYearId == _common.GetFinancialYearId()
                          && !x.IsDeleted
                          && x.InvoiceDate >= from
                          && x.InvoiceDate <= to)
@@ -566,11 +561,10 @@ namespace FinVentoryAPI.Services.Implementations
                 .ToList();
         }
 
-        public async Task<Gstr1HsnSummaryDto> GetGstr1HsnSummaryAsync(string taxPeriod)
+        public async Task<Gstr1HsnSummaryDto> GetGstr1HsnSummaryAsync(string? dateFrom, string? dateTo)
         {
             var companyId = _common.GetCompanyId();
-            var finYearId = _common.GetFinancialYearId();
-            var (from, to) = ParseTaxPeriod(taxPeriod);
+            var (from, to, yearName) = await GetFinancialYearRangeAsync(dateFrom, dateTo);
 
             var company = await _context.Companies
                 .FirstOrDefaultAsync(c => c.CompanyId == companyId)
@@ -578,10 +572,14 @@ namespace FinVentoryAPI.Services.Implementations
 
             var salesMains = await _context.SalesInvoiceMains
                 .Where(x => x.CompanyId == companyId
-                         && x.FinYearId == finYearId
+                         && x.FinYearId == _common.GetFinancialYearId()
                          && !x.IsDeleted
                          && x.InvoiceDate >= from
                          && x.InvoiceDate <= to)
+                .Include(x => x.Details!)
+                    .ThenInclude(d => d.Item)
+                .Include(x => x.Details!)
+                    .ThenInclude(d => d.Hsn)
                 .Include(x => x.Details!)
                     .ThenInclude(d => d.TaxDetails)
                 .AsNoTracking()
@@ -593,7 +591,7 @@ namespace FinVentoryAPI.Services.Implementations
                     .Select(d => new
                     {
                         HSNCode = d.HsnCode?.Trim() ?? string.Empty,
-                        UOM = d.Item.ItemName?.Trim() ?? string.Empty,
+                        UOM = d.Item?.ItemName?.Trim() ?? string.Empty,
                         Quantity = d.Qty,
                         LineTotal = d.LineTotal,
                         Taxable = d.TaxableAmount,
@@ -601,7 +599,7 @@ namespace FinVentoryAPI.Services.Implementations
                         CGST = d.TaxDetails?.FirstOrDefault()?.CGSTAmount ?? 0,
                         SGST = d.TaxDetails?.FirstOrDefault()?.SGSTAmount ?? 0,
                         Cess = d.TaxDetails?.FirstOrDefault()?.CessAmount ?? 0,
-                        Description = d.Hsn.Description ?? string.Empty   // fallback description
+                        Description = d.Hsn?.Description ?? string.Empty
                     }))
                 .Where(d => !string.IsNullOrWhiteSpace(d.HSNCode))  // skip lines with no HSN
                 .ToList();
@@ -627,18 +625,17 @@ namespace FinVentoryAPI.Services.Implementations
 
             return new Gstr1HsnSummaryDto
             {
-                TaxPeriod = taxPeriod,
+                TaxPeriod = yearName,
                 CompanyName = company.CompanyName,
                 GSTIN = company.GSTNumber ?? string.Empty,
                 HsnRows = hsnRows
             };
         }
 
-        public async Task<Gstr1CdnrSummaryDto> GetGstr1CdnrAsync(string taxPeriod)
+        public async Task<Gstr1CdnrSummaryDto> GetGstr1CdnrAsync(string? dateFrom, string? dateTo)
         {
             var companyId = _common.GetCompanyId();
-            var finYearId = _common.GetFinancialYearId();
-            var (from, to) = ParseTaxPeriod(taxPeriod);
+            var (from, to, yearName) = await GetFinancialYearRangeAsync(dateFrom, dateTo);
 
             var company = await _context.Companies
                 .FirstOrDefaultAsync(c => c.CompanyId == companyId)
@@ -646,7 +643,7 @@ namespace FinVentoryAPI.Services.Implementations
 
             var returns = await _context.SalesReturnMains
                 .Where(x => x.CompanyId == companyId
-                         && x.FinYearId == finYearId
+                         && x.FinYearId == _common.GetFinancialYearId()
                          && !x.IsDeleted
                          && x.ReturnDate >= from
                          && x.ReturnDate <= to)
@@ -700,18 +697,17 @@ namespace FinVentoryAPI.Services.Implementations
 
             return new Gstr1CdnrSummaryDto
             {
-                TaxPeriod = taxPeriod,
+                TaxPeriod = yearName,
                 CompanyName = company.CompanyName,
                 GSTIN = company.GSTNumber ?? string.Empty,
                 CreditNotes = rows.Where(r => r.NoteType == "C").ToList(),
                 DebitNotes = rows.Where(r => r.NoteType == "D").ToList()
             };
         }
-        public async Task<Gstr1CdnurSummaryDto> GetGstr1CdnurAsync(string taxPeriod)
+        public async Task<Gstr1CdnurSummaryDto> GetGstr1CdnurAsync(string? dateFrom, string? dateTo)
         {
             var companyId = _common.GetCompanyId();
-            var finYearId = _common.GetFinancialYearId();
-            var (from, to) = ParseTaxPeriod(taxPeriod);
+            var (from, to, yearName) = await GetFinancialYearRangeAsync(dateFrom, dateTo);
 
             var company = await _context.Companies
                 .FirstOrDefaultAsync(c => c.CompanyId == companyId)
@@ -719,7 +715,7 @@ namespace FinVentoryAPI.Services.Implementations
 
             var returns = await _context.SalesReturnMains
                 .Where(x => x.CompanyId == companyId
-                         && x.FinYearId == finYearId
+                         && x.FinYearId == _common.GetFinancialYearId()
                          && !x.IsDeleted
                          && x.ReturnDate >= from
                          && x.ReturnDate <= to)
@@ -783,18 +779,17 @@ namespace FinVentoryAPI.Services.Implementations
 
             return new Gstr1CdnurSummaryDto
             {
-                TaxPeriod = taxPeriod,
+                TaxPeriod = yearName,
                 CompanyName = company.CompanyName,
                 GSTIN = company.GSTNumber ?? string.Empty,
                 Notes = rows
             };
         }
 
-        public async Task<Gstr1DocSeriesSummaryDto> GetGstr1DocSeriesAsync(string taxPeriod)
+        public async Task<Gstr1DocSeriesSummaryDto> GetGstr1DocSeriesAsync(string? dateFrom, string? dateTo)
         {
             var companyId = _common.GetCompanyId();
-            var finYearId = _common.GetFinancialYearId();
-            var (from, to) = ParseTaxPeriod(taxPeriod);
+            var (from, to, yearName) = await GetFinancialYearRangeAsync(dateFrom, dateTo);
 
             var company = await _context.Companies
                 .FirstOrDefaultAsync(c => c.CompanyId == companyId)
@@ -805,7 +800,7 @@ namespace FinVentoryAPI.Services.Implementations
             // documents are included in TotalIssued and counted separately.
             var allInvoices = await _context.SalesInvoiceMains
                 .Where(x => x.CompanyId == companyId
-                         && x.FinYearId == finYearId
+                         && x.FinYearId == _common.GetFinancialYearId()
                          && x.InvoiceDate >= from
                          && x.InvoiceDate <= to)
                 .Select(x => new { x.InvoiceNo, x.IsDeleted })
@@ -839,7 +834,7 @@ namespace FinVentoryAPI.Services.Implementations
 
             return new Gstr1DocSeriesSummaryDto
             {
-                TaxPeriod = taxPeriod,
+                TaxPeriod = yearName,
                 CompanyName = company.CompanyName,
                 GSTIN = company.GSTNumber ?? string.Empty,
                 DocumentSeries = new List<Gstr1DocSeriesRowDto>
@@ -1205,21 +1200,30 @@ namespace FinVentoryAPI.Services.Implementations
             };
         }
 
-        private static (DateTime from, DateTime to) ParseTaxPeriod(string taxPeriod)
+        /// <summary>
+        /// Returns the date range for the report.
+        /// If dateFrom/dateTo are provided, uses those; otherwise falls back to the full financial year.
+        /// </summary>
+        private async Task<(DateTime from, DateTime to, string yearName)> GetFinancialYearRangeAsync(string? dateFrom, string? dateTo)
         {
-            if (string.IsNullOrWhiteSpace(taxPeriod))
-                throw new ArgumentException("TaxPeriod is required. Format: MM-YYYY");
+            var finYearId = _common.GetFinancialYearId();
+            var fy = await _context.FinancialYears
+                .FirstOrDefaultAsync(f => f.FinancialYearId == finYearId)
+                ?? throw new Exception("Financial year not found.");
 
-            var parts = taxPeriod.Split('-');
-            if (parts.Length != 2
-                || !int.TryParse(parts[0], out int month)
-                || !int.TryParse(parts[1], out int year)
-                || month < 1 || month > 12)
-                throw new ArgumentException($"Invalid TaxPeriod '{taxPeriod}'. Expected MM-YYYY.");
+            DateTime from, to;
 
-            var from = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Utc);
-            var to = from.AddMonths(1).AddTicks(-1);
-            return (from, to);
+            if (!string.IsNullOrWhiteSpace(dateFrom) && DateTime.TryParse(dateFrom, out var df))
+                from = df.Date;
+            else
+                from = fy.StartDate;
+
+            if (!string.IsNullOrWhiteSpace(dateTo) && DateTime.TryParse(dateTo, out var dt))
+                to = dt.Date.AddDays(1).AddTicks(-1);
+            else
+                to = fy.EndDate;
+
+            return (from, to, fy.YearName);
         }
     }
 }  

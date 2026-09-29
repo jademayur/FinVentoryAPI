@@ -36,11 +36,11 @@ namespace FinVentoryAPI.Services.Implementations
             var duplicate = await _context.Accounts
                 .AnyAsync(x =>
                  x.CompanyId == CompanyId &&
-                 x.AccountName.ToLower() == dto.AccountName.ToLower() &&
+                 x.AccountName.Trim().ToLower() == dto.AccountName.Trim().ToLower() &&
                  !x.IsDeleted);
 
             if (duplicate)
-                throw new Exception("Account group already exists.");
+                throw new Exception("Duplicate entry: account '" + dto.AccountName.Trim() + "' already exists.");
 
             var account = new Account
             {
