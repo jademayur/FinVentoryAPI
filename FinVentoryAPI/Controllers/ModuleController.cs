@@ -2,6 +2,7 @@
 using FinVentoryAPI.DTOs.ModuleDTOs;
 using FinVentoryAPI.Services.Implementations;
 using FinVentoryAPI.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,6 +10,7 @@ namespace FinVentoryAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class ModuleController : ControllerBase
     {
         private readonly IModuleService _moduleService;
@@ -18,12 +20,11 @@ namespace FinVentoryAPI.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "applAdmin")]
         public async Task<IActionResult> Create([FromBody] ModuleCreateDto dto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
-
-            //int userId = 1; // Later get from JWT claim
 
             var result = await _moduleService.CreateAsync(dto);
 
@@ -48,12 +49,11 @@ namespace FinVentoryAPI.Controllers
             return Ok(modules);
         }
         [HttpPut("{id}")]
+        [Authorize(Roles = "applAdmin")]
         public async Task<IActionResult> Update(int id, [FromBody] ModuleUpdateDto dto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
-
-            //  int userId = 1; // Later get from JWT
 
             var updated = await _moduleService.UpdateAsync(id, dto);
 
@@ -64,9 +64,14 @@ namespace FinVentoryAPI.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = "applAdmin")]
         public async Task<IActionResult> Delete(int id)
         {
-            int userId = 1; // Later get from JWT
+            var userIdClaim = User.FindFirst("UserId")?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+                return Unauthorized();
+
+            int userId = Convert.ToInt32(userIdClaim);
 
             var deleted = await _moduleService.DeleteAsync(id, userId);
 

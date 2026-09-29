@@ -2,6 +2,7 @@
 using FinVentoryAPI.DTOs.ModuleDTOs;
 using FinVentoryAPI.Services.Implementations;
 using FinVentoryAPI.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,6 +10,7 @@ namespace FinVentoryAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class MenuItemController : ControllerBase
     {
         private readonly IMenuItemService _menuItemService;
@@ -19,12 +21,11 @@ namespace FinVentoryAPI.Controllers
 
 
         [HttpPost]
+        [Authorize(Roles = "applAdmin")]
         public async Task<IActionResult> Create([FromBody] MenuItemCreateDto dto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
-
-            //int userId = 1; // Later get from JWT claim
 
             var result = await _menuItemService.CreateAsync(dto);
 
@@ -49,12 +50,11 @@ namespace FinVentoryAPI.Controllers
             return Ok(result);
         }
         [HttpPut("{id}")]
+        [Authorize(Roles = "applAdmin")]
         public async Task<IActionResult> Update(int id, [FromBody] MenuItemUpdateDto dto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
-
-            //  int userId = 1; // Later get from JWT
 
             var updated = await _menuItemService.UpdateAsync(id, dto);
 
@@ -65,9 +65,14 @@ namespace FinVentoryAPI.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = "applAdmin")]
         public async Task<IActionResult> Delete(int id)
         {
-            int userId = 1; // Later get from JWT
+            var userIdClaim = User.FindFirst("UserId")?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+                return Unauthorized();
+
+            int userId = Convert.ToInt32(userIdClaim);
 
             var deleted = await _menuItemService.DeleteAsync(id, userId);
 
