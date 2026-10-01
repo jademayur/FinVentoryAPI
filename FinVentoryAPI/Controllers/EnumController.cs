@@ -3,7 +3,6 @@ using FinVentoryAPI.Helpers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using FinVentoryAPI.Helpers;
 
 namespace FinVentoryAPI.Controllers
 {
@@ -69,7 +68,17 @@ namespace FinVentoryAPI.Controllers
         [HttpGet("base-units")]
         public IActionResult GetBaseUnit()
         {
-            return Ok(EnumHelper.GetEnumList<BaseUnit>());
+            var list = Enum.GetValues(typeof(BaseUnit))
+                .Cast<BaseUnit>()
+                .Select(e => new
+                {
+                    id = Convert.ToInt32(e),
+                    code = e.ToString(),
+                    name = EnumHelper.GetDisplayName(e)
+                })
+                .ToList();
+
+            return Ok(list);
         }
 
         // ── Alternate Units filtered by selected Base Unit ─────────
