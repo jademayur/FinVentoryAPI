@@ -92,7 +92,42 @@ namespace FinVentoryAPI.Services.Implementations
             // Seed default approval levels for all document types
             await SeedApprovalLevelsAsync(company.CompanyId, adminRole.RoleId);
 
+            // Seed document number series types
+            await SeedDocumentTypesAsync(company.CompanyId, userId);
+
             return MapToResponse(company);
+        }
+
+        private static string[] GetDocumentTypeNames() => new[]
+        {
+            "Sales Quotation", "Sales Order", "Goods Delivery", "Sales Invoice", "Sales Return",
+            "Purchase Order", "GRN", "Purchase Invoice", "Purchase Return",
+            "Cash Entry", "Bank Entry", "Incoming Payment", "Outgoing Payment", "JV",
+            "Production Order", "Production Issue", "Production Received",
+            "Job Card Issue", "Job Card Received"
+        };
+
+        private async Task SeedDocumentTypesAsync(int companyId, int userId)
+        {
+            var existing = await appDbContext.DocumentTypes
+                .Where(d => d.CompanyId == companyId && !d.IsDeleted)
+                .Select(d => d.TypeName)
+                .ToListAsync();
+
+            foreach (var typeName in GetDocumentTypeNames())
+            {
+                if (existing.Contains(typeName, StringComparer.OrdinalIgnoreCase))
+                    continue;
+
+                appDbContext.DocumentTypes.Add(new DocType
+                {
+                    CompanyId = companyId,
+                    TypeName = typeName,
+                    CreatedBy = userId
+                });
+            }
+
+            await appDbContext.SaveChangesAsync();
         }
 
         private async Task SeedRoleRightsForRoleAsync(int roleId, int userId)
