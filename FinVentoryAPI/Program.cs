@@ -260,6 +260,7 @@ using (var scope = app.Services.CreateScope())
             CanDelete = true,
             CanPrint = true,
             CanExport = true,
+
             CanApprove = true,
             GrantedBy = 0,
             GrantedAt = DateTime.UtcNow

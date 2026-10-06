@@ -58,15 +58,27 @@ namespace FinVentoryAPI.Services.Implementations
                 .Select(x => new MenuItemResponseDto
                 {
                     MenuItemId = x.MenuItemId,
-                    ModuleId = x.ModuleId,                   
+                    ModuleId = x.ModuleId,
+                    ModuleName = x.Module.ModuleName,
+                    ModuleIcon = x.Module.Icon,
+                    ModuleSortOrder = x.Module.SortOrder,
+                    ModuleIsActive = x.Module.IsActive,
                     MenuGroupId = x.MenuGroupId,
+                    MenuGroupName = x.MenuGroup.MenuGroupName,
+                    MenuGroupIcon = x.MenuGroup.Icon,
+                    MenuGroupSortOrder = x.MenuGroup.SortOrder,
+                    MenuGroupIsActive = x.MenuGroup.IsActive,
                     MenuName = x.MenuName,
                     ControllerName = x.ControllerName,
                     ActionName = x.ActionName,
                     MenuItemIcon = x.Icon,
                     MenuItemSortOrder = x.SortOrder,
                     MenuItemIsActive = x.IsActive
-                }).ToListAsync();
+                })
+                .OrderBy(x => x.ModuleSortOrder)
+                .ThenBy(x => x.MenuGroupSortOrder)
+                .ThenBy(x => x.MenuItemSortOrder)
+                .ToListAsync();
         }
 
         public async Task<MenuItemResponseDto?> GetByIdAsync(int id)

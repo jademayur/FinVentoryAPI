@@ -84,6 +84,29 @@ namespace FinVentoryAPI.Services.Implementations
             };
         }
 
+        public async Task<(bool Success, string Message)> ChangePasswordAsync(int userId, ChangePasswordDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.CurrentPassword))
+                return (false, "Current password is required.");
+            if (string.IsNullOrWhiteSpace(dto.NewPassword) || dto.NewPassword.Length < 6)
+                return (false, "New password must be at least 6 characters.");
+            if (dto.NewPassword == dto.CurrentPassword)
+                return (false, "New password must be different from the current password.");
+
+            var user = await _context.Users.FirstOrDefaultAsync(x => x.UserId == userId && x.IsActive);
+            if (user == null)
+                return (false, "User not found.");
+
+            if (!BCrypt.Net.BCrypt.Verify(dto.CurrentPassword, user.PasswordHash))
+                return (false, "Current password is incorrect.");
+
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
+            user.ModifiedDate = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            return (true, "Password changed successfully.");
+        }
+
         public async Task<string> GenerateTokenAsync(CompanySelectionDto dto)
         {
             var mapping = await _context.UserCompany

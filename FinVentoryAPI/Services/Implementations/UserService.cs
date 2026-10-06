@@ -19,7 +19,7 @@ namespace FinVentoryAPI.Services.Implementations
         public async Task<UserResponseDto> CreateAsync(UserCreateDto dto)
         {
             if (await _context.Users.AnyAsync(x => x.Email == dto.Email))
-                throw new Exception("Email already exists");
+                throw new InvalidOperationException("Email already exists");
 
             var user = new User
             {
@@ -74,8 +74,17 @@ namespace FinVentoryAPI.Services.Implementations
             if (user == null)
                 return false;
 
+            var email = dto.Email?.Trim();
+            if (string.IsNullOrWhiteSpace(email))
+                throw new InvalidOperationException("Email is required");
+
+            if (await _context.Users.AnyAsync(x => x.Email == email && x.UserId != id))
+                throw new InvalidOperationException("Email already exists");
+
             user.FullName = dto.FullName;
+            user.Email = email;
             user.Mobile = dto.Mobile;
+            user.IsActive = dto.IsActive;
             user.ModifiedDate = DateTime.UtcNow;
             user.RoleId = dto.roleId;
 

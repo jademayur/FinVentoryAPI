@@ -38,6 +38,23 @@ namespace FinVentoryAPI.Controllers
             return Ok(result);
         }
 
+        // Change own password (profile section) — any authenticated user
+        [Authorize]
+        [HttpPost("change-password")]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto)
+        {
+            var userId = int.Parse(User.FindFirst("UserId")?.Value ?? "0");
+            if (userId == 0)
+                return Unauthorized();
+
+            var (success, message) = await _service.ChangePasswordAsync(userId, dto);
+
+            if (!success)
+                return BadRequest(new { message });
+
+            return Ok(new { message });
+        }
+
         // Phase 2: Select Company — AllowAnonymous because login doesn't return a token yet
         [AllowAnonymous]
         [HttpPost("select-company")]

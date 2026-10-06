@@ -7,5 +7,6 @@ namespace FinVentoryAPI.Services.Interfaces
     {
         Task<object> LoginAsync(LoginDto dto);
         Task<string> GenerateTokenAsync(CompanySelectionDto dto);
+        Task<(bool Success, string Message)> ChangePasswordAsync(int userId, ChangePasswordDto dto);
     }
 }

@@ -46,6 +46,17 @@ namespace FinVentoryAPI.Middleware
                 return;
             }
 
+            // Auth endpoints are identity / self-service operations (login state,
+            // select-company, change-password). They only require authentication —
+            // never screen-level RoleRights (the MenuItemId header of whatever
+            // screen the user is on must not gate changing your own password).
+            if ((context.Request.Path.Value ?? string.Empty)
+                .StartsWith("/api/Auth", StringComparison.OrdinalIgnoreCase))
+            {
+                await _next(context);
+                return;
+            }
+
             // applAdmin: implicit full rights — never consult RoleRights.
             var roleName = context.User.FindFirst(ClaimTypes.Role)?.Value;
             if (string.Equals(roleName, "applAdmin", StringComparison.OrdinalIgnoreCase))
