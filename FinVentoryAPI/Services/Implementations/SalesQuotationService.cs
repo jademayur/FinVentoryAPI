@@ -16,15 +16,13 @@ namespace FinVentoryAPI.Services.Implementations
         private readonly Common _common;
         private readonly IAuditLogService _auditLog;
         private readonly IApprovalService _approvalService;
-        private readonly ICompanyConfigService _companyConfigService;
 
-        public SalesQuotationService(AppDbContext context, Common common, IAuditLogService auditLog, IApprovalService approvalService, ICompanyConfigService companyConfigService)
+        public SalesQuotationService(AppDbContext context, Common common, IAuditLogService auditLog, IApprovalService approvalService)
         {
             _context = context;
             _common = common;
             _auditLog = auditLog;
             _approvalService = approvalService;
-            _companyConfigService = companyConfigService;
         }
 
         // ════════════════════════════════════════════════════
@@ -139,8 +137,8 @@ namespace FinVentoryAPI.Services.Implementations
                     !x.IsDeleted);
 
             if (main == null) return false;
-            if (main.Status != "Draft")
-                throw new Exception("Only Draft quotations can be updated.");
+            if (!IsEditableStatus(main.Status))
+                throw new Exception("Only Draft, pending-approval or rejected quotations can be updated.");
 
             var oldValues = new { main.QuotationNo, main.BusinessPartnerId, main.NetTotal, main.Status };
 
@@ -190,6 +188,9 @@ namespace FinVentoryAPI.Services.Implementations
                 main.SalesPersonId = dto.SalesPersonId;
                 main.BillAddressId = dto.BillAddressId;
                 main.ShipAddressId = dto.ShipAddressId;
+                // Pending/rejected quotations re-enter the approval flow on save:
+                // back to Draft, then the caller confirms → re-submits for approval.
+                main.Status = "Draft";
                 main.ModifiedBy = userId;
                 main.ModifiedDate = DateTime.UtcNow;
 
@@ -336,8 +337,8 @@ namespace FinVentoryAPI.Services.Implementations
                     !x.IsDeleted);
 
             if (main == null) return false;
-            if (main.Status != "Draft")
-                throw new Exception("Only Draft quotations can be deleted.");
+            if (!IsEditableStatus(main.Status))
+                throw new Exception("Only Draft, pending-approval or rejected quotations can be deleted.");
 
             var oldValues = new { main.QuotationNo, main.BusinessPartnerId, main.NetTotal, main.Status };
 
@@ -368,6 +369,19 @@ namespace FinVentoryAPI.Services.Implementations
         }
 
         // ════════════════════════════════════════════════════
+        // EDITABLE / DELETABLE — Draft · PendingApproval_L* · Rejected.
+        // Confirmed / Revised / Cancelled stay locked: correct them with
+        // Revise (a Confirmed row can also be re-approved only via a revision).
+        private static bool IsEditableStatus(string status) =>
+            status == "Draft" ||
+            status == "Rejected" ||
+            status.StartsWith("PendingApproval_L");
+
+        // REVISE — allowed on any live quotation (Draft, pending, rejected,
+        // sent, confirmed). Only Revised (superseded) and Cancelled are frozen.
+        private static bool CanBeRevised(string status) =>
+            status != "Revised" && status != "Cancelled";
+
         // CONFIRM  (Draft → Confirmed)
         // ════════════════════════════════════════════════════
         public async Task<bool> ConfirmAsync(int id)
@@ -385,9 +399,9 @@ namespace FinVentoryAPI.Services.Implementations
             if (main.Status != "Draft")
                 throw new Exception("Only Draft quotations can be confirmed.");
 
-            // Check if approval is required
-            var approvalRequired = await _companyConfigService.GetValueAsync(companyId, "ApprovalRequired_SalesQuotation");
-            if (approvalRequired?.ToLower() == "true")
+            // Master toggle (ApprovalSystemEnabled) + per-document toggle
+            var approvalRequired = await _approvalService.IsApprovalRequiredAsync(companyId, "SalesQuotation");
+            if (approvalRequired)
             {
                 await _approvalService.SubmitForApprovalAsync("SalesQuotation", id);
                 return true;
@@ -574,8 +588,8 @@ namespace FinVentoryAPI.Services.Implementations
                     !x.IsDeleted)
                 ?? throw new Exception("Quotation not found.");
 
-            if (original.Status != "Draft" && original.Status != "Sent")
-                throw new Exception("Only Draft or Sent quotations can be revised.");
+            if (!CanBeRevised(original.Status))
+                throw new Exception("Only live quotations can be revised. This one is " + original.Status + ".");
 
             // Validate full header
             await ValidateHeaderAsync(
