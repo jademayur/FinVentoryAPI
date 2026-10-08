@@ -9,5 +9,6 @@
         public decimal NetTotal { get; set; }
         public int? SalesPersonId { get; set; }
         public string? SalesPersonName { get; set; }
+        public string Status { get; set; } = string.Empty;
     }
 }
