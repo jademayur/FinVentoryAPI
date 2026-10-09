@@ -15,17 +15,26 @@ namespace FinVentoryAPI.Services.Implementations
         private readonly AppDbContext _context;
         private readonly Common _common;
         private readonly IAuditLogService _auditLog;
+        private readonly IApprovalService _approvalService;
 
-        public SalesOrderService(AppDbContext context, Common common, IAuditLogService auditLog)
+        public SalesOrderService(AppDbContext context, Common common, IAuditLogService auditLog, IApprovalService approvalService)
         {
             _context = context;
             _common = common;
             _auditLog = auditLog;
+            _approvalService = approvalService;
         }
 
         // ════════════════════════════════════════════════════
         // CREATE
         // ════════════════════════════════════════════════════
+        // Editable/deletable — Draft · PendingApproval_L* · Rejected.
+        // Confirmed / Cancelled stay locked.
+        private static bool IsEditableStatus(string status) =>
+            status == "Draft" ||
+            status == "Rejected" ||
+            status.StartsWith("PendingApproval_L");
+
         public async Task<SalesOrderResponseDto> CreateAsync(CreateSalesOrderMainDto dto)
         {
             var companyId = _common.GetCompanyId();
@@ -155,8 +164,7 @@ namespace FinVentoryAPI.Services.Implementations
                 ?? throw new Exception("Failed to retrieve saved order.");
         }
 
-        // ════════════════════════════════════════════════════
-        // UPDATE  (Draft only)
+        // UPDATE  (Draft · PendingApproval_L* · Rejected)
         // ════════════════════════════════════════════════════
         public async Task<bool> UpdateAsync(int id, UpdateSalesOrderMainDto dto)
         {
@@ -172,8 +180,8 @@ namespace FinVentoryAPI.Services.Implementations
                     !x.IsDeleted)
                 ?? throw new Exception("Sales Order not found.");
 
-            if (main.Status != "Draft")
-                throw new Exception("Only Draft orders can be updated.");
+            if (!IsEditableStatus(main.Status))
+                throw new Exception("Only Draft, pending-approval or rejected orders can be updated.");
 
             var oldValues = new { main.OrderNo, main.BusinessPartnerId, main.NetTotal, main.Status };
 
@@ -227,6 +235,9 @@ namespace FinVentoryAPI.Services.Implementations
                 main.SalesPersonId = dto.SalesPersonId;
                 main.BillAddressId = dto.BillAddressId;
                 main.ShipAddressId = dto.ShipAddressId;
+                // Pending/rejected orders re-enter the approval flow on save:
+                // back to Draft, then the caller confirms → re-submits for approval.
+                main.Status = "Draft";
                 main.ModifiedBy = userId;
                 main.ModifiedDate = DateTime.UtcNow;
 
@@ -357,7 +368,7 @@ namespace FinVentoryAPI.Services.Implementations
         }
 
         // ════════════════════════════════════════════════════
-        // DELETE  (Draft only — soft delete)
+        // DELETE  (Draft · PendingApproval_L* · Rejected — soft delete)
         // ════════════════════════════════════════════════════
         public async Task<bool> DeleteAsync(int id)
         {
@@ -371,8 +382,8 @@ namespace FinVentoryAPI.Services.Implementations
                     !x.IsDeleted)
                 ?? throw new Exception("Sales Order not found.");
 
-            if (main.Status != "Draft")
-                throw new Exception("Only Draft orders can be deleted.");
+            if (!IsEditableStatus(main.Status))
+                throw new Exception("Only Draft, pending-approval or rejected orders can be deleted.");
 
             var oldValues = new { main.OrderNo, main.BusinessPartnerId, main.NetTotal, main.Status };
 
@@ -432,6 +443,14 @@ namespace FinVentoryAPI.Services.Implementations
 
             if (main.Status != "Draft")
                 throw new Exception("Only Draft orders can be confirmed.");
+
+            // Master toggle (ApprovalSystemEnabled) + per-document toggle
+            var approvalRequired = await _approvalService.IsApprovalRequiredAsync(companyId, "SalesOrder");
+            if (approvalRequired)
+            {
+                await _approvalService.SubmitForApprovalAsync("SalesOrder", id);
+                return true;
+            }
 
             await using var transaction = await _context.Database.BeginTransactionAsync();
             try
@@ -666,28 +685,30 @@ namespace FinVentoryAPI.Services.Implementations
 
         // ════════════════════════════════════════════════════
         // GET QUOTATIONS FOR CUSTOMER  (picker dropdown)
-        // Returns only Draft/Sent quotations not already
-        // converted to a Confirmed order.
+        // Only Confirmed (final) quotations can be converted into
+        // a sales order, and only those not already used by another
+        // live order.
         // ════════════════════════════════════════════════════
         public async Task<List<QuotationPickerDto>> GetQuotationsForCustomerAsync(int businessPartnerId)
         {
             var companyId = _common.GetCompanyId();
 
-            // Collect quotation IDs already used in Confirmed orders
+            // Collect quotation IDs already used by another live order
             var usedQuotationIds = await _context.SalesOrderMains
                 .Where(x =>
                     x.CompanyId == companyId &&
                     x.QuotationId != null &&
-                    x.Status == "Confirmed" &&
-                    !x.IsDeleted)
+                    !x.IsDeleted &&
+                    x.Status != "Cancelled")
                 .Select(x => x.QuotationId!.Value)
+                .Distinct()
                 .ToListAsync();
 
             var list = await _context.SalesQuotationMains
                 .Where(x =>
                     x.CompanyId == companyId &&
                     x.BusinessPartnerId == businessPartnerId &&
-                    (x.Status == "Draft" || x.Status == "Sent") &&
+                    x.Status == "Confirmed" &&
                     !x.IsDeleted &&
                     !usedQuotationIds.Contains(x.QuotationId))
                 .Include(x => x.SalesPerson)
@@ -702,7 +723,8 @@ namespace FinVentoryAPI.Services.Implementations
                 ValidUntilDate = x.ValidUntilDate,
                 NetTotal = x.NetTotal,
                 SalesPersonId = x.SalesPersonId,
-                SalesPersonName = x.SalesPerson?.SalesPersonName
+                SalesPersonName = x.SalesPerson?.SalesPersonName,
+                Status = x.Status
             }).ToList();
         }
 
