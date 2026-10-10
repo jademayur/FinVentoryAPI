@@ -14,6 +14,7 @@ namespace FinVentoryAPI.Services.Interfaces
         // ── Status transitions ────────────────────────────────────────────────────
         Task<bool> ConfirmAsync(int id);
         Task<bool> CancelAsync(int id);
+        Task PostConfirmSideEffectsAsync(int deliveryId);
 
         // ── Queries ───────────────────────────────────────────────────────────────
         Task<List<GoodsDeliveryResponseDto>> GetAllAsync();

@@ -2,6 +2,7 @@
 using FinVentoryAPI.DTOs.GoodsDeliveryDTOs;
 using FinVentoryAPI.DTOs.PagedRequestDto;
 using FinVentoryAPI.DTOs.SalesInvoiceDTOs;
+using FinVentoryAPI.DTOs.StockLedgerDTOs;
 using FinVentoryAPI.Entities;
 using FinVentoryAPI.Enums;
 using FinVentoryAPI.Helpers;
@@ -18,19 +19,39 @@ namespace FinVentoryAPI.Services.Implementations
         private readonly IAuditLogService _auditLog;
         private readonly IApprovalService _approvalService;
         private readonly ICompanyConfigService _companyConfigService;
+        private readonly IStockLedgerService _stockLedger;
 
-        public GoodsDeliveryService(AppDbContext context, Common common, IAuditLogService auditLog, IApprovalService approvalService, ICompanyConfigService companyConfigService)
+        public GoodsDeliveryService(AppDbContext context, Common common, IAuditLogService auditLog, IApprovalService approvalService, ICompanyConfigService companyConfigService, IStockLedgerService stockLedger)
         {
             _context = context;
             _common = common;
             _auditLog = auditLog;
             _approvalService = approvalService;
             _companyConfigService = companyConfigService;
+            _stockLedger = stockLedger;
+        }
+
+        // ════════════════════════════════════════════════════
+        // INVENTORY CONFIG (SalesInventoryUpdateOn)
+        // true → this delivery is the document that moves stock.
+        // Default when unset: SalesInvoice (invoice posts instead).
+        // ════════════════════════════════════════════════════
+        private async Task<bool> ShouldPostStockAsync(int companyId)
+        {
+            var mode = await _companyConfigService.GetValueAsync(companyId, "SalesInventoryUpdateOn");
+            return string.Equals(mode, "GoodsDelivery", StringComparison.OrdinalIgnoreCase);
         }
 
         // ════════════════════════════════════════════════════
         // CREATE
         // ════════════════════════════════════════════════════
+        // Editable/deletable — Draft · PendingApproval_L* · Rejected.
+        // Confirmed / Cancelled stay locked.
+        private static bool IsEditableStatus(string status) =>
+            status == "Draft" ||
+            status == "Rejected" ||
+            status.StartsWith("PendingApproval_L");
+
         public async Task<GoodsDeliveryResponseDto> CreateAsync(CreateGoodsDeliveryMainDto dto)
         {
             var companyId = _common.GetCompanyId();
@@ -132,7 +153,7 @@ namespace FinVentoryAPI.Services.Implementations
         }
 
         // ════════════════════════════════════════════════════
-        // UPDATE  (Draft only)
+        // UPDATE  (Draft · PendingApproval_L* · Rejected)
         // ════════════════════════════════════════════════════
         public async Task<bool> UpdateAsync(int id, UpdateGoodsDeliveryMainDto dto)
         {
@@ -149,8 +170,8 @@ namespace FinVentoryAPI.Services.Implementations
                     !x.IsDeleted)
                 ?? throw new Exception("Goods Delivery not found.");
 
-            if (main.Status != "Draft")
-                throw new Exception("Only Draft deliveries can be updated.");
+            if (!IsEditableStatus(main.Status))
+                throw new Exception("Only Draft, pending-approval or rejected deliveries can be updated.");
 
             var oldValues = new { main.DeliveryNo, main.BusinessPartnerId, main.NetTotal, main.Status };
 
@@ -232,6 +253,8 @@ namespace FinVentoryAPI.Services.Implementations
                 main.SalesStateCode = dto.SalesStateCode;
                 main.BillStateCode = dto.BillStateCode;
                 main.RoundOff = dto.RoundOff;
+                // Pending/rejected deliveries re-enter the approval flow on save.
+                main.Status = "Draft";
                 main.ModifiedBy = userId;
                 main.ModifiedDate = DateTime.UtcNow;
 
@@ -378,7 +401,7 @@ namespace FinVentoryAPI.Services.Implementations
         }
 
         // ════════════════════════════════════════════════════
-        // DELETE  (Draft only — soft delete)
+        // DELETE  (Draft · PendingApproval_L* · Rejected — soft delete)
         // ════════════════════════════════════════════════════
         public async Task<bool> DeleteAsync(int id)
         {
@@ -392,8 +415,8 @@ namespace FinVentoryAPI.Services.Implementations
                     !x.IsDeleted)
                 ?? throw new Exception("Goods Delivery not found.");
 
-            if (main.Status != "Draft")
-                throw new Exception("Only Draft deliveries can be deleted.");
+            if (!IsEditableStatus(main.Status))
+                throw new Exception("Only Draft, pending-approval or rejected deliveries can be deleted.");
 
             var oldValues = new { main.DeliveryNo, main.BusinessPartnerId, main.NetTotal, main.Status };
 
@@ -404,6 +427,9 @@ namespace FinVentoryAPI.Services.Implementations
                 main.IsActive = false;
                 main.ModifiedBy = userId;
                 main.ModifiedDate = DateTime.UtcNow;
+
+                // Safety: drop any stock rows tied to this voucher (no-op for drafts)
+                await _stockLedger.SoftDeleteByVoucherAsync(companyId, main.DeliveryNo, userId);
 
                 await SaveChangesAsync();
                 await transaction.CommitAsync();
@@ -432,6 +458,7 @@ namespace FinVentoryAPI.Services.Implementations
             var userId = _common.GetUserId();
 
             var main = await _context.GoodsDeliveryMains
+                .Include(m => m.Details)
                 .FirstOrDefaultAsync(x =>
                     x.DeliveryId == id &&
                     x.CompanyId == companyId &&
@@ -441,10 +468,11 @@ namespace FinVentoryAPI.Services.Implementations
             if (main.Status != "Draft")
                 throw new Exception("Only Draft deliveries can be confirmed.");
 
-            // Check if approval is required
-            var approvalRequired = await _companyConfigService.GetValueAsync(companyId, "ApprovalRequired_GoodsDelivery");
-            if (approvalRequired?.ToLower() == "true")
+            // Master toggle (ApprovalSystemEnabled) + per-document toggle
+            var approvalRequired = await _approvalService.IsApprovalRequiredAsync(companyId, "GoodsDelivery");
+            if (approvalRequired)
             {
+                // Stock posts on final approval via PostConfirmSideEffectsAsync
                 await _approvalService.SubmitForApprovalAsync("GoodsDelivery", id);
                 return true;
             }
@@ -457,6 +485,12 @@ namespace FinVentoryAPI.Services.Implementations
                 main.ModifiedDate = DateTime.UtcNow;
 
                 await SaveChangesAsync();
+
+                // Stock moves on the delivery only when configured
+                // (SalesInventoryUpdateOn = GoodsDelivery)
+                if (await ShouldPostStockAsync(companyId))
+                    await PostStockLedgerAsync(main, isReversal: false);
+
                 await transaction.CommitAsync();
                 return true;
             }
@@ -465,6 +499,77 @@ namespace FinVentoryAPI.Services.Implementations
                 await transaction.RollbackAsync();
                 throw;
             }
+        }
+
+        // ════════════════════════════════════════════════════
+        // APPROVAL HOOK - called by ApprovalService on final approve.
+        // The approval path never runs ConfirmAsync, so the stock posting
+        // happens here instead. Idempotent: never posts twice.
+        // ════════════════════════════════════════════════════
+        public async Task PostConfirmSideEffectsAsync(int deliveryId)
+        {
+            var companyId = _common.GetCompanyId();
+
+            var main = await _context.GoodsDeliveryMains
+                .Include(m => m.Details)
+                .FirstOrDefaultAsync(x =>
+                    x.DeliveryId == deliveryId &&
+                    x.CompanyId == companyId &&
+                    !x.IsDeleted)
+                ?? throw new Exception("Goods Delivery not found.");
+
+            if (main.Status != "Confirmed") return;
+
+            // Already posted for this voucher? (never double-post)
+            var alreadyPosted = await _context.StockLedgers.AnyAsync(x =>
+                x.CompanyId == companyId &&
+                x.VoucherType == "Goods Delivery" &&
+                x.VoucherNo == main.DeliveryNo);
+            if (alreadyPosted) return;
+
+            // Config switched to SalesInvoice after submission → invoice posts instead
+            if (!await ShouldPostStockAsync(companyId)) return;
+
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                await PostStockLedgerAsync(main, isReversal: false);
+                await transaction.CommitAsync();
+                await _auditLog.LogAsync(
+                    module: "GoodsDelivery",
+                    action: "Confirm",
+                    entityId: main.DeliveryId,
+                    entityNo: main.DeliveryNo,
+                    newValues: new { main.Status, PostedVia = "Approval" });
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        // ════════════════════════════════════════════════════
+        // STOCK LEDGER
+        // ════════════════════════════════════════════════════
+        private async Task PostStockLedgerAsync(GoodsDeliveryMain main, bool isReversal)
+        {
+            if (main.Details == null || !main.Details.Any()) return;
+
+            // Delivery is a stock OUT (negative qty)
+            var lines = main.Details.Select(d => new StockLedgerLineDto
+            {
+                ItemId = d.ItemId,
+                Qty = isReversal ? d.DeliveryQty : -d.DeliveryQty,
+                Rate = d.Rate,
+                Remarks = $"Goods Delivery: {main.DeliveryNo}"
+            }).ToList();
+
+            await _stockLedger.AddEntriesAsync(
+                companyId: main.CompanyId, warehouseId: null,
+                date: main.DeliveryDate, voucherType: "Goods Delivery",
+                voucherNo: main.DeliveryNo, businessPartnerId: main.BusinessPartnerId,
+                lines: lines, createdBy: (int?)main.CreatedBy);
         }
 
         // ════════════════════════════════════════════════════
@@ -491,6 +596,10 @@ namespace FinVentoryAPI.Services.Implementations
                 main.Status = "Cancelled";
                 main.ModifiedBy = userId;
                 main.ModifiedDate = DateTime.UtcNow;
+
+                // Remove any stock rows this delivery had posted (rows decide,
+                // not the current config) so cancelled deliveries don't hold stock
+                await _stockLedger.SoftDeleteByVoucherAsync(companyId, main.DeliveryNo, userId);
 
                 await SaveChangesAsync();
                 await transaction.CommitAsync();
